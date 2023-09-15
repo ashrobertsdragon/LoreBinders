@@ -1,0 +1,10 @@
+openaikey.txt
+__pychache__/
+.config/
+venv/
+.upm/
+poetry.lock
+pyproject.toml
+.replit
+replit.nix
+resolve1.txt

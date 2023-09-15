@@ -1,0 +1,258 @@
+{
+  "0": {
+    "Characters": [
+      "Jim Bromley",
+      "Bobby",
+      "Chris",
+      "Melissa"
+    ],
+    "Settings": [
+      "Rocky Mountains (exterior)"
+    ]
+  },
+  "1": {
+    "Characters": [
+      "Jim",
+      "Melissa",
+      "Bobby",
+      "Chris"
+    ]
+  },
+  "2": {
+    "Characters": [
+      "Bobby",
+      "Chris",
+      "Melissa",
+      "Jim",
+      "Unnamed crew members"
+    ],
+    "Setting": [
+      "Ship (interior)",
+      "Mud (exterior)",
+      "Alien shuttle (interior)",
+      "Bridge of a science fiction spaceship (interior)",
+      "Interior of a room aboard a ship (unspecified)"
+    ]
+  },
+  "3": {
+    "Characters": [
+      "Jim",
+      "Melissa",
+      "Bobby",
+      "Chris",
+      "seat"
+    ],
+    "Setting": [
+      "Ship's workstation (interior)",
+      "Ship (interior)",
+      "Ship's bridge (interior)",
+      "Spaceship (interior)",
+      "Moon (exterior)"
+    ]
+  },
+  "4": {
+    "Characters": [
+      "Jim",
+      "Chris",
+      "Bobby"
+    ],
+    "Setting": [
+      "Hallway (interior)",
+      "Bedroom (interior)",
+      "Cargo hold (interior)",
+      "Bridge (interior)",
+      "Cabin (interior)",
+      "Cargo bay (interior)"
+    ]
+  },
+  "5": {
+    "Characters": [
+      "Melissa",
+      "Jim",
+      "Chris",
+      "Bobby",
+      "Freshman",
+      "Team captain",
+      "Teammates",
+      "Captain"
+    ],
+    "Setting": [
+      "Lunar base interior",
+      "Hallway (interior)",
+      "Lab (interior)",
+      "School hallway (interior)",
+      "Dark tunnel (interior)",
+      "Cargo bay (interior)"
+    ]
+  },
+  "6": {
+    "Characters": [
+      "Bobby",
+      "Jim",
+      "Melissa",
+      "Chris"
+    ],
+    "Setting": [
+      "Ship (interior)",
+      "Spaceship (interior)"
+    ]
+  },
+  "7": {
+    "Characters": [
+      "Chris",
+      "Jim",
+      "Bobby",
+      "Melissa",
+      "Navigation",
+      "Captain",
+      "Unnamed pilot",
+      "General"
+    ],
+    "Setting": [
+      "Planet surface (exterior)",
+      "Ship (interior)",
+      "Jet (interior)",
+      "Small base nestled in a valley (exterior)",
+      "Runway (exterior)",
+      "Rock wall (exterior)",
+      "Small brick outbuilding (exterior)",
+      "Hidden base (interior)"
+    ]
+  },
+  "8": {
+    "Characters": [
+      "MPs",
+      "Jim Bromley",
+      "General Jenkins",
+      "Guard",
+      "Long"
+    ],
+    "Setting": [
+      "Runway (exterior)",
+      "Detention Center (interior)",
+      "Jail cells (interior)",
+      "Interrogation room (interior)",
+      "Room (interior)",
+      "Byzantine complex (interior)"
+    ]
+  },
+  "9": {
+    "Characters": [
+      "Jim",
+      "Melissa/Kaar",
+      "Bobby/Wridir",
+      "Chris/Setor",
+      "Long"
+    ],
+    "Setting": [
+      "Cell (interior)"
+    ]
+  },
+  "10": {
+    "Characters": [
+      "Jim",
+      "Jenkins",
+      "Melissa",
+      "Chris",
+      "Bobby",
+      "General",
+      "Long",
+      "\"you\"",
+      "\"Jim\"",
+      "\"Chris\"",
+      "\"Long\"",
+      "\"Bobby\""
+    ],
+    "Setting": [
+      "Interrogation room (interior)"
+    ],
+    "Settings": [
+      "Interrogation room (interior)"
+    ]
+  },
+  "11": {
+    "Characters": [
+      "Jim",
+      "Bobby",
+      "Chris",
+      "Melissa",
+      "Resolve",
+      "Jum"
+    ],
+    "Setting": [
+      "Ship (interior)",
+      "Resolve (interior)",
+      "Galley (interior)"
+    ],
+    "Alien Races": [
+      "Razak"
+    ]
+  },
+  "12": {
+    "Characters": [
+      "Jim",
+      "Melissa"
+    ],
+    "Setting": [
+      "Ship quarters (interior)"
+    ]
+  },
+  "13": {
+    "Characters": [
+      "Jim",
+      "Chris",
+      "Melissa",
+      "Bobby",
+      "Razak captain",
+      "Razak guards",
+      "Krazirk",
+      "Captain",
+      "AI"
+    ],
+    "Setting": [
+      "Bridge (interior)",
+      "Razak ship (interior)",
+      "Resolve (interior)",
+      "Alien ship (interior)",
+      "Debris field of leftover asteroid pieces (exterior)",
+      "Moon (exterior)",
+      "Ship's bridge (interior)",
+      "Space (exterior)"
+    ],
+    "Alien Races": [
+      "Razak",
+      "Fagare",
+      "Razak (Krazirk)"
+    ]
+  },
+  "14": {
+    "Characters": [
+      "Resolve",
+      "Bobby",
+      "Jim",
+      "Melissa",
+      "Krazirk",
+      "Chris"
+    ],
+    "Setting": [
+      "Resolve (interior)"
+    ]
+  },
+  "15": {
+    "Characters": [
+      "Jim",
+      "Krazirk",
+      "Melissa",
+      "Bobby",
+      "Chris"
+    ],
+    "Setting": [
+      "Razak ship (interior)",
+      "Resolve bridge (interior)"
+    ],
+    "Alien Races": [
+      "Razak",
+      "Fagare"
+    ]
+  }
+}
