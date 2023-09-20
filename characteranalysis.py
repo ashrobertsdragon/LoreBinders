@@ -179,6 +179,7 @@ def search_names(chapters, folder_name, chunks_data, character_lists, role_attri
   # Find Characters and Attributes
   model = "gpt-3.5-turbo"
   max_tokens = 100
+  temperature = 0.2
   role_char = f"""You are a script supervisor compiling a list of characters in each scene. For the following selection, determine who are the characters, including major and minor. Please also determine the settings, both interior (e.g. ship's bridge, classroom, bar) and exterior (e.g. moon, Kastea, Hell's Kitchen).{custom_attributes}. 
 Be as brief as possible, using one or two words for each entry, and avoid descriptions. For example, 'On board the Resolve' should be 'Resolve'. 'Debris field of leftover asteroid pieces' should be 'Asteroid debris field'. ' Unmarked section of wall (potentially a hidden door)' should be 'unmarked wall section'
 Exclude any characters, settings, or attributes that are named but not present. For example, if Bob and Sally are talking about Frank or Jamaica, but Frank is not present or they are not in Jamaica, do not list Frank or Jamaica. If you cannot find any mention of a specific attribute in the text, please respond with 'None found' If you are unsure of a setting or no setting is shown in the text, please respond with 'None found'.
@@ -206,7 +207,7 @@ Setting2 (exterior)
           
           try:
             prompt = f"Text: {chunk}"
-            character_list = cf.call_gpt_api(model, prompt, role_char, max_tokens)
+            character_list = cf.call_gpt_api(model, prompt, role_char, temperature, max_tokens)
             character_lists.append((chapter_index, character_list))
             
             pbar_chunk.update(1)
@@ -300,7 +301,7 @@ def role_description(attribute_table, chapter_index):
     attribute_data_str = ', '.join(attribute_data_list)
     JSON_comma_after_settings = ',\n'
     attributes_JSONex_str = ',\n'.join(attributes_JSONex_list)
-    other_attributes_str = f'Also, for the following: {attribute_data_str} . Note any information such as descriptions, any characters or places that might match, etc'  
+    other_attributes_str = f'Also, for the following: {attribute_data_str} . Note any information such as descriptions, any characters or places that might match, etc. Be detailed but concise.'  
 
   else:
     other_attributes_str = ''
@@ -309,8 +310,8 @@ def role_description(attribute_table, chapter_index):
 
   # Prepare system role message for GPT-3.5
   role_script = (
-    f'You are a developmental editor helping create a story bible. For each character: {character_names_str} in the chapter, note their appearance, personality, mood, relationships with other characters, known or apparent sexuality/.\n'  
-    f'For each location: {setting_names_str} in the chapter, note how the location is described, where it is in relation to other locations and whether the characters appear to be familiar or unfamilar with the location.\n'  
+    f'You are a developmental editor helping create a story bible. For each character: {character_names_str} in the chapter, note their appearance, personality, mood, relationships with other characters, known or apparent sexuality. Be detailed but concise.\n'  
+    f'For each location: {setting_names_str} in the chapter, note how the location is described, where it is in relation to other locations and whether the characters appear to be familiar or unfamilar with the location. Be detailed but concise.\n' 
     'Exclude any characters, trait, name, setting, or attributes that are named but not present. For example, if Bob and Sally are talking about Frank or Jamaica, but Frank is not present or they are not in Jamaica, do not list Frank or Jamaica. If you cannot find any mention of a specific attribute in the text, please respond with "None found" If you are unsure of a setting or no setting is shown in the text, please respond with "None found".\n'  
     f'{other_attributes_str}\n'
     'Please format the output in JSON format. Adhere to proper JSON formatting rules, including escaping special characters like newlines and double quotes. Use the following schema:\n'
@@ -347,16 +348,20 @@ def analyze_attributes(chapters, attribute_table, folder_name, num_chapters):
       try:
         role_char = role_description(attribute_table, chapter_index = i)
         model = "gpt-4"
-        max_tokens = 1500
+        max_tokens = 1000
+        temperature = 0.4
         prompt = f"Chapter Text: {chapter}\n\nAnalysis:"  
-        attribute_summary = cf.call_gpt_api(model, prompt, role_char, max_tokens)
-      
+        attribute_summary = cf.call_gpt_api(model, prompt, role_char, temperature, max_tokens)
+        while not attribute_summary.endswith("}\n}"):
+          assistant_message = attribute_summary
+          attribute_summary += cf.call_gpt_api(model, prompt, role_char,  temperature, max_tokens = 500, assistant_message = assistant_message)
+
       except Exception as e:
         cf.error_handle(e, retry_count, state, i=i)   
 
       pbar_book.update()
 
-      if index == len(num_chapters) - 1:  # Check if it's the last iteration
+      if i == num_chapters - 1:  # Check if it's the last iteration
         cf.write_to_file(attribute_summary, temp_summary_file)
       else:
         cf.write_to_file(attribute_summary + ",", temp_summary_file)
@@ -384,6 +389,7 @@ def normalize_keys(summary):
     if "Location" in chapter:
       chapter["Settings"] = chapter.pop("Location")
 
+  
   return summary
 
 def final_summary(chapter_summaries):
@@ -393,6 +399,7 @@ def final_summary(chapter_summaries):
   state = 0
   model = "gpt-3.5-turbo"
   max_tokens = 400
+  temperature = 0.6
     
   analysis_results = {}
 
@@ -417,7 +424,8 @@ def final_summary(chapter_summaries):
     try:
       role_char = f"You are a developmental editor helping create a story bible. Please describe any growth or inconsistencies for {unique_entry_key} over the course of the story."
       prompt = json.dumps(entry_data, indent=2)
-      analysis_results[unique_entry_key] = cf.call_gpt_api(model, prompt, role_char, max_tokens)
+      analysis_results[unique_entry_key] = cf.call_gpt_api(model, prompt, role_char, 
+ temperature, max_tokens)
   
     except Exception as e:
       cf.error_handle(e, retry_count, state)

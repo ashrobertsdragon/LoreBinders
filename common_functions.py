@@ -121,7 +121,7 @@ def error_handle(e, retry_count, state, **kwargs):
   
   return retry_count
 
-def call_gpt_api(model, prompt, role_char, max_tokens):
+def call_gpt_api(model, prompt, role_char, temperature, max_tokens, assistant_message = None):
 
   api_key = os.environ.get("OPENAI_API_KEY")
   if not api_key:
@@ -129,15 +129,23 @@ def call_gpt_api(model, prompt, role_char, max_tokens):
 
 
     return
+
+  messages = [
+      {"role": "system", "content": role_char},
+      {"role": "user", "content": prompt}
+  ]
+
+  if assistant_message:
+    messages.append(
+      {"role": "assistant"}, {"content": assistant_message},
+      {"role": "user", "content": "Please continue from the exact point you left off without any commentary"})
     
   response = openai.ChatCompletion.create(
     model = model,
-    messages = [
-      {"role": "system", "content": role_char},
-      {"role": "user", "content": prompt}
-    ],
+    messages = messages,
     max_tokens = max_tokens,
-    api_key = api_key
+    api_key = api_key,
+    temperature = temperature
   )
 
   answer = response.choices[0].message['content'].strip()

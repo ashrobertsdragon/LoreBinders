@@ -1,5 +1,5 @@
 openaikey.txt
-__pychache__/
+__pycache__/
 .config/
 venv/
 .upm/
