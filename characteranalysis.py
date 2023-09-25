@@ -434,7 +434,7 @@ def final_summary(chapter_summaries):
     return analysis_results
 
 
-def analyze_book(file_path):
+def analyze_book(user_folder, file_path):
 
   start_time = time.time()
   
@@ -442,7 +442,8 @@ def analyze_book(file_path):
   chapters = cf.separate_into_chapters(full_text)
 
   # Create a folder with the book's name
-  folder_name = os.path.basename(file_path).split('.')[0]
+  sub_folder = os.path.basename(file_path).split('.')[0]
+  folder_name = f"{user_folder}/{sub_folder}"
   os.makedirs(folder_name, exist_ok=True)
 
   # Prep work before doing the real work

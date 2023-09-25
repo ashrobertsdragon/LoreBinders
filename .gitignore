@@ -7,6 +7,5 @@ poetry.lock
 pyproject.toml
 .replit
 replit.nix
-resolve1.txt
-resolve1/
+users/*
 .breakpoints
