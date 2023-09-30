@@ -136,9 +136,14 @@ def call_gpt_api(model, prompt, role_char, temperature, max_tokens, assistant_me
   ]
 
   if assistant_message:
-    messages.extend([
-      {"role": "assistant"}, {"content": assistant_message},
-      {"role": "user", "content": "Please continue from the exact point you left off without any commentary"}])
+    messages.append({
+      "role": "assistant",
+      "content": assistant_message
+    })
+    messages.append({
+      "role": "user",
+      "content": "Please continue from the exact point you left off without any commentary"
+    })
     
   response = openai.ChatCompletion.create(
     model = model,

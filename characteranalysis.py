@@ -328,6 +328,38 @@ def role_description(attribute_table, chapter_index):
 
   return role_script
 
+def clean_json(attribute_summary, json_err, retry_count = 3):
+
+  if retry_count == 0:
+    print("cleaning failed")
+    exit()
+
+  role_char = "You are an expert at cleaning JSON. You will receive a single property of a larger JSON object. Along with the JSONDecodeError. This may not be the actual problem. Please clean the JSON property and return the entire cleaned JSON property without any other commentary"
+  model = "gpt-3.5-turbo-16k"
+  temperature = 0.3
+
+  lineno = json_err.lineno
+  msg = json_err.msg
+
+  prompt = f"{msg} {lineno}:\n{attribute_summary}"
+
+  max_tokens = int(len(prompt) / 0.7 * 1.10)  # Estimate token size of prompt and add 10% buffer
+
+  attribute_summary = cf.call_gpt_api(model, prompt, role_char, temperature, max_tokens)
+    
+  try:
+    json.loads(attribute_summary)
+    print("line cleaned")
+
+
+    return attribute_summary
+
+  except json.JSONDecodeError as json_err:
+    print(f"Malformed JSON detected. Cleaning")
+
+    
+    return clean_json(attribute_summary, json_err, retry_count - 1)
+      
 def analyze_attributes(chapters, attribute_table, folder_name, num_chapters):
   aa_start = time.time()
   chapter_summaries = []
@@ -360,7 +392,12 @@ def analyze_attributes(chapters, attribute_table, folder_name, num_chapters):
         cf.error_handle(e, retry_count, state, i=i)   
 
       pbar_book.update()
-
+      
+      try:
+        json.loads(attribute_summary)
+      except json.JSONDecodeError as json_err:
+        attribute_summary = clean_json(attribute_summary, json_err)
+        
       if i == num_chapters - 1:  # Check if it's the last iteration
         cf.write_to_file(attribute_summary, temp_summary_file)
       else:
@@ -422,7 +459,7 @@ def final_summary(chapter_summaries):
 
   for unique_entry_key, entry_data in analysis_results.items():
     try:
-      role_char = f"You are a developmental editor helping create a story bible. Please describe any growth or inconsistencies for {unique_entry_key} over the course of the story."
+      role_char = f"You are a developmental editor helping create a story bible. Please describe any growth or inconsistencies for {unique_entry_key} over the course of the story. Identify where these changes happen"
       prompt = json.dumps(entry_data, indent=2)
       analysis_results[unique_entry_key] = cf.call_gpt_api(model, prompt, role_char, 
  temperature, max_tokens)
@@ -432,7 +469,6 @@ def final_summary(chapter_summaries):
 
 
     return analysis_results
-
 
 def analyze_book(user_folder, file_path):
 
@@ -471,3 +507,22 @@ def analyze_book(user_folder, file_path):
   end_time = time.time()
   total_time = end_time - start_time
   print(f"Total run time: {total_time} seconds")
+
+
+  return final_summary_text, role_attributes
+
+def analyze_series(user_folder, file_paths):
+  for file_path in file_paths:
+    book_summary = analyze_book(user_folder, file_path)
+    book_summaries.append(book_summary)
+
+  model = "gpt-4"
+  prompt = book_summaries
+  if role_attributes:
+    add_role_attributes = f", or {role_attributes}"
+  else:
+    add_role_attributes = ""
+  role_char = f"You are a developmental editor helping create a series bible. Please describe any character growth or inconsistencies for characters, settings{add_role_attributes} over the course of the series"
+  temperature = 0.6
+  max_tokens = 1000
+  #cf.call_gpt_api(model, prompt, role_char, temperature, max_tokens)
