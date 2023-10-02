@@ -412,7 +412,9 @@ def analyze_attributes(chapters, attribute_table, folder_name, num_chapters):
   read_text = cf.read_text_file(temp_summary_file)
   jsonified = json.loads(read_text)
 
-  cf.write_json_file(jsonified, chapter_summary_file)
+  chapter_summaries = cf.remove_non_found(jsonified)
+
+  cf.write_json_file(chapter_summaries, chapter_summary_file)
 
   cf.remove_state_file(folder_name)
 
@@ -503,7 +505,7 @@ def analyze_book(user_folder, file_path):
   print("Final Summary:")
   print(final_summary_text)
 	
-  write_to_file(final_summary_text, f"{folder_name}/finalsummary.txt")
+  cf.write_to_file(final_summary_text, f"{folder_name}/finalsummary.txt")
   end_time = time.time()
   total_time = end_time - start_time
   print(f"Total run time: {total_time} seconds")

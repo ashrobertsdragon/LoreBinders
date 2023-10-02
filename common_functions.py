@@ -100,6 +100,28 @@ def check_continue():
 
   return
 
+def remove_none_found(d):
+  
+  if isinstance(d, dict):
+    new_dict = {}
+    for key, value in d.items():
+      cleaned_value = remove_none_found(value)
+      if cleaned_value != "None found":
+        new_dict[key] = cleaned_value
+
+    
+    return new_dict
+    
+  elif isinstance(d, list):
+
+
+    return [remove_none_found(item) for item in d]
+    
+  else:
+
+
+    return d
+
 def error_handle(e, retry_count, state, **kwargs):
   
   # Initialize retry variables
