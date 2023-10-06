@@ -421,56 +421,7 @@ def analyze_attributes(chapters, attribute_table, folder_name, num_chapters):
 
   return chapter_summaries
 
-def normalize_keys(summary):
-  for chapter in summary:
-    if "Locations" in chapter:
-      chapter["Settings"] = chapter.pop("Locations")
-    if "Location" in chapter:
-      chapter["Settings"] = chapter.pop("Location")
 
-  
-  return summary
-
-def final_summary(chapter_summaries):
-  chapter_summaries = normalize_keys(chapter_summaries)
-  
-  retry_count = 0  # Initialize retry count
-  state = 0
-  model = "gpt-3.5-turbo"
-  max_tokens = 400
-  temperature = 0.6
-    
-  analysis_results = {}
-
-  # Loop through each chapter's summary
-  for chapter_index, summary in enumerate(chapter_summaries):
-    # Loop through each attribute (Characters, Locations, etc.)
-    for attribute_category, attribute_entries in summary.items():
-      if attribute_category == "Chapter":
-        continue
-
-      # Loop through each entry within an attribute (each character, each location, etc.)
-      for entry_name, entry_data in attribute_entries.items():
-        # Construct a unique key to identify each entry by its category and name (e.g., "Characters_Jim Bromley")
-        unique_entry_key = f"{attribute_category}_{entry_name}"
-
-        if unique_entry_key not in analysis_results:
-          analysis_results[unique_entry_key] = {}
-
-        analysis_results[unique_entry_key][f"Chapter {chapter_index + 1}"] = entry_data
-
-  for unique_entry_key, entry_data in analysis_results.items():
-    try:
-      role_char = f"You are a developmental editor helping create a story bible. Please describe any growth or inconsistencies for {unique_entry_key} over the course of the story. Identify where these changes happen"
-      prompt = json.dumps(entry_data, indent=2)
-      analysis_results[unique_entry_key] = cf.call_gpt_api(model, prompt, role_char, 
- temperature, max_tokens)
-  
-    except Exception as e:
-      cf.error_handle(e, retry_count, state)
-
-
-    return analysis_results
 
 def analyze_book(user_folder, file_path):
 
@@ -497,34 +448,5 @@ def analyze_book(user_folder, file_path):
   # Semantic search based on attributes pulled
   chapter_summaries = analyze_attributes(chapters, attribute_table, folder_name, num_chapters) 
   
-  # Generate final summary
-  if not chapter_summaries:
-    chapter_summaries = cf.read_json_file(f"{folder_name}/chapter_summary.json")
-  final_summary_text = final_summary(chapter_summaries)
-  
-  print("Final Summary:")
-  print(final_summary_text)
-	
-  cf.write_to_file(final_summary_text, f"{folder_name}/finalsummary.txt")
-  end_time = time.time()
-  total_time = end_time - start_time
-  print(f"Total run time: {total_time} seconds")
+  return chapter_summaries
 
-
-  return final_summary_text, role_attributes
-
-def analyze_series(user_folder, file_paths):
-  for file_path in file_paths:
-    book_summary = analyze_book(user_folder, file_path)
-    book_summaries.append(book_summary)
-
-  model = "gpt-4"
-  prompt = book_summaries
-  if role_attributes:
-    add_role_attributes = f", or {role_attributes}"
-  else:
-    add_role_attributes = ""
-  role_char = f"You are a developmental editor helping create a series bible. Please describe any character growth or inconsistencies for characters, settings{add_role_attributes} over the course of the series"
-  temperature = 0.6
-  max_tokens = 1000
-  #cf.call_gpt_api(model, prompt, role_char, temperature, max_tokens)

@@ -1,11 +1,15 @@
-openaikey.txt
 __pycache__/
 .config/
 venv/
 .upm/
+.git/
+
 poetry.lock
 pyproject.toml
+
 .replit
 replit.nix
+
 users/*
+
 .breakpoints
