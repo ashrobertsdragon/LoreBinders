@@ -4,6 +4,12 @@ import time
 import traceback
 import openai
 import json
+from replit import db
+
+if "tokens_used" not in db.keys():
+  db["tokens_used"] = 0
+if "minute_start_time" not in db.keys():
+  db["minute_start_time"] = time.time()
 
 def read_text_file(file_path):
   
@@ -152,6 +158,18 @@ def call_gpt_api(model, prompt, role_char, temperature, max_tokens, assistant_me
 
     return
 
+  tokens_used = db.get('tokens_used', 0)
+  minute = db.get('minute', time.time())
+
+  if model == "gpt-3.5-turbo":
+    rate_limit = 90000
+  elif model == "gpt-3.5-turbo-16k":
+    rate_limit = 180000
+  elif model == "gpt-4":
+    rate_limit = 10000
+  else:
+    rate_limit = 250000
+
   messages = [
       {"role": "system", "content": role_char},
       {"role": "user", "content": prompt}
@@ -166,6 +184,19 @@ def call_gpt_api(model, prompt, role_char, temperature, max_tokens, assistant_me
       "role": "user",
       "content": "Please continue from the exact point you left off without any commentary"
     })
+
+  call_start = time.time()
+  input_tokens = (len(role_char) + len(prompt)) / 0.7 # estimate token length
+
+  if tokens_used + input_tokens + max_tokens > rate_limit:
+    sleep_time = 60 - (call_start - minute)
+    time.sleep(sleep_time)
+    
+    tokens_used = 0
+    minute = time.time()
+
+    db["tokens_used"] = tokens_used
+    db["minute"] = minute
     
   response = openai.ChatCompletion.create(
     model = model,
@@ -177,5 +208,8 @@ def call_gpt_api(model, prompt, role_char, temperature, max_tokens, assistant_me
 
   answer = response.choices[0].message['content'].strip()
 
+  tokens_used = input_tokens + (answer / 0.7)
+  db["tokens_used"] = tokens_used
+  
   
   return answer

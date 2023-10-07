@@ -1,9 +1,6 @@
-import os
 import characteranalysis
 
 def main():
-
-  invalid_file = False
 
   user = "ashdragon" # placeholder
   user_folder = f"users/{user}"

@@ -1,6 +1,5 @@
 import os, re, json, time
 from tqdm import tqdm
-import tiktoken as tk
 import common_functions as cf
 
 def initialize_names(chapters, folder_name):
@@ -29,7 +28,7 @@ def get_attributes():      # Get attributes
   dictionary_attributes_list = [] 
   attribute_strings = []
 
-  ask_attributes = input("Besides characters and setting, what other attributes would you like the AI to search for (e.g. fantasy races, factions, religions, etc)? Please be as specific as possible. Attributes must be separated by commas for the program to work. Type N if you only want to search for characters and settings\n> ")
+  ask_attributes = input("Besides characters and setting, what other attributes would you like ProsePal to search for (e.g. fantasy races, factions, religions, etc)? Please be as specific as possible. Attributes must be separated by commas for the program to work. Type N if you only want to search for characters and settings\n> ")
   
   if ask_attributes.strip().lower() == "n":
     custom_attributes = ""
@@ -58,7 +57,7 @@ def chunk_file(chapters, folder_name):
 	chapter_chunks_list = []
 	
 	for i, chapter in enumerate(chapters):
-	# Split each chapter into chunks of length <= 2000 characters while preserving words. 2000 appears to be best compromise between
+	# 2000 words appears to be best compromise between performance and accuracy
 		words = chapter.split()
 		chunks = []
 		current_chunk = ""
@@ -79,9 +78,8 @@ def chunk_file(chapters, folder_name):
 
 def compare_names(inner_values):
 
-  compared_names = {} # Dictionary of names that have both a shorter and longer version
-
-  # Compare variations of each dictionary value list item for the key
+  compared_names = {} 
+  
   for i, value_i in enumerate(inner_values):
     for j, value_j in enumerate(inner_values):
       if i != j and value_i != value_j and not value_i.endswith(")") and (value_i.startswith(value_j) or value_i.endswith(value_j)):
@@ -102,16 +100,16 @@ def sort_names(character_lists):
   parse_tuples = {}
   attribute_table = {}
 
-  # Create dictionary to deduplicated tuples
+
   for chapter_index, proto_dict in character_lists:
 
-    # Check if chapter_index exists in dictionary
+
     if chapter_index not in parse_tuples:
       parse_tuples[chapter_index] = proto_dict
     else:
       parse_tuples[chapter_index] += "\n" + proto_dict
 
-  # Create attribute_table dictionary    
+  
   for chapter_index, proto_dict in parse_tuples.items():
     
     attribute_table[chapter_index] = {}
@@ -119,10 +117,10 @@ def sort_names(character_lists):
     attribute_name = None
     inner_values = []
       
-    # Split the proto-dictionary string into lines
+
     lines = proto_dict.split("\n")
 
-    # Extract attribute data
+
     for line in lines:
       
       # Remove lines that need to be removed
@@ -134,27 +132,28 @@ def sort_names(character_lists):
       elif "additional" in line.lower():
         continue
       
-      # Regex to match character roles
+
       character_pattern = re.compile(r"^(.+?)\((major character|minor character|minor characters)\)$", re.IGNORECASE)
-      match = re.match(character_pattern, line) # Regex match to catch character roles
+      match = re.match(character_pattern, line) 
+      
       if match:  
         line = match.group(1) # Drop character roles
       line = line.strip()
       
       #  Remaining lines ending with a colon are attribute names and lines following belong in a list for that attribute
       if line.endswith(":"):
-        if attribute_name: # Add the previous batch to temp dictionary
+        if attribute_name: 
           inner_dict.setdefault(attribute_name, []).extend(inner_values)
           inner_values = []
         attribute_name = line[:-1].title() 
       else:
         inner_values.append(line)
 
-    if attribute_name: # Catch very last line
+    if attribute_name: 
       inner_dict.setdefault(attribute_name, []).extend(inner_values)
       inner_values = []
   
-    if inner_dict: # Add to attribute_table dictionary
+    if inner_dict: 
       for attribute_name, inner_values in list(inner_dict.items()):
         inner_values = compare_names(inner_values)
         attribute_table[chapter_index][attribute_name] = inner_values
@@ -170,17 +169,20 @@ def sort_names(character_lists):
   return attribute_table
 
 def search_names(chapters, folder_name, chunks_data, character_lists, role_attributes, custom_attributes, chapter_chunks_list, num_chapters):
+  
   firstapi_start = time.time()
-  state = cf.read_state(folder_name)
+
   # Load state variables
+  state = cf.read_state(folder_name)
   i = state.get('i', 0)
   j = state.get('j', 0)
 
-  # Find Characters and Attributes
+  
   model = "gpt-3.5-turbo"
   max_tokens = 100
   temperature = 0.2
-  role_char = f"""You are a script supervisor compiling a list of characters in each scene. For the following selection, determine who are the characters, including major and minor. Please also determine the settings, both interior (e.g. ship's bridge, classroom, bar) and exterior (e.g. moon, Kastea, Hell's Kitchen).{custom_attributes}. 
+  role_char = f"""You are a script supervisor compiling a list of characters in each scene. For the following selection, determine who are the characters, including major and minor. Please also determine the settings, both interior (e.g. ship's bridge, classroom, bar) and exterior (e.g. moon, Kastea, Hell's Kitchen).{custom_attributes}.
+If the scene is written in the first person, identify the narrator by their name. Ignore slash characters.
 Be as brief as possible, using one or two words for each entry, and avoid descriptions. For example, 'On board the Resolve' should be 'Resolve'. 'Debris field of leftover asteroid pieces' should be 'Asteroid debris field'. ' Unmarked section of wall (potentially a hidden door)' should be 'unmarked wall section'
 Exclude any characters, settings, or attributes that are named but not present. For example, if Bob and Sally are talking about Frank or Jamaica, but Frank is not present or they are not in Jamaica, do not list Frank or Jamaica. If you cannot find any mention of a specific attribute in the text, please respond with 'None found' If you are unsure of a setting or no setting is shown in the text, please respond with 'None found'.
 Please format the output like this:
@@ -355,7 +357,7 @@ def clean_json(attribute_summary, json_err, retry_count = 3):
     return attribute_summary
 
   except json.JSONDecodeError as json_err:
-    print(f"Malformed JSON detected. Cleaning")
+    print("Malformed JSON detected. Cleaning")
 
     
     return clean_json(attribute_summary, json_err, retry_count - 1)
@@ -379,7 +381,7 @@ def analyze_attributes(chapters, attribute_table, folder_name, num_chapters):
     
       try:
         role_char = role_description(attribute_table, chapter_index = i)
-        model = "gpt-4"
+        model = "gpt-3.5-turbo-16k"
         max_tokens = 1000
         temperature = 0.4
         prompt = f"Chapter Text: {chapter}\n\nAnalysis:"  
@@ -412,20 +414,13 @@ def analyze_attributes(chapters, attribute_table, folder_name, num_chapters):
   read_text = cf.read_text_file(temp_summary_file)
   jsonified = json.loads(read_text)
 
-  chapter_summaries = cf.remove_non_found(jsonified)
-
-  cf.write_json_file(chapter_summaries, chapter_summary_file)
-
+  cf.write_json_file(jsonified, chapter_summary_file)
   cf.remove_state_file(folder_name)
 
 
   return chapter_summaries
 
-
-
 def analyze_book(user_folder, file_path):
-
-  start_time = time.time()
   
   full_text = cf.read_text_file(file_path)
   chapters = cf.separate_into_chapters(full_text)
@@ -446,7 +441,8 @@ def analyze_book(user_folder, file_path):
   
   cf.write_json_file(attribute_table, f"{folder_name}/attribute_table.json")
   # Semantic search based on attributes pulled
-  chapter_summaries = analyze_attributes(chapters, attribute_table, folder_name, num_chapters) 
+  chapter_summaries = analyze_attributes(chapters, attribute_table, folder_name, num_chapters)
+  
   
   return chapter_summaries
 
