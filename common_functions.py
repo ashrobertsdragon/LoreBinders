@@ -4,7 +4,6 @@ import re
 import time
 import traceback
 
-import requests
 from openai import OpenAI
 from replit import db
 
@@ -116,7 +115,7 @@ def error_handle(e, retry_count):
   
   return retry_count
 
-def call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type, retry_count = 0, assistant_message = None):
+def call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type = None, retry_count = 0, assistant_message = None):
 
   api_key = os.environ.get("OPENAI_API_KEY")
   if not api_key:
@@ -199,10 +198,10 @@ def call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_t
   else:
     answer = content
 
-  if response.choices[0].finish_reason == "length" and response_type == "json":
+  if response.choices[0].finish_reason == "length":
 
     assistant_message = answer
-    call_gpt_api(model, prompt, role_script,  temperature, max_tokens = 500, response_type, assistant_message = assistant_message)
+    call_gpt_api(model, prompt, role_script,  temperature, max_tokens = 500, response_type = response_type, assistant_message = assistant_message)
   
   
   return answer 
