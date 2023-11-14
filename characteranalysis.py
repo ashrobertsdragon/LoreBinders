@@ -6,21 +6,30 @@ import time
 from tqdm import tqdm
 import common_functions as cf
 
-token_conversion_factor = 0.7
-
 def initialize_names(chapters, folder_name):
 
   num_chapters = len(chapters)
   print(f"\nTotal Chapters: {num_chapters} \n\n")
 
   character_lists = []
+  chapter_summaries = []
+
+  character_lists_path = os.path.join(folder_name, "character_lists.json")
+  chapter_summaries_path = os.path.join(folder_name, "chapter_summary.json")
+
+  if os.path.exists(character_lists_path):
+    character_lists =  cf.read_json_file(character_lists_path)
+    character_lists_index = len(character_lists)
+  if os.path.exists(chapter_summaries_path):
+    chapter_summaries = cf.read_json_file(chapter_summaries_path)
+    chapter_summaries_index = len(chapter_summaries)
 
   state_file = os.path.join(folder_name, 'state.json')
   if os.path.exists(state_file):
     print("Reading data from disk...")
 
 
-  return character_lists, num_chapters
+  return num_chapters, character_lists, character_lists_index, chapter_summaries, chapter_summaries_index
 
 def compare_names(inner_values):
 
@@ -211,7 +220,7 @@ Setting2 (exterior)
 
   return role_script
 
-def search_names(chapters, folder_name, character_lists, num_chapters):
+def search_names(chapters, folder_name, num_chapters, character_lists, chapter_lists_index):
 
   role_script = ner_role_script()
   model = "gpt-3.5-turbo-1106"
@@ -219,18 +228,21 @@ def search_names(chapters, folder_name, character_lists, num_chapters):
   temperature = 0.2
   
   firstapi_start = time.time()
-  print(firstapi_start)
 
-  with tqdm(total = num_chapters, desc = "\033[92mFinding names\033[0m", unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|", position = 0, leave = True) as pbar_book:
+  with tqdm(total = num_chapters, desc = "\033[92mFinding names\033[0m", unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|", position = 0, leave = True) as progress_bar:
     for chapter_index, chapter in enumerate(chapters):
+      if chapter_index < chapter_lists_index:
+        continue
+        
       chapter_number = chapter_index + 1
 
       prompt = f"Text: {chapter}"
       character_list = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens)
       character_lists.append((chapter_number, character_list))  
-      pbar_book.update(1)
+      cf.write_json_file(character_lists, f"{folder_name}/chapter_lists.json")
 
-  cf.write_json_file(character_lists, f"{folder_name}/chapter_lists.json")
+      progress_bar.update(1)
+
   firstapi_end = time.time()
   firstapi_total = firstapi_end - firstapi_start
   print(f"First API run: {firstapi_total} seconds")
@@ -274,7 +286,7 @@ def character_analysis_role_script(attribute_table, chapter_index):
 
   return role_script
 
-def analyze_attributes(chapters, attribute_table, folder_name, num_chapters):
+def analyze_attributes(chapters, attribute_table, folder_name, num_chapters, chapter_summaries, chapter_summaries_index):
 
   aa_start = time.time()
   chapter_summaries = []
@@ -283,8 +295,10 @@ def analyze_attributes(chapters, attribute_table, folder_name, num_chapters):
   max_tokens = 1000
   temperature = 0.4
 
-  with tqdm(total=num_chapters, desc = "\033[92mProcessing Book\033[0m", unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|") as pbar_book:
+  with tqdm(tota = num_chapters, desc = "\033[92mProcessing Book\033[0m", unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|") as progress_bar:
     for i, chapter in enumerate(chapters):
+      if i < chapter_summaries_index:
+        continue
       
       attribute_summary = ""
       
@@ -292,12 +306,12 @@ def analyze_attributes(chapters, attribute_table, folder_name, num_chapters):
       prompt = f"Chapter Text: {chapter}"
       model = "gpt-4-1106"
 
-      attribute_summary = cf.call_openrouter_api(model, prompt, role_script, temperature, max_tokens, response_type = "json")
+      attribute_summary = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type = "json")
 
-      pbar_book.update()
-
-      cf.write_text_to_file(attribute_summary, chapter_summary_file)
       chapter_summaries += attribute_summary
+      cf.write_json_file(chapter_summaries, chapter_summary_file)
+
+      progress_bar.update()
     
   aa_end = time.time()
   aa_total = aa_end - aa_start
@@ -314,17 +328,27 @@ def analyze_book(user_folder, file_path):
 
   sub_folder = os.path.basename(file_path).split('.')[0]
   folder_name = f"{user_folder}/{sub_folder}"
-  os.makedirs(folder_name, exist_ok=True)
+  os.makedirs(folder_name, exist_ok = True)
 
   # Prep work before doing the real work
-  character_lists, num_chapters = initialize_names(chapters, folder_name)
+  num_chapters, character_lists, character_lists_index, chapter_summaries, chapter_summaries_index = initialize_names(chapters, folder_name)
 
-  character_lists = search_names(chapters, folder_name, character_lists, num_chapters)
-  attribute_table = sort_names(character_lists) 
-  cf.write_json_file(attribute_table, f"{folder_name}/attribute_table.json")
+  # Named Entity Recognition  
+  if character_lists_index < num_chapters:
+    character_lists = search_names(chapters, folder_name, num_chapters, character_lists, character_lists_index)
+  else:
+    character_lists = cf.read_json_file(f"{folder_name}/character_lists.json")
+
+  attribute_table_path = os.path.join(folder_name, "attribute_table.json")
+  if not os.path.exists(attribute_table_path):
+    attribute_table = sort_names(character_lists) 
+    cf.write_json_file(attribute_table, f"{folder_name}/attribute_table.json")
   
   # Semantic search based on attributes pulled
-  chapter_summaries = analyze_attributes(chapters, attribute_table, folder_name, num_chapters)
+  if chapter_summaries_index < num_chapters:
+    chapter_summaries = analyze_attributes(chapters, attribute_table, folder_name, num_chapters, chapter_summaries, chapter_summaries_index)
+  else:
+    chapter_summaries = cf.read_json_file(f"{folder_name}/chapter_summaries.json")
   
   
   return chapter_summaries
