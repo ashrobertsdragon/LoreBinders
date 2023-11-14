@@ -146,7 +146,7 @@ def sort_names(character_lists):
 
     if inner_dict:
       for attribute_name, inner_values in inner_dict.items():
-        if attribute_name.endswith("s") and attribute_name[:-1]:
+        if attribute_name.endswith("s") and attribute_name[:-1] in inner_dict:
           inner_values.extend(inner_dict[attribute_name[:-1]])
           inner_dict[attribute_name[:-1]] = []
         inner_values = compare_names(inner_values)
@@ -219,8 +219,9 @@ def search_names(chapters, folder_name, character_lists, num_chapters):
   temperature = 0.2
   
   firstapi_start = time.time()
+  print(firstapi_start)
 
-  with tqdm(total=num_chapters, desc="\033[92mFinding names\033[0m", unit="Chapter", ncols=40, bar_format="|{l_bar}{bar}|", position=0, leave=True) as pbar_book:
+  with tqdm(total = num_chapters, desc = "\033[92mFinding names\033[0m", unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|", position = 0, leave = True) as pbar_book:
     for chapter_index, chapter in enumerate(chapters):
       chapter_number = chapter_index + 1
 

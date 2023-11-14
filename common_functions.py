@@ -2,7 +2,6 @@ import json
 import os
 import re
 import time
-import traceback
 
 from openai import OpenAI
 from replit import db
@@ -130,6 +129,7 @@ def call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_t
   minute = db.get("minute", time.time())
 
   if time.time() - minute > 60:
+    print("reset time")
     tokens_used = 0
     minute = time.time()
     db["minute"] = minute
@@ -168,12 +168,14 @@ def call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_t
   if tokens_used + estimated_input_tokens + max_tokens > rate_limit:
     
     sleep_time = 60 - (call_start - minute)
+    print(f"Sleeping {sleep_time} seconds")
     time.sleep(sleep_time)
     minute = time.time()
     
     tokens_used = 0
     db["minute"] = minute
-    
+
+  print("Sending to API")
   try:
     response = client.chat.completions.create(
       model = model,
