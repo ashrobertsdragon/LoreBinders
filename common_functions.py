@@ -1,15 +1,20 @@
+import json
 import os
 import re
 import time
 import traceback
-import openai
-import json
+
+import requests
+from openai import OpenAI
 from replit import db
+
+TOKEN_CONVERSION_FACTOR = 0.7
 
 if "tokens_used" not in db.keys():
   db["tokens_used"] = 0
-if "minute_start_time" not in db.keys():
-  db["minute_start_time"] = time.time()
+if "minute" not in db.keys():
+  db["minute"] = time.time()
+
 
 def read_text_file(file_path):
   
@@ -37,26 +42,6 @@ def read_json_file(file_path):
     print(f"Error: File '{file_path}' not found.")
     exit()
 
-def read_state(folder_name):
-  
-  # Check to see if the state was saved, meaning the API timed out
-  state = {}
-  state_file = f"{folder_name}/state.json"
-  if os.path.exists(state_file):
-    with open(state_file, "r") as f:
-      state = json.load(f)
-
-  
-  return state
-
-def remove_state_file(folder_name):
-  
-  state_file = f"{folder_name}/state.json"
-  if os.path.exists(state_file):
-    os.remove(state_file)
-
-
-  return
 
 def write_to_file(content, file_path):
   
@@ -78,19 +63,8 @@ def write_json_file(content, file_path):
 
   return
 
-def save_state_to_file(state, kwargs):
-  state_file = f"{folder_name}/state.json"
-  status = [state, kwargs]
-  
-  with open(state_file, "w") as f:
-    json.dump(status, f)
-
-
-  return
-
 def check_continue():
   
-  # Ask if ready to continue
   continue_program = ""
 
   while continue_program.upper() not in ["Y", "N"]:
@@ -128,28 +102,21 @@ def remove_none_found(d):
 
     return d
 
-def error_handle(e, retry_count, state, **kwargs):
+def error_handle(e, retry_count):
   
-  # Initialize retry variables
-  max_retries = 3
-  print(f"\nAn exception occurred: {e}")
-  # Increment the retry count
   retry_count += 1
-
-  if retry_count < max_retries:  # Retry
-    print("Retrying in 5 seconds...")
-    time.sleep(5)
-
-  else:  #Save sate & exit
-    print("Max retry limit reached. Saving Progress & exiting...")
-    traceback.print_exc()
-    save_state_to_file(state, kwargs)
+  
+  if retry_count == 3:
     exit()
+  else:
+    sleep_time = (5 - retry_count)  + (retry_count ** 2)
+    print(f"Retry attempt #{retry_count} in {sleep_time} seconds.")
+    time.sleep(sleep_time)
 
   
   return retry_count
 
-def call_gpt_api(model, prompt, role_char, temperature, max_tokens, assistant_message = None):
+def call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type, retry_count = 0, assistant_message = None):
 
   api_key = os.environ.get("OPENAI_API_KEY")
   if not api_key:
@@ -158,20 +125,25 @@ def call_gpt_api(model, prompt, role_char, temperature, max_tokens, assistant_me
 
     return
 
-  tokens_used = db.get('tokens_used', 0)
-  minute = db.get('minute', time.time())
+  client = OpenAI()
 
-  if model == "gpt-3.5-turbo":
+  tokens_used = db.get("tokens_used", 0)
+  minute = db.get("minute", time.time())
+
+  if time.time() - minute > 60:
+    tokens_used = 0
+    minute = time.time()
+    db["minute"] = minute
+
+  if model == "gpt-3.5-turbo-1106":
     rate_limit = 90000
-  elif model == "gpt-3.5-turbo-16k":
-    rate_limit = 180000
-  elif model == "gpt-4":
-    rate_limit = 10000
+  elif model == "gpt-4-1106-preview":
+    rate_limit = 300000
   else:
     rate_limit = 250000
 
   messages = [
-      {"role": "system", "content": role_char},
+      {"role": "system", "content": role_script},
       {"role": "user", "content": prompt}
   ]
 
@@ -185,31 +157,52 @@ def call_gpt_api(model, prompt, role_char, temperature, max_tokens, assistant_me
       "content": "Please continue from the exact point you left off without any commentary"
     })
 
-  call_start = time.time()
-  input_tokens = (len(role_char) + len(prompt)) / 0.7 # estimate token length
+  if response_type == "json":
+    response_format = {"type": "json_object"}
+  else:
+    response_format = {"type": "text"}
+  
 
-  if tokens_used + input_tokens + max_tokens > rate_limit:
+  call_start = time.time()
+  estimated_input_tokens = int((len(role_script) + len(prompt)) / TOKEN_CONVERSION_FACTOR)
+
+  if tokens_used + estimated_input_tokens + max_tokens > rate_limit:
+    
     sleep_time = 60 - (call_start - minute)
     time.sleep(sleep_time)
+    minute = time.time()
     
     tokens_used = 0
-    minute = time.time()
-
-    db["tokens_used"] = tokens_used
     db["minute"] = minute
     
-  response = openai.ChatCompletion.create(
-    model = model,
-    messages = messages,
-    max_tokens = max_tokens,
-    api_key = api_key,
-    temperature = temperature
-  )
+  try:
+    response = client.chat.completions.create(
+      model = model,
+      messages = messages,
+      max_tokens = max_tokens,
+      temperature = temperature,
+      response_format = response_format
+    )
+    if response.choices and response.choices[0].message.content:
+      content = response.choices[0].message.content.strip()
+      tokens = response.usage.completion_tokens
+      db["tokens_used"] = tokens_used + tokens
+    else:
+      raise Exception("No message content found")
 
-  answer = response.choices[0].message['content'].strip()
+  except Exception as e:
+    retry_count = error_handle(e, retry_count)
+    call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type, retry_count, assistant_message)
 
-  tokens_used = input_tokens + (answer / 0.7)
-  db["tokens_used"] = tokens_used
+  if assistant_message:
+    answer = assistant_message + content
+  else:
+    answer = content
+
+  if response.choices[0].finish_reason == "length" and response_type == "json":
+
+    assistant_message = answer
+    call_gpt_api(model, prompt, role_script,  temperature, max_tokens = 500, response_type, assistant_message = assistant_message)
   
   
-  return answer
+  return answer 

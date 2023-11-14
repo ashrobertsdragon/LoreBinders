@@ -1,4 +1,8 @@
-import os, re, time
+import json
+import os
+import re
+import time
+
 from tqdm import tqdm
 import common_functions as cf
 
@@ -16,7 +20,147 @@ def initialize_names(chapters, folder_name):
     print("Reading data from disk...")
 
 
-  return chunks_data, character_lists, num_chapters
+  return character_lists, num_chapters
+
+def compare_names(inner_values):
+
+  compared_names = {}
+
+  for i, value_i in enumerate(inner_values):
+    for j, value_j in enumerate(inner_values):
+      if i != j and value_i != value_j and not value_i.endswith(")") and (value_i.startswith(value_j) or value_i.endswith(value_j)):
+          shorter_value, longer_value = sorted([value_i, value_j], key = len)
+          compared_names[shorter_value] = longer_value
+
+  longer_name = [compared_names.get(name, name) for name in inner_values]
+  inner_values = list(dict.fromkeys(longer_name)) #Deduplicate
+
+
+  return inner_values
+
+def sort_names(character_lists):
+
+  parse_tuples = {}
+  attribute_table = {}
+  
+  character_info_pattern = re.compile(r"\((?!interior|exterior).+\)$", re.IGNORECASE)
+  inverted_setting_pattern = re.compile(r"(interior|exterior)\s+\((\w+)\)", re.IGNORECASE)
+  leading_colon_pattern = re.compile(r"\s*:\s+")
+  list_formatting_pattern = re.compile(r"^[\d.-]\s*|^\.\s|^\*\s*|^\+\s*|^\\t")
+  missing_newline_before_pattern = re.compile(r"(?<=\w)(?=[A-Z][a-z]*:)")
+  missing_newline_between_pattern = re.compile(r"(\w+ \(\w+\))\s+(\w+)")
+  missing_newline_after_pattern = re.compile(r"(?<=\w):\s*(?=\w)")
+  
+  junk_lines = ["additional", "note", "none"]
+  stop_words = ["mentioned", "unknown", "he", "they", "she", "we", "it", "boy", "girl", "main", "him", "her", "narrator", "I", "</s>", "a"]
+
+  for model, proto_dict in character_lists:
+    if model not in parse_tuples:
+      parse_tuples[model] = proto_dict
+    else:
+      parse_tuples[model] += "\n" + proto_dict
+
+  for model, proto_dict in parse_tuples.items():
+
+    attribute_table[model] = {}
+    inner_dict = {}
+    attribute_name = None
+    inner_values = []
+
+    lines = proto_dict.split("\n")
+    
+    i = 0
+    while i < len(lines):
+      
+      line = lines[i]
+      line = list_formatting_pattern.sub("", line)
+      line = re.sub(r'(interior|exterior)', lambda m: m.group().lower(), line, flags=re.IGNORECASE)
+
+      if line.startswith("interior:") or line.startswith("exterior:"):
+        
+        prefix, places = line.split(":", 1)
+        setting = "(interior)" if prefix == "interior" else "(exterior)"
+        split_lines = [f"{place.strip()} {setting}" for place in places.split(",")]
+        lines[i:i + 1] = split_lines
+        continue
+        
+      line = inverted_setting_pattern.sub(r"\2 (\1)", line)
+        
+      if ", " in line:
+        comma_split = line.split(", ")
+        lines[i:i + 1] = comma_split
+        continue
+
+      added_newline = missing_newline_before_pattern.sub("\n", line)
+      if added_newline != line:
+        added_newlines = added_newline.split("\n")
+        lines[i: i + 1] = added_newlines
+        continue
+        
+      added_newline = missing_newline_between_pattern.sub(r"\1\n\2", line)
+      if added_newline != line:
+        added_newlines = added_newline.split("\n")
+        lines[i: i + 1] = added_newlines
+        continue
+
+      added_newline = missing_newline_after_pattern.sub(":\n", line)
+      if added_newline != line:
+        added_newlines = added_newline.split("\n")
+        lines[i: i + 1] = added_newlines
+        continue
+        
+      line = leading_colon_pattern.sub("", line)
+      line = line.strip()
+      
+      if line == "":
+        i += 1
+        continue
+        
+      if line.lower() in [word.lower() for word in stop_words]:
+          i += 1
+          continue
+        
+      if any(junk in line.lower() for junk in junk_lines):
+        i += 1
+        continue
+        
+      if line.count("(") != line.count(")"):
+        line.replace("(", "").replace(")", "")
+        
+      line = character_info_pattern.sub("", line)
+
+      #Remaining lines ending with a colon are attribute names and lines following belong in a list for that attribute
+      if line.endswith(":"):
+        if attribute_name:
+          inner_dict.setdefault(attribute_name, []).extend(inner_values)
+          inner_values = []
+        attribute_name = line[:-1].title()
+      else:
+        inner_values.append(line)
+
+      i += 1
+
+    if attribute_name:
+      inner_dict.setdefault(attribute_name, []).extend(inner_values)
+      inner_values = []
+
+    if inner_dict:
+      for attribute_name, inner_values in inner_dict.items():
+        if attribute_name.endswith("s") and attribute_name[:-1]:
+          inner_values.extend(inner_dict[attribute_name[:-1]])
+          inner_dict[attribute_name[:-1]] = []
+        inner_values = compare_names(inner_values)
+        attribute_table[model][attribute_name] = inner_values
+      inner_values = []
+
+  # Remove empty attribute_name keys
+  for model in list(attribute_table.keys()):
+    for attribute_name, inner_values in list(attribute_table[model].items()):
+      if not inner_values:
+        del attribute_table[model][attribute_name]
+
+
+  return attribute_table
       
 def get_attributes():
   dictionary_attributes_list = [] 
@@ -66,15 +210,15 @@ Setting2 (exterior)
 
 
   return role_script
+
 def search_names(chapters, folder_name, character_lists, num_chapters):
 
   role_script = ner_role_script()
+  model = "gpt-3.5-turbo-1106"
+  max_tokens = 1000
+  temperature = 0.2
   
   firstapi_start = time.time()
-
-  model = "gpt-3.5-turbo-16k"
-  max_tokens = 500
-  temperature = 0.2
 
   with tqdm(total=num_chapters, desc="\033[92mFinding names\033[0m", unit="Chapter", ncols=40, bar_format="|{l_bar}{bar}|", position=0, leave=True) as pbar_book:
     for chapter_index, chapter in enumerate(chapters):
@@ -93,68 +237,42 @@ def search_names(chapters, folder_name, character_lists, num_chapters):
 
   return character_lists
 
-def role_description(attribute_table, chapter_index):
-
-  characters = attribute_table[chapter_index].get("Characters", [])
-  
-  characters_list = [
-    f'{character_name}:\n'
-    'Appearance: description\n'
-    'Personality: description\n'
-    'Mood: description\n'
-    'Relationships: description\n'
-    'Sexuality: description\n'
-    for character_name in characters
-  ]
-
-  characters_str = '\n'.join(characters_list)
-
-  settings = attribute_table[chapter_index].get("Setting", [])
-      
-  if settings:
-    setting_list = [
-      f'{setting_name}: description'
-      for setting_name in settings
-    ]
-    
-    setting_str = ', '.join(setting_list)
-    settings_str = f'Settings:\n{setting_str}\n'
-
-  else:
-    setting_str = ''
-
-  attribute_keys = list(attribute_table[chapter_index].keys())[2:]
-      
-  if attribute_keys:
-    attributes_list = []
-    for attribute_key in attribute_keys:
-      attribute_values = attribute_table[chapter_index].get(attribute_key, [])
-
-      attribute_values_list = [
-        f'{value}: description'
-        for value in attribute_values
-      ]
-
-    attribute_values_str = ', '.join(attribute_values_list)
-    attributes_list.append(f'{attribute_key}: {attribute_values_str}\n')
-    attribute_str = ''.join(attributes_list)
-    attributes_str = f"User Attributes:\n{attribute_str}"
-
-  else:
-    attributes_str = ''
-
-  role_script = (
-    'You are a developmental editor helping create a story bible. For each character in the chapter, note their appearance, personality, mood, relationships with other characters, known or apparent sexuality. Be detailed but concise.\n'
-    'For each location in the chapter, note how the location is described, where it is in relation to other locations and whether the characters appear to be familiar or unfamiliar with the location. Be detailed but concise.\n'
-    'If you cannot find any mention of a specific attribute in the text, please respond with "None found". If you are unsure of a setting or no setting is shown in the text, please respond with "None found".\n'
-    f'Characters:\n{characters_str}\n'
-    f'{settings_str}'
-    f'{attributes_str}'
+def character_analysis_role_script(attribute_table, chapter_index):
+  instructions = (
+    'You are a developmental editor helping create a story bible. '
+    'For each character in the chapter, note their appearance, personality, mood, relationships with other characters, '
+    'known or apparent sexuality. Be detailed but concise.\n'
+    'For each location in the chapter, note how the location is described, where it is in relation to other locations '
+    'and whether the characters appear to be familiar or unfamiliar with the location. Be detailed but concise.\n'
+    'If you cannot find any mention of a specific attribute in the text, please respond with "None found". '
+    'If you are unsure of a setting or no setting is shown in the text, please respond with "None found". '
+    'You will provide this information in the following JSON schema:'
   )
+
+  chapter_data = attribute_table.get(chapter_index, {})
+  characters = chapter_data.get("Characters", [])
+  character_schema = {
+    character_name: {
+      "Appearance": "description", "Personality": "description", "Mood": "description", 
+      "Relationships": "description", "Sexuality": "description"
+    } for character_name in characters
+  }
+
+  other_attribute_schema = {
+    key: {value: "description" for value in values}
+    for key, values in chapter_data.items() if key != "Characters"
+  }
+
+  attributes_json = json.dumps({
+    "characters": character_schema,
+    **other_attribute_schema
+  })
+  
+  role_script = f'{instructions}\n\n{attributes_json}'
 
 
   return role_script
-     
+
 def analyze_attributes(chapters, attribute_table, folder_name, num_chapters):
 
   aa_start = time.time()
@@ -166,31 +284,19 @@ def analyze_attributes(chapters, attribute_table, folder_name, num_chapters):
 
   with tqdm(total=num_chapters, desc = "\033[92mProcessing Book\033[0m", unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|") as pbar_book:
     for i, chapter in enumerate(chapters):
+      
       attribute_summary = ""
-      retry_count = 0
-    
-      try:
-        role_script = role_description(attribute_table, chapter_index = i + 1)
-        prompt = f"Chapter Text: {chapter}"  
+      
+      role_script = character_analysis_role_script(attribute_table, chapter_index = i + 1)
+      prompt = f"Chapter Text: {chapter}"
+      model = "gpt-4-1106"
 
-        #if ((len(role_script) + len(prompt)) / token_conversion_factor) + max_tokens > gpt4_limit:
-          #model = "gpt-3.5-turbo-16k"
-        #else:
-          #model = "gpt-4"
-        model = "anthropic/claude-2"
-          
-        attribute_summary = cf.call_openrouter_api(model, prompt, role_script, temperature, max_tokens)
-        while not attribute_summary.endswith("}\n}"):
-          assistant_message = attribute_summary
-          attribute_summary += cf.call_gpt_api(model, prompt, role_script,  temperature, max_tokens = 500, assistant_message = assistant_message)
-
-      except Exception as e:
-        cf.error_handle(e, retry_count)   
+      attribute_summary = cf.call_openrouter_api(model, prompt, role_script, temperature, max_tokens, response_type = "json")
 
       pbar_book.update()
-      
-    cf.write_text_to_file(attribute_summary, chapter_summary_file)
-    chapter_summaries += attribute_summary
+
+      cf.write_text_to_file(attribute_summary, chapter_summary_file)
+      chapter_summaries += attribute_summary
     
   aa_end = time.time()
   aa_total = aa_end - aa_start
