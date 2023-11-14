@@ -24,10 +24,6 @@ def initialize_names(chapters, folder_name):
     chapter_summaries = cf.read_json_file(chapter_summaries_path)
     chapter_summaries_index = len(chapter_summaries)
 
-  state_file = os.path.join(folder_name, 'state.json')
-  if os.path.exists(state_file):
-    print("Reading data from disk...")
-
 
   return num_chapters, character_lists, character_lists_index, chapter_summaries, chapter_summaries_index
 

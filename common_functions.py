@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import re
@@ -6,6 +7,11 @@ import time
 from openai import OpenAI
 from replit import db
 
+api_key = os.environ.get("OPENAI_API_KEY")
+if not api_key:
+  raise Exception("OPENAI_API_KEY environment variable not set")
+
+OPENAI_CLIENT = OpenAI()
 TOKEN_CONVERSION_FACTOR = 0.7
 
 if "tokens_used" not in db.keys():
@@ -104,7 +110,7 @@ def error_handle(e, retry_count):
   
   retry_count += 1
   
-  if retry_count == 3:
+  if retry_count == 5:
     exit()
   else:
     sleep_time = (5 - retry_count)  + (retry_count ** 2)
@@ -114,22 +120,33 @@ def error_handle(e, retry_count):
   
   return retry_count
 
+async def timeout(duration):
+
+  await asyncio.sleep(duration)
+
+
+  return "timeout"
+
+async def call_gpt_api_async(model, messages, max_tokens, temperature, response_format):
+
+  client = OPENAI_CLIENT
+  
+  response = await client.chat.completions.create(
+    mode = model,
+    messages = messages,
+    max_tokens = max_tokens,
+    response_format = response_format
+  )
+
+  
+  return response
+
 def call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type = None, retry_count = 0, assistant_message = None):
-
-  api_key = os.environ.get("OPENAI_API_KEY")
-  if not api_key:
-    print("Error: OPENAI_API_KEY environment variable not set.")
-
-
-    return
-
-  client = OpenAI()
 
   tokens_used = db.get("tokens_used", 0)
   minute = db.get("minute", time.time())
 
   if time.time() - minute > 60:
-    print("reset time")
     tokens_used = 0
     minute = time.time()
     db["minute"] = minute
@@ -175,15 +192,24 @@ def call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_t
     tokens_used = 0
     db["minute"] = minute
 
-  print("Sending to API")
   try:
-    response = client.chat.completions.create(
-      model = model,
-      messages = messages,
-      max_tokens = max_tokens,
-      temperature = temperature,
-      response_format = response_format
-    )
+    loop = asyncio.get_event_loop()
+    api_task = loop.create_task(call_gpt_api_async(model, messages, max_tokens, temperature, response_format))
+    timer_task = loop.create_task(timeout(30))
+    
+    done, pending = loop.run_until_complete(asyncio.wait([api_task, timer_task], return_when=asyncio.FIRST_COMPLETED))
+    
+    if timer_task in done:
+      for task in pending:
+        task.cancel()
+
+      e = "Timeout"
+      retry_count = error_handle(e, retry_count)
+      call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type, retry_count, assistant_message)
+
+    else:
+      response = api_task.result()
+    
     if response.choices and response.choices[0].message.content:
       content = response.choices[0].message.content.strip()
       tokens = response.usage.completion_tokens
