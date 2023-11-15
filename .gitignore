@@ -3,6 +3,8 @@ __pycache__/
 venv/
 .upm/
 .git/
+api_calls.log
+api_counter.json
 
 poetry.lock
 pyproject.toml

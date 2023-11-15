@@ -12,20 +12,22 @@ def initialize_names(chapters, folder_name):
   print(f"\nTotal Chapters: {num_chapters} \n\n")
 
   character_lists = []
-  chapter_summaries = []
+  chapter_summary = {}
+  character_lists_index = 0
+  chapter_summary_index = 0
 
   character_lists_path = os.path.join(folder_name, "character_lists.json")
-  chapter_summaries_path = os.path.join(folder_name, "chapter_summary.json")
+  chapter_summary_path = os.path.join(folder_name, "chapter_summary.json")
 
   if os.path.exists(character_lists_path):
     character_lists =  cf.read_json_file(character_lists_path)
     character_lists_index = len(character_lists)
-  if os.path.exists(chapter_summaries_path):
-    chapter_summaries = cf.read_json_file(chapter_summaries_path)
-    chapter_summaries_index = len(chapter_summaries)
+  if os.path.exists(chapter_summary_path):
+    chapter_summary = cf.read_json_file(chapter_summary_path)
+    chapter_summary_index = len(chapter_summary)
 
 
-  return num_chapters, character_lists, character_lists_index, chapter_summaries, chapter_summaries_index
+  return num_chapters, character_lists, character_lists_index, chapter_summary, chapter_summary_index
 
 def compare_names(inner_values):
 
@@ -59,15 +61,15 @@ def sort_names(character_lists):
   junk_lines = ["additional", "note", "none"]
   stop_words = ["mentioned", "unknown", "he", "they", "she", "we", "it", "boy", "girl", "main", "him", "her", "narrator", "I", "</s>", "a"]
 
-  for model, proto_dict in character_lists:
-    if model not in parse_tuples:
-      parse_tuples[model] = proto_dict
+  for chapter_index, proto_dict in character_lists:
+    if chapter_index not in parse_tuples:
+      parse_tuples[chapter_index] = proto_dict
     else:
-      parse_tuples[model] += "\n" + proto_dict
+      parse_tuples[chapter_index] += "\n" + proto_dict
 
-  for model, proto_dict in parse_tuples.items():
+  for chapter_index, proto_dict in parse_tuples.items():
 
-    attribute_table[model] = {}
+    attribute_table[chapter_index] = {}
     inner_dict = {}
     attribute_name = None
     inner_values = []
@@ -155,14 +157,14 @@ def sort_names(character_lists):
           inner_values.extend(inner_dict[attribute_name[:-1]])
           inner_dict[attribute_name[:-1]] = []
         inner_values = compare_names(inner_values)
-        attribute_table[model][attribute_name] = inner_values
+        attribute_table[chapter_index][attribute_name] = inner_values
       inner_values = []
 
   # Remove empty attribute_name keys
-  for model in list(attribute_table.keys()):
-    for attribute_name, inner_values in list(attribute_table[model].items()):
+  for chapter_index in list(attribute_table.keys()):
+    for attribute_name, inner_values in list(attribute_table[chapter_index].items()):
       if not inner_values:
-        del attribute_table[model][attribute_name]
+        del attribute_table[chapter_index][attribute_name]
 
 
   return attribute_table
@@ -216,8 +218,10 @@ Setting2 (exterior)
 
   return role_script
 
-def search_names(chapters, folder_name, num_chapters, character_lists, chapter_lists_index):
+def search_names(chapters, folder_name, num_chapters, character_lists, character_lists_index):
 
+  character_lists_path = f"{folder_name}/character_lists.json"
+  
   role_script = ner_role_script()
   model = "gpt-3.5-turbo-1106"
   max_tokens = 1000
@@ -225,17 +229,24 @@ def search_names(chapters, folder_name, num_chapters, character_lists, chapter_l
   
   firstapi_start = time.time()
 
-  with tqdm(total = num_chapters, desc = "\033[92mFinding names\033[0m", unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|", position = 0, leave = True) as progress_bar:
+  with tqdm(total = num_chapters, unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|", position = 0, leave = True) as progress_bar:
     for chapter_index, chapter in enumerate(chapters):
-      if chapter_index < chapter_lists_index:
+      progress_bar.set_description(f"\033[92mProcessing chapter {chapter_index + 1} of {num_chapters}", refresh = True)
+      
+      if chapter_index < character_lists_index:
         continue
         
       chapter_number = chapter_index + 1
 
+      sub_api_start = time.time()
       prompt = f"Text: {chapter}"
       character_list = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens)
-      character_lists.append((chapter_number, character_list))  
-      cf.write_json_file(character_lists, f"{folder_name}/chapter_lists.json")
+      sub_api_end = time.time()
+      sub_api_time = sub_api_end - sub_api_start
+      print(sub_api_time)
+      chapter_tuple = (chapter_number, character_list)
+      character_lists.append(chapter_tuple)
+      cf.append_json_file(chapter_tuple, character_lists_path)
 
       progress_bar.update(1)
 
@@ -246,7 +257,7 @@ def search_names(chapters, folder_name, num_chapters, character_lists, chapter_l
 
   return character_lists
 
-def character_analysis_role_script(attribute_table, chapter_index):
+def character_analysis_role_script(attribute_table, chapter_number):
   instructions = (
     'You are a developmental editor helping create a story bible. '
     'For each character in the chapter, note their appearance, personality, mood, relationships with other characters, '
@@ -258,7 +269,7 @@ def character_analysis_role_script(attribute_table, chapter_index):
     'You will provide this information in the following JSON schema:'
   )
 
-  chapter_data = attribute_table.get(chapter_index, {})
+  chapter_data = attribute_table.get(chapter_number, {})
   characters = chapter_data.get("Characters", [])
   character_schema = {
     character_name: {
@@ -282,39 +293,47 @@ def character_analysis_role_script(attribute_table, chapter_index):
 
   return role_script
 
-def analyze_attributes(chapters, attribute_table, folder_name, num_chapters, chapter_summaries, chapter_summaries_index):
+def analyze_attributes(chapters, attribute_table, folder_name, num_chapters, chapter_summary, chapter_summary_index):
 
   aa_start = time.time()
-  chapter_summaries = []
-  chapter_summary_file = f"{folder_name}/chapter_summary.json"
 
-  max_tokens = 1000
+  chapter_summary_path = f"{folder_name}/chapter_summary.json"
+  
+  max_tokens = 2000
   temperature = 0.4
 
-  with tqdm(tota = num_chapters, desc = "\033[92mProcessing Book\033[0m", unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|") as progress_bar:
+  with tqdm(total = num_chapters, unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|") as progress_bar:
     for i, chapter in enumerate(chapters):
-      if i < chapter_summaries_index:
+      if i < chapter_summary_index:
         continue
-      
+      chapter_number = i + 1
+      progress_bar.set_description(f"\033[92mProcessing Chapter {i + 1}\033[0m", refresh = True)
       attribute_summary = ""
       
-      role_script = character_analysis_role_script(attribute_table, chapter_index = i + 1)
+      role_script = character_analysis_role_script(attribute_table, chapter_number)
       prompt = f"Chapter Text: {chapter}"
-      model = "gpt-4-1106"
+      model = "gpt-4-1106-preview"
+      sub_api_start = time.time()
 
       attribute_summary = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type = "json")
+      sub_api_end = time.time()
+      sub_api_time = sub_api_end - sub_api_start
+      api_minutes = sub_api_time / 60
+      api_seconds = sub_api_time % 60
+      print(f"API Call: {api_minutes} minutes and {api_seconds:0f} seconds")
 
-      chapter_summaries += attribute_summary
-      cf.write_json_file(chapter_summaries, chapter_summary_file)
-
+      chapter_summary[chapter_number] = attribute_summary]
+      cf.append_json_file(chapter_summary, chapter_summary_path)
+      
+      os.system("clear")
       progress_bar.update()
-    
+  
   aa_end = time.time()
   aa_total = aa_end - aa_start
   print(f"Second API run: {aa_total}")
 
 
-  return chapter_summaries
+  return chapter_summary
 
 
 def analyze_book(user_folder, file_path):
@@ -327,24 +346,88 @@ def analyze_book(user_folder, file_path):
   os.makedirs(folder_name, exist_ok = True)
 
   # Prep work before doing the real work
-  num_chapters, character_lists, character_lists_index, chapter_summaries, chapter_summaries_index = initialize_names(chapters, folder_name)
+  num_chapters, character_lists, character_lists_index, chapter_summary, chapter_summary_index = initialize_names(chapters, folder_name)
 
   # Named Entity Recognition  
   if character_lists_index < num_chapters:
+    print(f"Starting at character lists at chapter {character_lists_index + 1}")
     character_lists = search_names(chapters, folder_name, num_chapters, character_lists, character_lists_index)
   else:
+    print("Character lists complete")
     character_lists = cf.read_json_file(f"{folder_name}/character_lists.json")
 
   attribute_table_path = os.path.join(folder_name, "attribute_table.json")
   if not os.path.exists(attribute_table_path):
+    print("Building attribute table")
     attribute_table = sort_names(character_lists) 
-    cf.write_json_file(attribute_table, f"{folder_name}/attribute_table.json")
+    cf.write_json_file(attribute_table, attribute_table_path)
+  else:
+    print("Attribute table complete")
+    attribute_table = cf.read_json_file(attribute_table_path)
   
   # Semantic search based on attributes pulled
-  if chapter_summaries_index < num_chapters:
-    chapter_summaries = analyze_attributes(chapters, attribute_table, folder_name, num_chapters, chapter_summaries, chapter_summaries_index)
+  if chapter_summary_index < num_chapters:
+    print(f"Starting chapter summaries at chapter {chapter_summary_index + 1}")
+    chapter_summary = analyze_attributes(chapters, attribute_table, folder_name, num_chapters, chapter_summary, chapter_summary_index)
   else:
-    chapter_summaries = cf.read_json_file(f"{folder_name}/chapter_summaries.json")
+    chapter_summary = cf.read_json_file(f"{folder_name}/chapter_summary.json")
+  
+  api_counter = cf.read_json_file("api_counter.json")
+  three_estimated_input_tokens_total = 0
+  three_tokens_prompt_total = 0
+  three_tokens_completion_total = 0
+  four_estimated_input_tokens_total = 0
+  four_tokens_prompt_total = 0
+  four_tokens_completion_total = 0
+  three_compare_total = 0
+  four_compare_total = 0
+  
+  for three_estimated_input_tokens, three_tokens_prompt, three_tokens_completion, four_estimated_input_tokens, four_tokens_prompt, four_tokens_completion in api_counter.items():
+    
+    three_compare = three_estimated_input_tokens - three_tokens_prompt
+    three_compare_total += three_compare
+
+    four_compare = four_estimated_input_tokens - four_tokens_prompt
+    four_compare_total += four_compare
+    
+    three_estimated_input_tokens_total += three_estimated_input_tokens
+    three_tokens_prompt_total += three_tokens_prompt
+    three_tokens_completion_total += three_tokens_completion
+    
+    four_estimated_input_tokens_total += four_estimated_input_tokens
+    four_tokens_prompt_total += four_tokens_prompt
+    four_tokens_completion_total += four_tokens_completion
+
+  three_api_calls = api_counter.get("three_api_calls")
+  four_api_calls = api_counter.get("four_api_calls")
+  three_previous_prompt = 382055
+  three_previous_completion = 8052
+  three_previous_api_calls = 118
+
+  four_previous_prompt = 776288
+  four_previous_completion = 87961
+  four_previous_api_calls = 150
+
+  three_new_prompt = three_previous_prompt + three_tokens_prompt_total
+  three_new_completion = three_previous_completion + three_tokens_completion_total
+  four_new_prompt = four_previous_prompt + four_tokens_prompt_total
+  four_new_completion = four_previous_completion + four_tokens_completion_total
+  three_new_api_calls = three_previous_api_calls + three_api_calls
+  four_new_api_calls = four_previous_api_calls + four_api_calls
+
+  three_compare_average = three_compare_total / len(three_compare)
+  four_compare_average = four_compare_total / len(four_compare)
+  print(f"GPT3.5:\n--input tokens: {three_tokens_prompt_total}\n--completion tokens: {three_tokens_completion_total}:\n--Average estimation miscount: {three_compare_average}\n--API calls {three_api_calls}")
+  print()
+  print(f"GPT4\n--input tokens: {four_tokens_prompt_total}\n--completion tokens: {four_tokens_completion_total}\n--Average estimation miscount: {four_compare_average}:\nAPI calls {four_api_calls}")
+  print()
+  print()
+  print(f"GPT-3.5 New Totals:\n--input tokens: {three_new_prompt}\n--completion tokens: {three_new_completion}\n--API calls {three_new_api_calls}")
+  print()
+  print(f"GPT-4 New Totals:\n--input tokens: {four_new_prompt}\n--completion tokens: {four_new_completion}\n--API calls {four_new_api_calls}")
+
+    
+  os.remove("api_counter.json")
   
   
-  return chapter_summaries
+  return chapter_summary
