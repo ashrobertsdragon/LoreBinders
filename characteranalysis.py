@@ -1,7 +1,6 @@
 import json
 import os
 import re
-import time
 
 from tqdm import tqdm
 import common_functions as cf
@@ -194,6 +193,8 @@ def get_attributes():
     attribute_strings.append(attribute_string)
     role_attributes = "\n".join(attribute_strings)
 
+  os.system("clear")
+
 
   return role_attributes, custom_attributes
 
@@ -226,8 +227,6 @@ def search_names(chapters, folder_name, num_chapters, character_lists, character
   model = "gpt-3.5-turbo-1106"
   max_tokens = 1000
   temperature = 0.2
-  
-  firstapi_start = time.time()
 
   with tqdm(total = num_chapters, unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|", position = 0, leave = True) as progress_bar:
     for chapter_index, chapter in enumerate(chapters):
@@ -238,21 +237,15 @@ def search_names(chapters, folder_name, num_chapters, character_lists, character
         
       chapter_number = chapter_index + 1
 
-      sub_api_start = time.time()
       prompt = f"Text: {chapter}"
       character_list = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens)
-      sub_api_end = time.time()
-      sub_api_time = sub_api_end - sub_api_start
-      print(sub_api_time)
       chapter_tuple = (chapter_number, character_list)
       character_lists.append(chapter_tuple)
       cf.append_json_file(chapter_tuple, character_lists_path)
 
       progress_bar.update(1)
 
-  firstapi_end = time.time()
-  firstapi_total = firstapi_end - firstapi_start
-  print(f"First API run: {firstapi_total} seconds")
+  os.system("clear")
 
 
   return character_lists
@@ -295,8 +288,6 @@ def character_analysis_role_script(attribute_table, chapter_number):
 
 def analyze_attributes(chapters, attribute_table, folder_name, num_chapters, chapter_summary, chapter_summary_index):
 
-  aa_start = time.time()
-
   chapter_summary_path = f"{folder_name}/chapter_summary.json"
   
   max_tokens = 2000
@@ -313,24 +304,15 @@ def analyze_attributes(chapters, attribute_table, folder_name, num_chapters, cha
       role_script = character_analysis_role_script(attribute_table, chapter_number)
       prompt = f"Chapter Text: {chapter}"
       model = "gpt-4-1106-preview"
-      sub_api_start = time.time()
 
       attribute_summary = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type = "json")
-      sub_api_end = time.time()
-      sub_api_time = sub_api_end - sub_api_start
-      api_minutes = sub_api_time / 60
-      api_seconds = sub_api_time % 60
-      print(f"API Call: {api_minutes} minutes and {api_seconds:0f} seconds")
 
-      chapter_summary[chapter_number] = attribute_summary]
+      chapter_summary[chapter_number] = attribute_summary
       cf.append_json_file(chapter_summary, chapter_summary_path)
       
-      os.system("clear")
       progress_bar.update()
-  
-  aa_end = time.time()
-  aa_total = aa_end - aa_start
-  print(f"Second API run: {aa_total}")
+
+  os.system("clear")
 
 
   return chapter_summary
@@ -371,63 +353,5 @@ def analyze_book(user_folder, file_path):
     chapter_summary = analyze_attributes(chapters, attribute_table, folder_name, num_chapters, chapter_summary, chapter_summary_index)
   else:
     chapter_summary = cf.read_json_file(f"{folder_name}/chapter_summary.json")
-  
-  api_counter = cf.read_json_file("api_counter.json")
-  three_estimated_input_tokens_total = 0
-  three_tokens_prompt_total = 0
-  three_tokens_completion_total = 0
-  four_estimated_input_tokens_total = 0
-  four_tokens_prompt_total = 0
-  four_tokens_completion_total = 0
-  three_compare_total = 0
-  four_compare_total = 0
-  
-  for three_estimated_input_tokens, three_tokens_prompt, three_tokens_completion, four_estimated_input_tokens, four_tokens_prompt, four_tokens_completion in api_counter.items():
-    
-    three_compare = three_estimated_input_tokens - three_tokens_prompt
-    three_compare_total += three_compare
-
-    four_compare = four_estimated_input_tokens - four_tokens_prompt
-    four_compare_total += four_compare
-    
-    three_estimated_input_tokens_total += three_estimated_input_tokens
-    three_tokens_prompt_total += three_tokens_prompt
-    three_tokens_completion_total += three_tokens_completion
-    
-    four_estimated_input_tokens_total += four_estimated_input_tokens
-    four_tokens_prompt_total += four_tokens_prompt
-    four_tokens_completion_total += four_tokens_completion
-
-  three_api_calls = api_counter.get("three_api_calls")
-  four_api_calls = api_counter.get("four_api_calls")
-  three_previous_prompt = 382055
-  three_previous_completion = 8052
-  three_previous_api_calls = 118
-
-  four_previous_prompt = 776288
-  four_previous_completion = 87961
-  four_previous_api_calls = 150
-
-  three_new_prompt = three_previous_prompt + three_tokens_prompt_total
-  three_new_completion = three_previous_completion + three_tokens_completion_total
-  four_new_prompt = four_previous_prompt + four_tokens_prompt_total
-  four_new_completion = four_previous_completion + four_tokens_completion_total
-  three_new_api_calls = three_previous_api_calls + three_api_calls
-  four_new_api_calls = four_previous_api_calls + four_api_calls
-
-  three_compare_average = three_compare_total / len(three_compare)
-  four_compare_average = four_compare_total / len(four_compare)
-  print(f"GPT3.5:\n--input tokens: {three_tokens_prompt_total}\n--completion tokens: {three_tokens_completion_total}:\n--Average estimation miscount: {three_compare_average}\n--API calls {three_api_calls}")
-  print()
-  print(f"GPT4\n--input tokens: {four_tokens_prompt_total}\n--completion tokens: {four_tokens_completion_total}\n--Average estimation miscount: {four_compare_average}:\nAPI calls {four_api_calls}")
-  print()
-  print()
-  print(f"GPT-3.5 New Totals:\n--input tokens: {three_new_prompt}\n--completion tokens: {three_new_completion}\n--API calls {three_new_api_calls}")
-  print()
-  print(f"GPT-4 New Totals:\n--input tokens: {four_new_prompt}\n--completion tokens: {four_new_completion}\n--API calls {four_new_api_calls}")
-
-    
-  os.remove("api_counter.json")
-  
   
   return chapter_summary

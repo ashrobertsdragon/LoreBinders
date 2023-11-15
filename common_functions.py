@@ -110,6 +110,8 @@ def check_continue():
       print("Invalid input. Please try again.")
       logging.info("Invalid input. Please try again.")
 
+    os.system("clear")
+
 
   return
 
@@ -152,10 +154,6 @@ def error_handle(e, retry_count):
 
 def call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type = None, retry_count = 0, assistant_message = None):
 
-  if os.path.exists("api_counter.json"):
-    api_counter = read_json_file("api_counter.json")
-  else:
-    api_counter = {}
   tokens_used = db.get("tokens_used", 0)
   minute = db.get("minute", time.time())
 
@@ -195,12 +193,7 @@ def call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_t
 
   call_start = time.time()
   estimated_input_tokens = int((len(role_script) + len(prompt)) / TOKEN_CONVERSION_FACTOR)
-  logging.info(f"Estimated input tokens: {estimated_input_tokens}")
-  if model =="gpt-3.5-turbo-1106":
-    append_to_dict_list(api_counter, "three_estimated_input_tokens", estimated_input_tokens)
-  else:
-    append_to_dict_list(api_counter, "four_estimated_input_tokens", estimated_input_tokens)
-
+  
   if tokens_used + estimated_input_tokens + max_tokens > rate_limit:
 
     logging.warning("Rate limit exceeded")
@@ -214,10 +207,7 @@ def call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_t
     db["minute"] = minute
 
   try:
-    if model == "gpt-3.5-turbo-1106":
-      api_counter["three_api_count"] = api_counter.get("api_call_count", 0) + 1
-    else:
-      api_counter["four_api_count"] = api_counter.get("api_call_count", 0) + 1
+    api_start = time.time()
     
     response = OPENAI_CLIENT.chat.completions.create(
       model = model,
@@ -227,21 +217,16 @@ def call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_t
       response_format = response_format,
       timeout = 90
     )
-    
+    api_end = time.time()
+    api_run = api_end - api_start
+    api_minute = api_run / 60
+    api_sec = api_run % 60
+    print(f"API Call Time: {api_minute} minutes and {api_sec} seconds")
     if response.choices and response.choices[0].message.content:
       content = response.choices[0].message.content.strip()
       tokens = response.usage.total_tokens
       db["tokens_used"] = tokens_used + tokens
-  
-      tokens_completion = response.usage.completion_tokens
-      tokens_prompt = response.usage.prompt_tokens
 
-      if model == "gpt-3.5-turbo-1106":
-        append_to_dict_list(api_counter, "three_prompt tokens", tokens_prompt)
-        append_to_dict_list(api_counter, "three_completion tokens", tokens_completion)
-      else:
-        append_to_dict_list(api_counter, "four_prompt tokens", tokens_prompt)
-        append_to_dict_list(api_counter, "four_completion tokens", tokens_completion)
     else:
       raise Exception("No message content found")
       logging.error("No message content found")
@@ -254,16 +239,19 @@ def call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_t
 
   if assistant_message:
     answer = assistant_message + content
+    print(answer)
+    check_continue()
   else:
     answer = content
 
   if response.choices[0].finish_reason == "length":
 
     logging.warning("Max tokens exceeded")
+    print("Max tokens exceeded:")
+    print(answer)
+    check_continue()
     assistant_message = answer
     call_gpt_api(model, prompt, role_script,  temperature, max_tokens = 500, response_type = response_type, assistant_message = assistant_message)
-  
-  write_json_file(api_counter, "api_counter.json")
-  
+
   
   return answer 
