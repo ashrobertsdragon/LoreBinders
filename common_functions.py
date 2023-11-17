@@ -4,6 +4,7 @@ import os
 import re
 import time
 
+import tiktoken
 from openai import OpenAI
 from replit import db
 
@@ -137,6 +138,13 @@ def remove_none_found(d):
 
     return d
 
+def count_tokens(text):
+  
+  tokenizer = tiktoken.get_encoding("cl100k_base")
+
+
+  return len(tokenizer.encode(text))
+
 def error_handle(e, retry_count):
   
   retry_count += 1
@@ -170,31 +178,34 @@ def call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_t
   else:
     rate_limit = 250000
 
+  input_tokens = count_tokens(prompt) + count_tokens(role_script)
+  
   messages = [
       {"role": "system", "content": role_script},
       {"role": "user", "content": prompt}
   ]
 
   if assistant_message:
+    added_prompt = "Please continue from the exact point you left off without any commentary"
     messages.append({
       "role": "assistant",
       "content": assistant_message
     })
     messages.append({
       "role": "user",
-      "content": "Please continue from the exact point you left off without any commentary"
+      "content": added_prompt
     })
+    assistant_length = count_tokens(assistant_message) + count_tokens(added_prompt)
+    input_tokens += assistant_length
 
   if response_type == "json":
     response_format = {"type": "json_object"}
   else:
     response_format = {"type": "text"}
-  
 
   call_start = time.time()
-  estimated_input_tokens = int((len(role_script) + len(prompt)) / TOKEN_CONVERSION_FACTOR)
-  
-  if tokens_used + estimated_input_tokens + max_tokens > rate_limit:
+
+  if tokens_used + input_tokens + max_tokens > rate_limit:
 
     logging.warning("Rate limit exceeded")
     sleep_time = 60 - (call_start - minute)
