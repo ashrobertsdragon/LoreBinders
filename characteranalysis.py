@@ -3,15 +3,14 @@ import os
 import re
 
 from tqdm import tqdm
+from typing import List, Dict, Tuple
 import common_functions as cf
+import data_cleaning
 
-def initialize_names(chapters, folder_name):
+def initialize_names(chapters: list, folder_name: str) -> Tuple[int, list, int, dict, int]:
 
   num_chapters = len(chapters)
   print(f"\nTotal Chapters: {num_chapters} \n\n")
-
-  character_lists = []
-  chapter_summary = {}
   character_lists_index = 0
   chapter_summary_index = 0
 
@@ -20,15 +19,28 @@ def initialize_names(chapters, folder_name):
 
   if os.path.exists(character_lists_path):
     character_lists =  cf.read_json_file(character_lists_path)
+    if not isinstance(character_lists, list):
+      character_lists = []
+      cf.write_json_file(character_lists, character_lists_path)
+  else:
+    character_lists = []
+    cf.write_json_file(character_lists, character_lists_path)
     character_lists_index = len(character_lists)
+
   if os.path.exists(chapter_summary_path):
     chapter_summary = cf.read_json_file(chapter_summary_path)
+    if not isinstance(chapter_summary, dict):
+      chapter_summary = {}
+      cf.write_json_fie(chapter_summary, chapter_summary_path)
+  else:
+    chapter_summary = {}
+    cf.write_json_file(chapter_summary, chapter_summary_path)
     chapter_summary_index = len(chapter_summary)
 
 
   return num_chapters, character_lists, character_lists_index, chapter_summary, chapter_summary_index
 
-def compare_names(inner_values):
+def compare_names(inner_values: list) -> list:
 
   compared_names = {}
 
@@ -44,7 +56,7 @@ def compare_names(inner_values):
 
   return inner_values
 
-def sort_names(character_lists):
+def sort_names(character_lists: list) -> dict:
 
   parse_tuples = {}
   attribute_table = {}
@@ -168,7 +180,7 @@ def sort_names(character_lists):
 
   return attribute_table
       
-def get_attributes():
+def get_attributes() -> Tuple[str, str]:
   dictionary_attributes_list = [] 
   attribute_strings = []
 
@@ -198,7 +210,7 @@ def get_attributes():
 
   return role_attributes, custom_attributes
 
-def ner_role_script():
+def ner_role_script() -> str:
 
   role_attributes, custom_attributes = get_attributes()
 
@@ -219,7 +231,7 @@ Setting2 (exterior)
 
   return role_script
 
-def search_names(chapters, folder_name, num_chapters, character_lists, character_lists_index):
+def search_names(chapters: list, folder_name: str, num_chapters: int, character_lists: list, character_lists_index: int) -> list:
 
   character_lists_path = f"{folder_name}/character_lists.json"
   
@@ -241,6 +253,10 @@ def search_names(chapters, folder_name, num_chapters, character_lists, character
       character_list = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens)
       chapter_tuple = (chapter_number, character_list)
       character_lists.append(chapter_tuple)
+      if isinstance(character_lists, list):
+        print("Character list is a list")
+      if isinstance(character_lists, dict):
+        print("Character list is a dict")
       cf.append_json_file(chapter_tuple, character_lists_path)
 
       progress_bar.update(1)
@@ -250,7 +266,8 @@ def search_names(chapters, folder_name, num_chapters, character_lists, character
 
   return character_lists
 
-def character_analysis_role_script(attribute_table, chapter_number):
+def character_analysis_role_script(attribute_table: dict, chapter_number: int) -> str:
+  
   instructions = (
     'You are a developmental editor helping create a story bible. '
     'For each character in the chapter, note their appearance, personality, mood, relationships with other characters, '
@@ -286,7 +303,7 @@ def character_analysis_role_script(attribute_table, chapter_number):
 
   return role_script
 
-def analyze_attributes(chapters, attribute_table, folder_name, num_chapters, chapter_summary, chapter_summary_index):
+def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, num_chapters: int, chapter_summary: dict, chapter_summary_index: int) -> dict:
 
   chapter_summary_path = f"{folder_name}/chapter_summary.json"
   
@@ -318,7 +335,7 @@ def analyze_attributes(chapters, attribute_table, folder_name, num_chapters, cha
   return chapter_summary
 
 
-def analyze_book(user_folder, file_path):
+def analyze_book(user_folder: str, file_path: str):
   
   full_text = cf.read_text_file(file_path)
   chapters = cf.separate_into_chapters(full_text)
@@ -327,6 +344,9 @@ def analyze_book(user_folder, file_path):
   folder_name = f"{user_folder}/{sub_folder}"
   os.makedirs(folder_name, exist_ok = True)
 
+
+  #data_cleaning.data_cleaning(folder_name)
+  #exit()
   # Prep work before doing the real work
   num_chapters, character_lists, character_lists_index, chapter_summary, chapter_summary_index = initialize_names(chapters, folder_name)
 
@@ -337,7 +357,7 @@ def analyze_book(user_folder, file_path):
   else:
     print("Character lists complete")
     character_lists = cf.read_json_file(f"{folder_name}/character_lists.json")
-
+  print(f"Character lists is type {type(character_lists)}")
   attribute_table_path = os.path.join(folder_name, "attribute_table.json")
   if not os.path.exists(attribute_table_path):
     print("Building attribute table")
@@ -351,7 +371,7 @@ def analyze_book(user_folder, file_path):
   if chapter_summary_index < num_chapters:
     print(f"Starting chapter summaries at chapter {chapter_summary_index + 1}")
     chapter_summary = analyze_attributes(chapters, attribute_table, folder_name, num_chapters, chapter_summary, chapter_summary_index)
-  else:
-    chapter_summary = cf.read_json_file(f"{folder_name}/chapter_summary.json")
+
+  # Cleaning data and preparing for presentation
+
   
-  return chapter_summary

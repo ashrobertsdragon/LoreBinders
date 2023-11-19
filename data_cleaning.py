@@ -58,14 +58,14 @@ def merge_values(value1, value2):
         
   elif isinstance(value1, list) and isinstance(value2, list):
     value1.extend(value2)
-  elif isinstance(value1, dict)
-    
+
   elif isinstance(value1, dict):
     for key in value1:
-      if key = value2:
+      if key == value2:
 
 
         return value1
+
     value1["Also"] = value2
     
   elif isinstance(value2, list):
@@ -97,7 +97,7 @@ def deduplicate_keys(dictionary:dict) -> dict:
   for key in dictionary:
     singular_form = to_singular(key)
     if singular_form != key and singular_form in dictionary:
-          merge_values(dictionary[key], dictionary[singular_form])
+      merge_values(dictionary[key], dictionary[singular_form])
       duplicate_keys.append(singular_form)
 
   for key in duplicate_keys:
@@ -160,10 +160,15 @@ def data_cleaning(folder_name: str):
   """
   
   chapter_summaries = cf.read_json_file(f"{folder_name}/chapter_summary.json")
+  print("json read")
 
   cleaned_json = de_string_json(chapter_summaries)
+  print("json cleaned")
   
   reshaped_data = reshape_dict(cleaned_json)
+  print("reshaped")
   dedpulicated_dictionary = deduplicate_keys(reshaped_data)
-    cf.write_json_file(dedpulicated_dictionary, f"{folder_name}/chapter_summaries.json")
+  print("dedpulicated")
+  cf.write_json_file(dedpulicated_dictionary, f"{folder_name}/chapter_summaries.json")
+  print("new json  file written")
   

@@ -58,6 +58,14 @@ def read_json_file(file_path):
     logging.error(f"Error: File '{file_path}' not found.")
     exit()
 
+  except json.decoder.JSONDecodeError:
+    logging.error(f"Error: File '{file_path}' not valid JSON.")
+    exit()
+
+  except Exception as e:
+    logging.error(f"Error: {e}")
+    exit()
+
 
 def write_to_file(content, file_path):
   
@@ -72,16 +80,17 @@ def separate_into_chapters(text):
   
   return re.split("\s*\*\*\s*", text)
 
-def write_json_file(content, file_path):
+def write_json_file(content, file_path: str):
   with open(file_path, "w") as f:
     json.dump(content, f, indent=2)
 
 
   return
 
-def append_json_file(content, file_path):
+def append_json_file(content, file_path: str):
   if os.path.exists(file_path):
       read_file = read_json_file(file_path)
+      print(f"{file_path} exists")
   else:
       read_file = [] if isinstance(content, list) else {}
 
@@ -91,6 +100,7 @@ def append_json_file(content, file_path):
       read_file.update(content)
 
   write_json_file(read_file, file_path)
+
 
   return
 
@@ -266,3 +276,4 @@ def call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_t
 
   
   return answer 
+                 
