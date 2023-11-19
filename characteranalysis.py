@@ -3,7 +3,7 @@ import os
 import re
 
 from tqdm import tqdm
-from typing import List, Dict, Tuple
+from typing import Tuple
 import common_functions as cf
 import data_cleaning
 
@@ -40,18 +40,34 @@ def initialize_names(chapters: list, folder_name: str) -> Tuple[int, list, int, 
 
   return num_chapters, character_lists, character_lists_index, chapter_summary, chapter_summary_index
 
-def compare_names(inner_values: list) -> list:
+def compare_names(inner_values: list, name_map: dict) -> list:
 
-  compared_names = {}
+  titles = ["princess", "prince", "king", "queen", "count", "duke", "duchess", "baron", "baroness", "countess", "lord", "lady", "earl", "marquis", "ensign", "private", "sir", "cadet", "sergeant", "lieutenant", "leftenant", "lt", "pfc", "cap", "sarge", "mjr", "col", "gen", "captain", "major", "colonel", "general", "admiral", "ambassador", "commander", "corporal", "airman", "seaman", "commodore", "mr", "mrs", "ms", "miss", "missus", "madam", "mister", "ma'am", "aunt", "uncle", "cousin"]
 
   for i, value_i in enumerate(inner_values):
+    value_i_split = value_i.split()
+    if value_i_split[0] in titles:
+      value_i = ' '.join(value_i_split[1:])
+      
     for j, value_j in enumerate(inner_values):
-      if i != j and value_i != value_j and not value_i.endswith(")") and (value_i.startswith(value_j) or value_i.endswith(value_j)):
-          shorter_value, longer_value = sorted([value_i, value_j], key = len)
-          compared_names[shorter_value] = longer_value
+      if i != j and value_i != value_j and not value_i.endswith(")") and not value_j.endswith(")") and (value_i.startswith(value_j) or value_i.endswith(value_j)):
 
-  longer_name = [compared_names.get(name, name) for name in inner_values]
-  inner_values = list(dict.fromkeys(longer_name)) #Deduplicate
+        value_j_split = value_j.split()
+        if value_j_split[0] in titles:
+          value_j = ' '.join(value_j_split[1:])
+
+          if value_i in value_j or value_j in value_i:
+            if value_i.endswith('s') and not value_j.endswith('s'):
+              value_i = value_i[:-1]
+            elif value_j.endswith('s') and not value_i.endswith('s'):
+              value_j = value_j[:-1]
+              
+          shorter_value, longer_value = sorted([value_i, value_j], key = len)
+          name_map.setdefault(shorter_value, longer_value)
+          name_map.setdefault(longer_value, longer_value)
+
+  standardized_names = [name_map.get(name, name) for name in inner_values]
+  inner_values = list(dict.fromkeys(standardized_names))
 
 
   return inner_values
@@ -60,6 +76,7 @@ def sort_names(character_lists: list) -> dict:
 
   parse_tuples = {}
   attribute_table = {}
+  name_map = {}
   
   character_info_pattern = re.compile(r"\((?!interior|exterior).+\)$", re.IGNORECASE)
   inverted_setting_pattern = re.compile(r"(interior|exterior)\s+\((\w+)\)", re.IGNORECASE)
@@ -167,7 +184,7 @@ def sort_names(character_lists: list) -> dict:
         if attribute_name.endswith("s") and attribute_name[:-1] in inner_dict:
           inner_values.extend(inner_dict[attribute_name[:-1]])
           inner_dict[attribute_name[:-1]] = []
-        inner_values = compare_names(inner_values)
+        inner_values = compare_names(inner_values, name_map)
         attribute_table[chapter_index][attribute_name] = inner_values
       inner_values = []
 
@@ -180,9 +197,16 @@ def sort_names(character_lists: list) -> dict:
 
   return attribute_table
       
-def get_attributes() -> Tuple[str, str]:
+def get_attributes(folder_name: str) -> Tuple[str, str]:
+
   dictionary_attributes_list = [] 
   attribute_strings = []
+  attributes_path = f"{folder_name}/attributes.json"
+  if os.path.exists(attributes_path):
+    role_attributes, custom_attributes = cf.read_json_file(attributes_path)
+
+
+    return role_attributes, custom_attributes
 
   ask_attributes = input("Besides characters and setting, what other attributes would you like ProsePal to search for (e.g. fantasy races, factions, religions, etc)? Please be as specific as possible. Attributes must be separated by commas for the program to work. Type N if you only want to search for characters and settings\n> ")
   
@@ -204,6 +228,8 @@ def get_attributes() -> Tuple[str, str]:
     attribute_string = f"{attribute}:\n{attribute}1\n{attribute}2\n{attribute}3"
     attribute_strings.append(attribute_string)
     role_attributes = "\n".join(attribute_strings)
+
+  cf.write_json_file((role_attributes, custom_attributes), attributes_path)
 
   os.system("clear")
 
@@ -253,10 +279,6 @@ def search_names(chapters: list, folder_name: str, num_chapters: int, character_
       character_list = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens)
       chapter_tuple = (chapter_number, character_list)
       character_lists.append(chapter_tuple)
-      if isinstance(character_lists, list):
-        print("Character list is a list")
-      if isinstance(character_lists, dict):
-        print("Character list is a dict")
       cf.append_json_file(chapter_tuple, character_lists_path)
 
       progress_bar.update(1)
@@ -352,12 +374,12 @@ def analyze_book(user_folder: str, file_path: str):
 
   # Named Entity Recognition  
   if character_lists_index < num_chapters:
-    print(f"Starting at character lists at chapter {character_lists_index + 1}")
+    print(f"Starting character lists at chapter {character_lists_index + 1}")
     character_lists = search_names(chapters, folder_name, num_chapters, character_lists, character_lists_index)
   else:
     print("Character lists complete")
     character_lists = cf.read_json_file(f"{folder_name}/character_lists.json")
-  print(f"Character lists is type {type(character_lists)}")
+
   attribute_table_path = os.path.join(folder_name, "attribute_table.json")
   if not os.path.exists(attribute_table_path):
     print("Building attribute table")
