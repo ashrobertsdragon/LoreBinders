@@ -264,7 +264,7 @@ def search_names(chapters: list, folder_name: str, num_chapters: int, character_
   role_script = ner_role_script()
   role_list = [role_script]
   
-  model = "gpt-3.5-turbo-1106"
+  model = "gpt_three"
   max_tokens = 1000
   temperature = 0.2
 
@@ -340,7 +340,7 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
 
   role_list = []
 
-  model = "gpt-4-1106-preview"
+  model = "gpt_four"
   max_tokens = 2000
   temperature = 0.4
 

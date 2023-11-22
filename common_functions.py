@@ -147,18 +147,38 @@ def remove_none_found(d):
 
 
     return d
+def get_model_details(model_key: str) -> dict:
+  """
+  Interprets the generic model key and returns model-specific details.
+  """
+  
+  model_details = {
+    "gpt_three": {
+      "model_name": "gpt-3.5-turbo-1106",
+      "rate_limit": 90000,
+        "context_window": 16000
+    },
+    "gpt_four": {
+      "model_name": "gpt-4-1106-preview",
+      "rate_limit": 300000,
+        "context_window": 128000
+    }
+}
 
-def is_rate_limit(model: str) -> int:
 
-  if model == "gpt-3.5-turbo-1106":
-    rate_limit = 90000
-  elif model == "gpt-4-1106-preview":
-    rate_limit = 300000
-  else:
-    rate_limit = 250000
+  return model_details.get(model_key, {"model_name": None, "rate_limit": 250000, "context_window": 4096})
+
+def is_rate_limit(model_key: str) -> int:
+  """
+  Returns the rate limit based on the model key.
+  """
+  
+  model_details = get_model_details(model_key)
+
+  
+  return model_details["rate_limit"]
 
 
-  return rate_limit
 
 def count_tokens(text):
   
@@ -167,19 +187,19 @@ def count_tokens(text):
 
   return len(tokenizer.encode(text))
 
-def batch_count(chapters: list, role_list: list, model: str, max_tokens: int) -> list:
+def batch_count(chapters: list, role_list: list, model_key: str, max_tokens: int) -> list:
+  """
+  Batches the chapters based on token counts and model-specific details.
+  """
 
   token_count = 0
   batch_limit = 20
   batched = []
   batched_chapters = []
 
-  if model == "gpt-3.5-turbo-1106":
-    context_window = 16000
-  elif model == "gpt-4-1106-preview":
-    context_window = 128000
-
-  rate_limit = is_rate_limit(model) - db["tokens_used"]
+  model_details = get_model_details(model_key)
+  context_window = model_details["context_window"]
+  rate_limit = is_rate_limit(model_key) - db["tokens_used"]
 
   for chapter_index, (chapter, role_script) in enumerate(zip(chapters, role_list):
     chapter_token_count = count_tokens(chapter)
@@ -220,6 +240,12 @@ def error_handle(e, retry_count: int) -> int:
   return retry_count
 
 def call_gpt_api(model: str, batched_prompts: List[int], batched_role_scripts: List[str], temperature: float, max_tokens: int, response_type: Optional[str] = None, retry_count: int = 0):
+  """
+  Calls the GPT API with the provided parameters.
+  """
+  
+  model_details = get_model_details(model_key)
+  model_name = model_details["model_name"]
 
   input_tokens = sum(count_tokens(prompt) + count_tokens(role_script) for prompt, role_script in batched_prompts, batched_role_scripts in zip(batched_prompts, batched_role_scripts))
 
@@ -259,7 +285,7 @@ def call_gpt_api(model: str, batched_prompts: List[int], batched_role_scripts: L
     api_start = time.time()
     
     responses = OPENAI_CLIENT.chat.completions.create(
-      model = model,
+      model = model_name,
       messages = messages_batch,
       temperature = temperature,
       max_tokens = max_tokens,
@@ -330,3 +356,4 @@ def call_gpt_api(model: str, batched_prompts: List[int], batched_role_scripts: L
 
   
   return batched_contents
+    
