@@ -118,6 +118,7 @@ def reshape_dict(chapter_summaries: dict) -> dict:
 
   for chapter, chapter_data in chapter_summaries.items():
     for section, section_data in chapter_data.items():
+      section = section.title()
       if section not in reshaped_data:
         reshaped_data[section] = {}
 

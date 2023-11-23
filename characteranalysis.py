@@ -325,7 +325,7 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: int) -
   }
 
   attributes_json = json.dumps({
-    "characters": character_schema,
+    "Characters": character_schema,
     **other_attribute_schema
   })
   
