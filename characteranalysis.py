@@ -39,163 +39,6 @@ def initialize_names(chapters: list, folder_name: str) -> Tuple[int, list, int, 
 
 
   return num_chapters, character_lists, character_lists_index, chapter_summary, chapter_summary_index
-
-def compare_names(inner_values: list, name_map: dict) -> list:
-
-  titles = ["princess", "prince", "king", "queen", "count", "duke", "duchess", "baron", "baroness", "countess", "lord", "lady", "earl", "marquis", "ensign", "private", "sir", "cadet", "sergeant", "lieutenant", "leftenant", "lt", "pfc", "cap", "sarge", "mjr", "col", "gen", "captain", "major", "colonel", "general", "admiral", "ambassador", "commander", "corporal", "airman", "seaman", "commodore", "mr", "mrs", "ms", "miss", "missus", "madam", "mister", "ma'am", "aunt", "uncle", "cousin"]
-
-  for i, value_i in enumerate(inner_values):
-    value_i_split = value_i.split()
-    if value_i_split[0] in titles:
-      value_i = ' '.join(value_i_split[1:])
-      
-    for j, value_j in enumerate(inner_values):
-      if i != j and value_i != value_j and not value_i.endswith(")") and not value_j.endswith(")") and (value_i.startswith(value_j) or value_i.endswith(value_j)):
-
-        value_j_split = value_j.split()
-        if value_j_split[0] in titles:
-          value_j = ' '.join(value_j_split[1:])
-
-          if value_i in value_j or value_j in value_i:
-            if value_i.endswith('s') and not value_j.endswith('s'):
-              value_i = value_i[:-1]
-            elif value_j.endswith('s') and not value_i.endswith('s'):
-              value_j = value_j[:-1]
-              
-          shorter_value, longer_value = sorted([value_i, value_j], key = len)
-          name_map.setdefault(shorter_value, longer_value)
-          name_map.setdefault(longer_value, longer_value)
-
-  standardized_names = [name_map.get(name, name) for name in inner_values]
-  inner_values = list(dict.fromkeys(standardized_names))
-
-
-  return inner_values
-
-def sort_names(character_lists: list) -> dict:
-
-  parse_tuples = {}
-  attribute_table = {}
-  name_map = {}
-  
-  character_info_pattern = re.compile(r"\((?!interior|exterior).+\)$", re.IGNORECASE)
-  inverted_setting_pattern = re.compile(r"(interior|exterior)\s+\((\w+)\)", re.IGNORECASE)
-  leading_colon_pattern = re.compile(r"\s*:\s+")
-  list_formatting_pattern = re.compile(r"^[\d.-]\s*|^\.\s|^\*\s*|^\+\s*|^\\t")
-  missing_newline_before_pattern = re.compile(r"(?<=\w)(?=[A-Z][a-z]*:)")
-  missing_newline_between_pattern = re.compile(r"(\w+ \(\w+\))\s+(\w+)")
-  missing_newline_after_pattern = re.compile(r"(?<=\w):\s*(?=\w)")
-  
-  junk_lines = ["additional", "note", "none"]
-  stop_words = ["mentioned", "unknown", "he", "they", "she", "we", "it", "boy", "girl", "main", "him", "her", "narrator", "I", "</s>", "a"]
-
-  for chapter_index, proto_dict in character_lists:
-    if chapter_index not in parse_tuples:
-      parse_tuples[chapter_index] = proto_dict
-    else:
-      parse_tuples[chapter_index] += "\n" + proto_dict
-
-  for chapter_index, proto_dict in parse_tuples.items():
-
-    attribute_table[chapter_index] = {}
-    inner_dict = {}
-    attribute_name = None
-    inner_values = []
-
-    lines = proto_dict.split("\n")
-    
-    i = 0
-    while i < len(lines):
-      
-      line = lines[i]
-      line = list_formatting_pattern.sub("", line)
-      line = re.sub(r'(interior|exterior)', lambda m: m.group().lower(), line, flags=re.IGNORECASE)
-
-      if line.startswith("interior:") or line.startswith("exterior:"):
-        
-        prefix, places = line.split(":", 1)
-        setting = "(interior)" if prefix == "interior" else "(exterior)"
-        split_lines = [f"{place.strip()} {setting}" for place in places.split(",")]
-        lines[i:i + 1] = split_lines
-        continue
-        
-      line = inverted_setting_pattern.sub(r"\2 (\1)", line)
-        
-      if ", " in line:
-        comma_split = line.split(", ")
-        lines[i:i + 1] = comma_split
-        continue
-
-      added_newline = missing_newline_before_pattern.sub("\n", line)
-      if added_newline != line:
-        added_newlines = added_newline.split("\n")
-        lines[i: i + 1] = added_newlines
-        continue
-        
-      added_newline = missing_newline_between_pattern.sub(r"\1\n\2", line)
-      if added_newline != line:
-        added_newlines = added_newline.split("\n")
-        lines[i: i + 1] = added_newlines
-        continue
-
-      added_newline = missing_newline_after_pattern.sub(":\n", line)
-      if added_newline != line:
-        added_newlines = added_newline.split("\n")
-        lines[i: i + 1] = added_newlines
-        continue
-        
-      line = leading_colon_pattern.sub("", line)
-      line = line.strip()
-      
-      if line == "":
-        i += 1
-        continue
-        
-      if line.lower() in [word.lower() for word in stop_words]:
-          i += 1
-          continue
-        
-      if any(junk in line.lower() for junk in junk_lines):
-        i += 1
-        continue
-        
-      if line.count("(") != line.count(")"):
-        line.replace("(", "").replace(")", "")
-        
-      line = character_info_pattern.sub("", line)
-
-      #Remaining lines ending with a colon are attribute names and lines following belong in a list for that attribute
-      if line.endswith(":"):
-        if attribute_name:
-          inner_dict.setdefault(attribute_name, []).extend(inner_values)
-          inner_values = []
-        attribute_name = line[:-1].title()
-      else:
-        inner_values.append(line)
-
-      i += 1
-
-    if attribute_name:
-      inner_dict.setdefault(attribute_name, []).extend(inner_values)
-      inner_values = []
-
-    if inner_dict:
-      for attribute_name, inner_values in inner_dict.items():
-        if attribute_name.endswith("s") and attribute_name[:-1] in inner_dict:
-          inner_values.extend(inner_dict[attribute_name[:-1]])
-          inner_dict[attribute_name[:-1]] = []
-        inner_values = compare_names(inner_values, name_map)
-        attribute_table[chapter_index][attribute_name] = inner_values
-      inner_values = []
-
-  # Remove empty attribute_name keys
-  for chapter_index in list(attribute_table.keys()):
-    for attribute_name, inner_values in list(attribute_table[chapter_index].items()):
-      if not inner_values:
-        del attribute_table[chapter_index][attribute_name]
-
-
-  return attribute_table
       
 def get_attributes(folder_name: str) -> Tuple[str, str]:
 
@@ -446,7 +289,7 @@ def analyze_book(user_folder: str, file_path: str):
   attribute_table_path = os.path.join(folder_name, "attribute_table.json")
   if not os.path.exists(attribute_table_path):
     print("Building attribute table")
-    attribute_table = sort_names(character_lists) 
+    attribute_table = data_cleaning.sort_names(character_lists) 
     cf.write_json_file(attribute_table, attribute_table_path)
   else:
     print("Attribute table complete")
@@ -460,4 +303,5 @@ def analyze_book(user_folder: str, file_path: str):
   # Cleaning data and preparing for presentation
   data_cleaning.data_cleaning(folder_name)
   summarize_attributes(folder_name)
+  data_cleaning.final_reshape(folder_name)
   
