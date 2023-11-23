@@ -378,6 +378,50 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
 
   return chapter_summary
 
+def summarize_attributes(folder_name: str) -> None:
+  """
+  Summarize the names for the attributes of the chapters in the folder.
+  """
+
+  prompt_list = []
+  role_list = []
+  
+  chapter_summaries_path = f"{folder_name}/chapter_summaries.json"
+  chapter_summaries = cf.load_json_file(chapter_summaries_path)
+
+  model = "gpt_three"
+  temperature = 0.4
+  max_tokens = 200
+
+  for attribute, names in chapter_summaries.items():
+    for name, chapters in names.items():
+      for chapter, details in chapters.items():
+        if attribute == "Characters":
+          description = ", ".join(f"{trait}: {','.join(detail)}" for trait, detail in details.items())
+        else:
+          description = ", ".join(details)
+
+        prompt_list.append(description)
+        role_script = f"You are an expert summarizer. For the following {attribute}, please summarize the description over the course of the story."
+        role_list.append(role_script)
+
+  batched_names = cf.batch_count(prompt_list, role_list, model, max_tokens)
+
+  with tqdm(total = len(prompt_list), unit = "Prompt", ncols = 40) as progress_bar:
+    for batch in batched_names:
+      first_name = batch[0][1]
+      last_name = batch[-1][1]
+      progress_bar.set_description(f"\033[92mProcessing batch of names: {first_name}-{last_name}", refresh = True)
+
+      batched_prompts = [name for name_index, name in batch]
+      batched_role_scripts = [role_script for name_index, role_script in batch]
+      
+      batched_summaries = cf.call_gpt_api(model, batched_prompts, batched_role_scripts, temperature, max_tokens)
+      
+      for (name_index, _), summary in zip(batch, batched_summaries):
+        name = batch[name_index[0]][1]
+        chapter_summaries[attribute][name]["summary"] = summary
+        cf.append_json_file(chapter_summaries, chapter_summaries_path)
 
 def analyze_book(user_folder: str, file_path: str):
   
@@ -388,9 +432,6 @@ def analyze_book(user_folder: str, file_path: str):
   folder_name = f"{user_folder}/{sub_folder}"
   os.makedirs(folder_name, exist_ok = True)
 
-
-  #data_cleaning.data_cleaning(folder_name)
-  #exit()
   # Prep work before doing the real work
   num_chapters, character_lists, character_lists_index, chapter_summary, chapter_summary_index = initialize_names(chapters, folder_name)
 
@@ -417,5 +458,6 @@ def analyze_book(user_folder: str, file_path: str):
     chapter_summary = analyze_attributes(chapters, attribute_table, folder_name, num_chapters, chapter_summary, chapter_summary_index)
 
   # Cleaning data and preparing for presentation
-
+  data_cleaning.data_cleaning(folder_name)
+  summarize_attributes(folder_name)
   

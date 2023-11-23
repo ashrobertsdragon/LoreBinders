@@ -147,6 +147,7 @@ def remove_none_found(d):
 
 
     return d
+
 def get_model_details(model_key: str) -> dict:
   """
   Interprets the generic model key and returns model-specific details.

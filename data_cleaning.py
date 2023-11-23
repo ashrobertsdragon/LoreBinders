@@ -45,8 +45,7 @@ def merge_values(value1, value2):
     value1: A dictionary key value
     value2: A dictionary key value
 
-  Returns:
-    A merged dictionary key value
+  Returns merged dictionary key value
   """
 
   if isinstance(value1, dict) and isinstance(value2, dict):
@@ -88,8 +87,7 @@ def deduplicate_keys(dictionary:dict) -> dict:
   Arguments:
     dictionary: The dictionary to deduplicate.
   
-   Returns:
-     The deduplicated dictionary.
+   Returns the deduplicated dictionary.
     """
 
   duplicate_keys = []
@@ -113,8 +111,7 @@ def reshape_dict(chapter_summaries: dict) -> dict:
   Arguments:
     chapter_summaries: Dictionary containing chapter summaries.
   
-  Returns:
-    Reshaped dictionary.
+  Returns a reshaped dictionary.
   """
 
   reshaped_data = {}
@@ -135,15 +132,13 @@ def reshape_dict(chapter_summaries: dict) -> dict:
   return reshaped_data
 
 def de_string_json(json_data):
-
   """
   Parses string representations of JSON data into Python dictionary objects.
 
   Arguments:
     json_data: Dictionary with string representations of JSON data.
     
-  Returns:
-    Dictionary with parsed JSON data.
+  Returns dictionary with parsed JSON data.
   """
 
   cleaned_data = {}
