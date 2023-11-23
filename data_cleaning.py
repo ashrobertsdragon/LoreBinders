@@ -354,5 +354,5 @@ def data_cleaning(folder_name: str):
   dedpulicated_dictionary = deduplicate_keys(reshaped_data)
   print("dedpulicated")
   cf.write_json_file(dedpulicated_dictionary, f"{folder_name}/chapter_summaries.json")
-  print("new json  file written")
+  print("new json file written")
   
