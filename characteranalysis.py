@@ -249,7 +249,7 @@ Characters:
 character1
 character2
 character3
-Setting:
+Settings:
 Setting1 (interior)
 Setting2 (exterior)
 {role_attributes}"""
@@ -396,7 +396,7 @@ def summarize_attributes(folder_name: str) -> None:
   for attribute, names in chapter_summaries.items():
     for name, chapters in names.items():
       for chapter, details in chapters.items():
-        if attribute == "Characters":
+        if attribute == "Characters" or attribute == "Settings":
           description = ", ".join(f"{trait}: {','.join(detail)}" for trait, detail in details.items())
         else:
           description = ", ".join(details)
