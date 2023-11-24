@@ -85,6 +85,7 @@ def convert_file(book_name: str, folder_name: str) -> str:
   Reutrns the name of the text file.
   """
 
+  book_content = ""
   file_path = f"{folder_name}/{book_name}"
 
   filename_list = book_name.split(".")
@@ -102,8 +103,9 @@ def convert_file(book_name: str, folder_name: str) -> str:
     book_content = read_text_file(file_path)
   else:
     print("Invalid filetype")
+    exit()
 
-  book_content = convert_chapter_break(file_path)
+  book_content = convert_chapter_break(book_content)
 
   book_name = f"{base_name}.txt"
   write_to_file(book_content, book_name)
