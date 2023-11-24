@@ -1,8 +1,8 @@
 import os
 
 from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.platypus import Image, ListFlowable, ListItem, Paragraph, PageBreak, SimpleDocTemplate, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import Image, ListFlowable, ListItem, Paragraph, PageBreak, SimpleDocTemplate, Spacer, TableOfContents
 
 from common_functions import read_json_file
 
@@ -17,32 +17,37 @@ def create_pdf(folder_name: str, book_name: str) -> None:
   """
 
   story = []
-  toc = []
 
   input_path = f"{folder_name}/chapter_summaries.json"
   output_path = f"{folder_name}/{book_name}.pdf"
+
+  folder_split = folder_name.split('/')
+  user_name = folder_split[0]
   
   chapter_summaries = read_json_file(input_path)
   
-  doc = SimpleDocTemplate(output_path, pagesize =  letter)
+  doc = SimpleDocTemplate(output_path, pagesize =  letter, author = user_name, title = book_name)
   styles = getSampleStyleSheet()
+  toc_style = ParagraphStyle('TOCHeading', parent = styles['Heading2'], spaceAfter = 10)
 
-  story.append(Paragraph(book_name, styles["Title"]))
+  story.append(Paragraph(book_name, styles["Title"]), PageBreak())
+
+  toc = TableOfContents()
+  toc.levelStyles = [toc_style]
+  story.append(toc)
+  story.append(PageBreak())
 
   for attribute, names in chapter_summaries.items():
-    toc.append(attribute, doc.page)
-    story.append(PageBreak())
     story.append(Paragraph(attribute, styles["Heading1"]))
-    story.append(Spacer(1, 12))
     doc.bookmarkPage(attribute)
+    story.append(Spacer(1, 12))
     
     for name, content in names.items():
       bookmark_name = f"{attribute}_{name}"
-      toc.append(name, doc.page)
       story.append(PageBreak())
       story.append(Paragraph(name, styles["Heading2"]))
-      story.append(Spacer(1, 12))
       doc.bookmarkPage(bookmark_name)
+      story.append(Spacer(1, 12))
       
       image_path = content.get("image")
       if image_path and os.path.exists(image_path):
@@ -52,6 +57,7 @@ def create_pdf(folder_name: str, book_name: str) -> None:
 
       summary = content.get("summary", "")
       story.append(Paragraph(summary, styles["Normal"]))
+      story.append(Spacer(1, 12))
 
       if attribute == "Characters" or attribute == "Settings":
         for trait, chapters in content.items():
@@ -66,9 +72,5 @@ def create_pdf(folder_name: str, book_name: str) -> None:
       else:
         detail_list = [ListItem(Paragraph(detail, styles["Normal"]), bulletType = "1", value = int(chapter)) for chapter, detail in chapters.items()]
         story.append(ListFlowable(detail_list))
-
-  story.insert(2, Paragraph("Table of Contents", styles["Heading1"]))
-  for title, page_num in toc:
-    story.insert(3, Spacer(1, 12))
 
   doc.build(story)
