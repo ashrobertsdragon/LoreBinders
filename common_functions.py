@@ -16,8 +16,8 @@ if not os.path.exists(".replit"):
   load_dotenv()
 api_key = os.environ.get("OPENAI_API_KEY")
 if not api_key:
+  logging.error("OPENAI_API_KEY environment variable not set")
   raise Exception("OPENAI_API_KEY environment variable not set")
-  logging.exception("OPENAI_API_KEY environment variable not set")
 
 OPENAI_CLIENT = OpenAI()
 
