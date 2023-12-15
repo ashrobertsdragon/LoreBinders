@@ -1,6 +1,6 @@
 import json
 import os
-import re
+import time
 
 from tqdm import tqdm
 from typing import Tuple
@@ -267,7 +267,8 @@ def summarize_attributes(folder_name: str) -> None:
         cf.append_json_file(chapter_summaries, chapter_summaries_path)
 
 def analyze_book(user_folder: str, book_name: str):
-
+  start_time = time.time()
+  
   # Prep work before doing the real work
   file_path = f"{user_folder}/{book_name}"
   sub_folder = os.path.basename(file_path).split('.')[0]
@@ -305,4 +306,7 @@ def analyze_book(user_folder: str, book_name: str):
   data_cleaning.data_cleaning(folder_name)
   summarize_attributes(folder_name)
   data_cleaning.final_reshape(folder_name)
-  
+
+  end_time = time.time()
+  run_time = end_time - start_time
+  cf.write_to_file(run_time, "run.txt")
