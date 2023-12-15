@@ -1,9 +1,10 @@
 import json
 import os
 import time
+from typing import Tuple
 
 from tqdm import tqdm
-from typing import Tuple
+
 import common_functions as cf
 import data_cleaning
 
@@ -195,7 +196,6 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
 
   with tqdm(total = num_chapters, unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|") as progress_bar:
     for batch in batched_chapters:
-                                   
       first_chapter_number = batch[0][0] + 1
       last_chapter_number = batch[-1][0] + 1
       progress_bar.set_description(f"\033[92mProcessing batch of chapters: {first_chapter_number}-{last_chapter_number} of {num_chapters}", refresh = True)

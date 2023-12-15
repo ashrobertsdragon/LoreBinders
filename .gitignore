@@ -7,8 +7,8 @@ api_calls.log
 api_counter.json
 
 poetry.lock
-pyproject.toml
 
+.env
 .replit
 replit.nix
 

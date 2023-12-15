@@ -7,23 +7,19 @@ from typing import List, Optional
 
 import tiktoken
 from openai import OpenAI
-from replit import db
-
 
 logging.basicConfig(filename='api_calls.log', level=logging.INFO,
                     format='%(asctime)s %(levelname)s:%(message)s')
 
+if not os.path.exists(".replit"):
+  from dotenv import load_dotenv
+  load_dotenv()
 api_key = os.environ.get("OPENAI_API_KEY")
 if not api_key:
   raise Exception("OPENAI_API_KEY environment variable not set")
   logging.exception("OPENAI_API_KEY environment variable not set")
 
 OPENAI_CLIENT = OpenAI()
-
-if "tokens_used" not in db.keys():
-  db["tokens_used"] = 0
-if "minute" not in db.keys():
-  db["minute"] = time.time()
 
 def append_to_dict_list(dictionary, key, value):
   if key in dictionary:
@@ -193,6 +189,10 @@ def batch_count(chapters: list, role_list: list, model_key: str, max_tokens: int
   Batches the chapters based on token counts and model-specific details.
   """
 
+  rate_limit_data = read_json_file("rate_limit.json") if os.path.exists("rate_limit.json") else {}
+  tokens_used = rate_limit_data.get("tokens_used", 0)
+  minute = rate_limit_data.get("minute", time.time())
+
   token_count = 0
   batch_limit = 20
   batched = []
@@ -200,15 +200,15 @@ def batch_count(chapters: list, role_list: list, model_key: str, max_tokens: int
 
   model_details = get_model_details(model_key)
   context_window = model_details["context_window"]
-  rate_limit = is_rate_limit(model_key) - db["tokens_used"]
+  rate_limit = is_rate_limit(model_key) - rate_limit_data["tokens_used"]
 
-  for chapter_index, (chapter, role_script) in enumerate(zip(chapters, role_list):
+  for chapter_index, (chapter, role_script) in enumerate(zip(chapters, role_list)):
     chapter_token_count = count_tokens(chapter)
     role_count = count_tokens(role_script)
     token_count += chapter_token_count
     total_tokens = token_count + role_count + max_tokens
     if total_tokens < context_window and total_tokens < rate_limit and len(batched_chapters < batch_limit):
-      batch.append((chapter_index, chapter))
+      batched.append((chapter_index, chapter))
     else:
       if batched:
         batched_chapters.append(chapter)
@@ -240,32 +240,33 @@ def error_handle(e, retry_count: int) -> int:
   
   return retry_count
 
-def call_gpt_api(model: str, batched_prompts: List[int], batched_role_scripts: List[str], temperature: float, max_tokens: int, response_type: Optional[str] = None, retry_count: int = 0):
+def call_gpt_api(model: str, batched_prompts: List[int], batched_role_scripts: List[str], temperature: float, max_tokens: int, model_key, response_type: Optional[str] = None, retry_count: int = 0):
   """
   Calls the GPT API with the provided parameters.
   """
+  rate_limit_data = read_json_file("rate_limit.json") if os.path.exists("rate_limit.json") else {}
+  tokens_used = rate_limit_data.get("tokens_used", 0)
+  minute = rate_limit_data.get("minute", time.time())
   
   model_details = get_model_details(model_key)
   model_name = model_details["model_name"]
 
-  input_tokens = sum(count_tokens(prompt) + count_tokens(role_script) for prompt, role_script in batched_prompts, batched_role_scripts in zip(batched_prompts, batched_role_scripts))
+  input_tokens = sum((count_tokens(prompt) + count_tokens(role_script)) for (prompt, role_script) in (batched_prompts, batched_role_scripts) in zip(batched_prompts, batched_role_scripts))
 
-  message_batch = [
+  messages_batch = [
     [
       {"role": "system", "content": role_script},
       {"role": "user", "content": prompt}
-    ] for prompt, role_script in zip(prompts, role_scripts)]
+    ] for prompt, role_script in zip(batched_prompts, batched_role_scripts)]
 
-  timeout = len(message_batch) * 90 # 90 seconds per prompt
+  timeout = len(messages_batch) * 90 # 90 seconds per prompt
 
-  tokens_used = db.get("tokens_used", 0)
-  minute = db.get("minute", time.time())
 
   if time.time() - minute > 60:
     tokens_used = 0
     minute = time.time()
-    db["tokens_used"] = tokens_used
-    db["minute"] = minute
+    rate_limit_data["tokens_used"] = tokens_used
+    rate_limit_data["minute"] = minute
 
 
   rate_limit = is_rate_limit(model)
@@ -277,10 +278,10 @@ def call_gpt_api(model: str, batched_prompts: List[int], batched_role_scripts: L
 
     tokens_used = 0
     minute = time.time()
-    db["tokens_used"] = tokens_used
-    db["minute"] = minute
+    rate_limit_data["tokens_used"] = tokens_used
+    rate_limit_data["minute"] = minute
 
-  response_format = {"type": "json_object"} if response_type == "json": else {"type": "text"}
+  response_format = {"type": "json_object"} if response_type == "json" else {"type": "text"}
 
   try:
     api_start = time.time()
@@ -300,40 +301,40 @@ def call_gpt_api(model: str, batched_prompts: List[int], batched_role_scripts: L
     print(f"API Call Time: {api_minute} minutes and {api_sec} seconds")
 
     batched_contents = [None] * len(batched_prompts)
-    error_list, retry_indices = [], []
+    error_list = []
+    retry_indices = []
     total_tokens = 0
 
     if responses.choices:
+      total_tokens += responses.usage.total_tokens 
       for index, choice in enumerate(responses.choices):
         if choice.finish_reason == "length":
           error_message = f"Response length exceeded the maximum length for prompt {index}"
           error_list.append(error_message)
-          total_tokens += response.usage.total_tokens          
           retry_indices.append[index]
 
         elif choice.message and choice.message.content:
           content = choice.message.content.strip()
-          total_tokens += response.usage.total_tokens
           batched_contents[index] = content
 
         else:
           error_message = f"No response for prompt {index}"
           error_list.append(error_message)     
-          retry_indicies.append(index)
+          retry_indices.append(index)
 
 
-      db["tokens_used"] += total_tokens
+      rate_limit_data["tokens_used"] += total_tokens
       
-      if retry_indicies:
+      if retry_indices:
         retry_prompts = [batched_prompts[i] for i in retry_indices]
         retry_role_scripts = [batched_role_scripts[i] for i in retry_indices]
         
         e = ", ".join(error_list)
         
-        logging.warning(f"Retrying prompts indices: {retry_indicies}. Errors: {e}"
+        logging.warning(f"Retrying prompts indices: {retry_indices}. Errors: {e}")
         retry_count = error_handle(e, retry_count) 
         
-        batched_retries = call_gpt_api(model, bad_response_prompts, bad_response_role_scripts, temperature, max_tokens, response_type, retry_count)
+        batched_retries = call_gpt_api(model, retry_prompts, retry_role_scripts, temperature, max_tokens, response_type, retry_count)
 
         for retry_index, retry_content in zip(retry_indices, batched_retries):
           batched_contents[retry_index] = retry_content
@@ -350,7 +351,7 @@ def call_gpt_api(model: str, batched_prompts: List[int], batched_role_scripts: L
 
     logging.exception(e)
     retry_count = error_handle(e, retry_count)
-    batched_retries = call_gpt_api(model, bad_response_prompts, bad_response_role_scripts, temperature, max_tokens, response_type, retry_count)
+    batched_retries = call_gpt_api(model, retry_prompts, retry_role_scripts, temperature, max_tokens, response_type, retry_count)
     
     for retry_index, retry_content in zip(retry_indices, batched_retries):
       batched_contents[retry_index] = retry_content
