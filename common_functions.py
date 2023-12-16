@@ -27,6 +27,11 @@ def append_to_dict_list(dictionary, key, value):
   else:
       dictionary[key] = [value]
 
+def clear_screen():
+  if os.name == 'nt':
+    os.system('cls')
+  else:
+    os.system('clear')
 
 def read_text_file(file_path):
   
@@ -175,8 +180,6 @@ def is_rate_limit(model_key: str) -> int:
   
   return model_details["rate_limit"]
 
-
-
 def count_tokens(text):
   
   tokenizer = tiktoken.get_encoding("cl100k_base")
@@ -191,7 +194,6 @@ def batch_count(chapters: list, role_list: list, model_key: str, max_tokens: int
 
   rate_limit_data = read_json_file("rate_limit.json") if os.path.exists("rate_limit.json") else {}
   tokens_used = rate_limit_data.get("tokens_used", 0)
-  minute = rate_limit_data.get("minute", time.time())
 
   token_count = 0
   batch_limit = 20
@@ -200,23 +202,23 @@ def batch_count(chapters: list, role_list: list, model_key: str, max_tokens: int
 
   model_details = get_model_details(model_key)
   context_window = model_details["context_window"]
-  rate_limit = is_rate_limit(model_key) - rate_limit_data["tokens_used"]
+  rate_limit = is_rate_limit(model_key) - tokens_used
 
   for chapter_index, (chapter, role_script) in enumerate(zip(chapters, role_list)):
     chapter_token_count = count_tokens(chapter)
     role_count = count_tokens(role_script)
     token_count += chapter_token_count
     total_tokens = token_count + role_count + max_tokens
-    if total_tokens < context_window and total_tokens < rate_limit and len(batched_chapters < batch_limit):
+    if total_tokens < context_window and total_tokens < rate_limit and len(batched_chapters) < batch_limit:
       batched.append((chapter_index, chapter))
     else:
       if batched:
-        batched_chapters.append(chapter)
+        batched_chapters.append(batched)
       batched = [(chapter_index, chapter)]
       token_count = chapter_token_count
 
   if batched:
-    batched_chapters.append(chapter)
+    batched_chapters.append(batched)
 
   
   return batched_chapters
@@ -240,7 +242,7 @@ def error_handle(e, retry_count: int) -> int:
   
   return retry_count
 
-def call_gpt_api(model: str, batched_prompts: List[int], batched_role_scripts: List[str], temperature: float, max_tokens: int, model_key, response_type: Optional[str] = None, retry_count: int = 0):
+def call_gpt_api(model_key: str, batched_prompts: List[str], batched_role_scripts: List[str], temperature: float, max_tokens: int, response_type: Optional[str] = None, retry_count: int = 0):
   """
   Calls the GPT API with the provided parameters.
   """
@@ -251,7 +253,7 @@ def call_gpt_api(model: str, batched_prompts: List[int], batched_role_scripts: L
   model_details = get_model_details(model_key)
   model_name = model_details["model_name"]
 
-  input_tokens = sum((count_tokens(prompt) + count_tokens(role_script)) for (prompt, role_script) in (batched_prompts, batched_role_scripts) in zip(batched_prompts, batched_role_scripts))
+  input_tokens = sum((count_tokens(prompt) + count_tokens(role_script)) for prompt, role_script in zip(batched_prompts, batched_role_scripts))
 
   messages_batch = [
     [
@@ -269,7 +271,7 @@ def call_gpt_api(model: str, batched_prompts: List[int], batched_role_scripts: L
     rate_limit_data["minute"] = minute
 
 
-  rate_limit = is_rate_limit(model)
+  rate_limit = is_rate_limit(model_key)
   if tokens_used + input_tokens + max_tokens > rate_limit:
     logging.warning("Rate limit exceeded")
     sleep_time = 60 - (time.time() - minute)
@@ -334,7 +336,7 @@ def call_gpt_api(model: str, batched_prompts: List[int], batched_role_scripts: L
         logging.warning(f"Retrying prompts indices: {retry_indices}. Errors: {e}")
         retry_count = error_handle(e, retry_count) 
         
-        batched_retries = call_gpt_api(model, retry_prompts, retry_role_scripts, temperature, max_tokens, response_type, retry_count)
+        batched_retries = call_gpt_api(model_key, retry_prompts, retry_role_scripts, temperature, max_tokens, response_type, retry_count)
 
         for retry_index, retry_content in zip(retry_indices, batched_retries):
           batched_contents[retry_index] = retry_content
@@ -351,11 +353,10 @@ def call_gpt_api(model: str, batched_prompts: List[int], batched_role_scripts: L
 
     logging.exception(e)
     retry_count = error_handle(e, retry_count)
-    batched_retries = call_gpt_api(model, retry_prompts, retry_role_scripts, temperature, max_tokens, response_type, retry_count)
+    batched_retries = call_gpt_api(model_key, batched_prompts, batched_role_scripts, temperature, max_tokens, response_type, retry_count)
     
     for retry_index, retry_content in zip(retry_indices, batched_retries):
       batched_contents[retry_index] = retry_content
 
   
   return batched_contents
-    

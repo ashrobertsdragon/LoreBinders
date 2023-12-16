@@ -1,10 +1,9 @@
 import json
 import os
 import time
-from typing import Tuple
 
 from tqdm import tqdm
-
+from typing import Tuple
 import common_functions as cf
 import data_cleaning
 
@@ -75,14 +74,14 @@ def get_attributes(folder_name: str) -> Tuple[str, str]:
 
   cf.write_json_file((role_attributes, custom_attributes), attributes_path)
 
-  os.system("clear")
+  cf.clear_screen()
 
 
   return role_attributes, custom_attributes
 
-def ner_role_script() -> str:
+def ner_role_script(folder_name) -> str:
 
-  role_attributes, custom_attributes = get_attributes()
+  role_attributes, custom_attributes = get_attributes(folder_name)
 
   role_script = f"""You are a script supervisor compiling a list of characters in each scene. For the following selection, determine who are the characters, giving only their name and no other information. Please also determine the settings, both interior (e.g. ship's bridge, classroom, bar) and exterior (e.g. moon, Kastea, Hell's Kitchen).{custom_attributes}.
 If the scene is written in the first person, identify the narrator by their name. Ignore slash characters.
@@ -105,14 +104,14 @@ def search_names(chapters: list, folder_name: str, num_chapters: int, character_
 
   character_lists_path = f"{folder_name}/character_lists.json"
   
-  role_script = ner_role_script()
+  role_script = ner_role_script(folder_name)
   role_list = [role_script]
   
-  model = "gpt_three"
+  model_key = "gpt_three"
   max_tokens = 1000
   temperature = 0.2
 
-  batched_chapters = cf.batch_list(chapters, role_list, model, max_tokens)
+  batched_chapters = cf.batch_count(chapters, role_list, model_key, max_tokens)
 
   with tqdm(total = num_chapters, unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|", position = 0, leave = True) as progress_bar:
     for batch in batched_chapters:
@@ -126,7 +125,7 @@ def search_names(chapters: list, folder_name: str, num_chapters: int, character_
         continue
  
       batched_prompts = [chapter for chapter_index, chapter in batch]
-      batched_character_lists = cf.call_gpt_api(model, batched_prompts, role_script, temperature, max_tokens)
+      batched_character_lists = cf.call_gpt_api(model_key, batched_prompts, role_script, temperature, max_tokens)
 
       for (chapter_index, _), character_list in zip(batch, batched_character_lists):
         chapter_number = chapter_index + 1
@@ -136,7 +135,7 @@ def search_names(chapters: list, folder_name: str, num_chapters: int, character_
 
         progress_bar.update(1)
 
-  os.system("clear")
+  cf.clear_screen()
 
 
   return character_lists
@@ -196,6 +195,7 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
 
   with tqdm(total = num_chapters, unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|") as progress_bar:
     for batch in batched_chapters:
+                                   
       first_chapter_number = batch[0][0] + 1
       last_chapter_number = batch[-1][0] + 1
       progress_bar.set_description(f"\033[92mProcessing batch of chapters: {first_chapter_number}-{last_chapter_number} of {num_chapters}", refresh = True)
@@ -216,7 +216,7 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
       
         progress_bar.update(1)
 
-  os.system("clear")
+  cf.clear_screen()
 
 
   return chapter_summary
