@@ -13,7 +13,6 @@ def initialize_names(chapters: list, folder_name: str) -> Tuple[int, list, int, 
   print(f"\nTotal Chapters: {num_chapters} \n\n")
   character_lists_index = 0
   chapter_summary_index = 0
-
   character_lists_path = os.path.join(folder_name, "character_lists.json")
   chapter_summary_path = os.path.join(folder_name, "chapter_summary.json")
 
@@ -21,25 +20,19 @@ def initialize_names(chapters: list, folder_name: str) -> Tuple[int, list, int, 
     character_lists =  cf.read_json_file(character_lists_path)
     if not isinstance(character_lists, list):
       character_lists = []
-      cf.write_json_file(character_lists, character_lists_path)
   else:
     character_lists = []
-    cf.write_json_file(character_lists, character_lists_path)
     character_lists_index = len(character_lists)
 
   if os.path.exists(chapter_summary_path):
     chapter_summary = cf.read_json_file(chapter_summary_path)
     if not isinstance(chapter_summary, dict):
       chapter_summary = {}
-      cf.write_json_fie(chapter_summary, chapter_summary_path)
   else:
     chapter_summary = {}
-    cf.write_json_file(chapter_summary, chapter_summary_path)
     chapter_summary_index = len(chapter_summary)
-
-
   return num_chapters, character_lists, character_lists_index, chapter_summary, chapter_summary_index
-      
+
 def get_attributes(folder_name: str) -> Tuple[str, str]:
 
   dictionary_attributes_list = [] 
