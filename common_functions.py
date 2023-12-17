@@ -3,7 +3,6 @@ import json
 import os
 import re
 import time
-from typing import List, Optional
 
 import tiktoken
 from openai import OpenAI
@@ -187,51 +186,11 @@ def count_tokens(text):
 
   return len(tokenizer.encode(text))
 
-def batch_count(chapters: list, role_list: list, model_key: str, max_tokens: int) -> list:
-  """
-  Batches the chapters based on token counts and model-specific details.
-  """
-
-  rate_limit_data = read_json_file("rate_limit.json") if os.path.exists("rate_limit.json") else {}
-  tokens_used = rate_limit_data.get("tokens_used", 0)
-
-  token_count = 0
-  batch_limit = 20
-  batched = []
-  batched_chapters = []
-
-  model_details = get_model_details(model_key)
-  context_window = model_details["context_window"]
-  rate_limit = is_rate_limit(model_key) - tokens_used
-
-  for chapter_index, (chapter, role_script) in enumerate(zip(chapters, role_list)):
-    chapter_token_count = count_tokens(chapter)
-    role_count = count_tokens(role_script)
-    token_count += chapter_token_count
-    total_tokens = token_count + role_count + max_tokens
-    if total_tokens < context_window and total_tokens < rate_limit and len(batched_chapters) < batch_limit:
-      batched.append((chapter_index, chapter))
-    else:
-      if batched:
-        batched_chapters.append(batched)
-      batched = [(chapter_index, chapter)]
-      token_count = chapter_token_count
-
-  if batched:
-    batched_chapters.append(batched)
-
-  
-  return batched_chapters
-
-def error_handle(e, retry_count: int) -> int:
-  
-  logging.error(e)
-  max_retries = 10 if e == "missing entries in batched_contents" else 5
-  
+def error_handle(e, retry_count):
   
   retry_count += 1
   
-  if retry_count >= max_retries:
+  if retry_count == 5:
     logging.error("Maximum retry count reached")
     exit()
   else:
@@ -242,26 +201,7 @@ def error_handle(e, retry_count: int) -> int:
   
   return retry_count
 
-def call_gpt_api(model_key: str, batched_prompts: List[str], batched_role_scripts: List[str], temperature: float, max_tokens: int, response_type: Optional[str] = None, retry_count: int = 0):
-  """
-  Calls the GPT API with the provided parameters.
-  """
-  rate_limit_data = read_json_file("rate_limit.json") if os.path.exists("rate_limit.json") else {}
-  tokens_used = rate_limit_data.get("tokens_used", 0)
-  minute = rate_limit_data.get("minute", time.time())
-  
-  model_details = get_model_details(model_key)
-  model_name = model_details["model_name"]
-
-  input_tokens = sum((count_tokens(prompt) + count_tokens(role_script)) for prompt, role_script in zip(batched_prompts, batched_role_scripts))
-
-  messages_batch = [
-    [
-      {"role": "system", "content": role_script},
-      {"role": "user", "content": prompt}
-    ] for prompt, role_script in zip(batched_prompts, batched_role_scripts)]
-
-  timeout = len(messages_batch) * 90 # 90 seconds per prompt
+def call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type = None, retry_count = 0, assistant_message = None):
 
 
   if time.time() - minute > 60:
@@ -272,12 +212,49 @@ def call_gpt_api(model_key: str, batched_prompts: List[str], batched_role_script
 
 
   rate_limit = is_rate_limit(model_key)
+  if model == "gpt-3.5-turbo-1106":
+    rate_limit = 90000
+  elif model == "gpt-4-1106-preview":
+    rate_limit = 300000
+  else:
+    rate_limit = 250000
+
+  input_tokens = count_tokens(prompt) + count_tokens(role_script)
+  
+  messages = [
+      {"role": "system", "content": role_script},
+      {"role": "user", "content": prompt}
+  ]
+
+  if assistant_message:
+    added_prompt = "Please continue from the exact point you left off without any commentary"
+    messages.append({
+      "role": "assistant",
+      "content": assistant_message
+    })
+    messages.append({
+      "role": "user",
+      "content": added_prompt
+    })
+    assistant_length = count_tokens(assistant_message) + count_tokens(added_prompt)
+    input_tokens += assistant_length
+
+  if response_type == "json":
+    response_format = {"type": "json_object"}
+  else:
+    response_format = {"type": "text"}
+
+  call_start = time.time()
+
   if tokens_used + input_tokens + max_tokens > rate_limit:
+
     logging.warning("Rate limit exceeded")
-    sleep_time = 60 - (time.time() - minute)
+    sleep_time = 60 - (call_start - minute)
     logging.info(f"Sleeping {sleep_time} seconds")
     print(f"Rate limit exceeded. Sleeping {sleep_time} seconds")
-
+    time.sleep(sleep_time)
+    minute = time.time()
+    
     tokens_used = 0
     minute = time.time()
     rate_limit_data["tokens_used"] = tokens_used
@@ -288,75 +265,53 @@ def call_gpt_api(model_key: str, batched_prompts: List[str], batched_role_script
   try:
     api_start = time.time()
     
+    response = OPENAI_CLIENT.chat.completions.create(
+      model = model,
+      messages = messages,
     responses = OPENAI_CLIENT.chat.completions.create(
       model = model_name,
       messages = messages_batch,
       temperature = temperature,
       max_tokens = max_tokens,
       response_format = response_format,
-      timeout = timeout
+      timeout = 90
     )
     api_end = time.time()
     api_run = api_end - api_start
-    api_minute = api_run // 60
+    api_minute = api_run / 60
     api_sec = api_run % 60
     print(f"API Call Time: {api_minute} minutes and {api_sec} seconds")
+    if response.choices and response.choices[0].message.content:
+      content = response.choices[0].message.content.strip()
+      tokens = response.usage.total_tokens
+      db["tokens_used"] = tokens_used + tokens
 
-    batched_contents = [None] * len(batched_prompts)
-    error_list = []
-    retry_indices = []
-    total_tokens = 0
-
-    if responses.choices:
-      total_tokens += responses.usage.total_tokens 
-      for index, choice in enumerate(responses.choices):
-        if choice.finish_reason == "length":
-          error_message = f"Response length exceeded the maximum length for prompt {index}"
-          error_list.append(error_message)
-          retry_indices.append[index]
-
-        elif choice.message and choice.message.content:
-          content = choice.message.content.strip()
-          batched_contents[index] = content
-
-        else:
-          error_message = f"No response for prompt {index}"
-          error_list.append(error_message)     
-          retry_indices.append(index)
-
-
-      rate_limit_data["tokens_used"] += total_tokens
-      
-      if retry_indices:
-        retry_prompts = [batched_prompts[i] for i in retry_indices]
-        retry_role_scripts = [batched_role_scripts[i] for i in retry_indices]
-        
-        e = ", ".join(error_list)
-        
-        logging.warning(f"Retrying prompts indices: {retry_indices}. Errors: {e}")
-        retry_count = error_handle(e, retry_count) 
-        
-        batched_retries = call_gpt_api(model_key, retry_prompts, retry_role_scripts, temperature, max_tokens, response_type, retry_count)
-
-        for retry_index, retry_content in zip(retry_indices, batched_retries):
-          batched_contents[retry_index] = retry_content
-          
-      else:
-
-
-        return batched_contents
-          
     else:
       raise Exception("No message content found")
+      logging.error("No message content found")
 
   except Exception as e:
 
     logging.exception(e)
     retry_count = error_handle(e, retry_count)
-    batched_retries = call_gpt_api(model_key, batched_prompts, batched_role_scripts, temperature, max_tokens, response_type, retry_count)
-    
-    for retry_index, retry_content in zip(retry_indices, batched_retries):
-      batched_contents[retry_index] = retry_content
+    call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type, retry_count, assistant_message)
+
+  if assistant_message:
+    answer = assistant_message + content
+    print(answer)
+    check_continue()
+  else:
+    answer = content
+
+  if response.choices[0].finish_reason == "length":
+
+    logging.warning("Max tokens exceeded")
+    print("Max tokens exceeded:")
+    print(answer)
+    check_continue()
+    assistant_message = answer
+    call_gpt_api(model, prompt, role_script,  temperature, max_tokens = 500, response_type = response_type, assistant_message = assistant_message)
 
   
-  return batched_contents
+  return answer 
+                 

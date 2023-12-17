@@ -97,36 +97,27 @@ def search_names(chapters: list, folder_name: str, num_chapters: int, character_
 
   character_lists_path = f"{folder_name}/character_lists.json"
   
-  role_script = ner_role_script(folder_name)
-  role_list = [role_script]
-  
-  model_key = "gpt_three"
+  role_script = ner_role_script()
+  model = "gpt-three"
   max_tokens = 1000
   temperature = 0.2
 
-  batched_chapters = cf.batch_count(chapters, role_list, model_key, max_tokens)
-
   with tqdm(total = num_chapters, unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|", position = 0, leave = True) as progress_bar:
-    for batch in batched_chapters:
+    for chapter_index, chapter in enumerate(chapters):
+      progress_bar.set_description(f"\033[92mProcessing chapter {chapter_index + 1} of {num_chapters}", refresh = True)
       
-      first_chapter_number = batch[0][0] + 1
-      last_chapter_number = batch[-1][0] + 1
-      progress_bar.set_description(f"\033[92mProcessing batch of chapters: {first_chapter_number}-{last_chapter_number} of {num_chapters}", refresh = True)
-      
-      if batch[-1][0] < character_lists_index:
-        progress_bar.update(len(batch))
+      if chapter_index < character_lists_index:
         continue
- 
-      batched_prompts = [chapter for chapter_index, chapter in batch]
-      batched_character_lists = cf.call_gpt_api(model_key, batched_prompts, role_script, temperature, max_tokens)
+        
+      chapter_number = chapter_index + 1
 
-      for (chapter_index, _), character_list in zip(batch, batched_character_lists):
-        chapter_number = chapter_index + 1
-        chapter_tuple = (chapter_number, character_list)
-        character_lists.append(chapter_tuple)
-        cf.append_json_file(chapter_tuple, character_lists_path)
+      prompt = f"Text: {chapter}"
+      character_list = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens)
+      chapter_tuple = (chapter_number, character_list)
+      character_lists.append(chapter_tuple)
+      cf.append_json_file(chapter_tuple, character_lists_path)
 
-        progress_bar.update(1)
+      progress_bar.update(1)
 
   cf.clear_screen()
 
@@ -180,34 +171,24 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
   max_tokens = 2000
   temperature = 0.4
 
-  for i in num_chapters:
-    role_script = character_analysis_role_script(attribute_table, i)
-    role_list.append(role_script)
-
-  batched_chapters = cf.batch_list(chapters, role_list, model, max_tokens)
-
   with tqdm(total = num_chapters, unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|") as progress_bar:
-    for batch in batched_chapters:
-                                   
-      first_chapter_number = batch[0][0] + 1
-      last_chapter_number = batch[-1][0] + 1
-      progress_bar.set_description(f"\033[92mProcessing batch of chapters: {first_chapter_number}-{last_chapter_number} of {num_chapters}", refresh = True)
-
-      if batch[-1][0] < chapter_summary_index:
-        progress_bar.update(len(batch))
+    for i, chapter in enumerate(chapters):
+      if i < chapter_summary_index:
         continue
-
-      batched_prompts = [chapter for chapter_index, chapter in batch]
-      batched_role_scripts = [role_script for chapter_index, role_script in batch]
-
-      batched_attribute_summaries = cf.call_gpt_api(model, batched_prompts, batched_role_scripts, temperature, max_tokens, response_type = "json")
-
-      for (chapter_index, _), attribute_summary in zip(batch, batched_attribute_summaries):
-        chapter_number = chapter_index + 1
-        chapter_summary[chapter_number] = attribute_summary
-        cf.append_json_file(chapter_summary, chapter_summary_path)
+      chapter_number = i + 1
+      progress_bar.set_description(f"\033[92mProcessing Chapter {i + 1}\033[0m", refresh = True)
+      attribute_summary = ""
       
-        progress_bar.update(1)
+      role_script = character_analysis_role_script(attribute_table, chapter_number)
+      prompt = f"Chapter Text: {chapter}"
+      model = "gpt-4-1106-preview"
+
+      attribute_summary = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type = "json")
+
+      chapter_summary[chapter_number] = attribute_summary
+      cf.append_json_file(chapter_summary, chapter_summary_path)
+      
+      progress_bar.update()
 
   cf.clear_screen()
 
