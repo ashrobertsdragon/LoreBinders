@@ -76,19 +76,31 @@ def ner_role_script(folder_name) -> str:
 
   role_attributes, custom_attributes = get_attributes(folder_name)
 
-  role_script = f"""You are a script supervisor compiling a list of characters in each scene. For the following selection, determine who are the characters, giving only their name and no other information. Please also determine the settings, both interior (e.g. ship's bridge, classroom, bar) and exterior (e.g. moon, Kastea, Hell's Kitchen).{custom_attributes}.
-If the scene is written in the first person, identify the narrator by their name. Ignore slash characters.
-Be as brief as possible, using one or two words for each entry, and avoid descriptions. For example, 'On board the Resolve' should be 'Resolve'. 'Debris field of leftover asteroid pieces' should be 'Asteroid debris field'. ' Unmarked section of wall (potentially a hidden door)' should be 'unmarked wall section'
-If you cannot find any mention of a specific attribute in the text, please respond with 'None found' on the same line as the attribute name. If you are unsure of a setting or no setting is shown in the text, please respond with 'None found' on the same line as the word 'Setting'
-Please format the output exactly like this:
-Characters:
-character1
-character2
-character3
-Settings:
-Setting1 (interior)
-Setting2 (exterior)
-{role_attributes}"""
+  role_script = (
+    f"You are a script supervisor compiling a list of characters in each scene. "
+    f"For the following selection, determine who are the characters, giving only "
+    f"their name and no other information. Please also determine the settings, "
+    f"both interior (e.g. ship's bridge, classroom, bar) and exterior (e.g. moon, "
+    f"Kastea, Hell's Kitchen).{custom_attributes}.\n"
+    f"If the scene is written in the first person, identify the narrator by their name.\n"
+    f"Be as brief as possible, using one or two words for each entry, and avoid "
+    f"descriptions. For example, 'On board the Resolve' should be 'Resolve'. 'Debris "
+    f"field of leftover asteroid pieces' should be 'Asteroid debris field'. 'Unmarked "
+    f"section of wall (potentially a hidden door)' should be 'unmarked wall section'\n"
+    f"If you cannot find any mention of a specific attribute in the text, please "
+    f"respond with 'None found' on the same line as the attribute name. If you are "
+    f"unsure of a setting or no setting is shown in the text, please respond with "
+    f"'None found' on the same line as the word 'Setting'\n"
+    f"Please format the output exactly like this:\n"
+    f"Characters:\n"
+    f"character1\n"
+    f"character2\n"
+    f"character3\n"
+    f"Settings:\n"
+    f"Setting1 (interior)\n"
+    f"Setting2 (exterior)\n"
+    f"{role_attributes}"
+)
 
 
   return role_script
@@ -98,7 +110,7 @@ def search_names(chapters: list, folder_name: str, num_chapters: int, character_
   character_lists_path = f"{folder_name}/character_lists.json"
   
   role_script = ner_role_script()
-  model = "gpt-three"
+  model = "gpt_three"
   max_tokens = 1000
   temperature = 0.2
 
@@ -107,6 +119,7 @@ def search_names(chapters: list, folder_name: str, num_chapters: int, character_
       progress_bar.set_description(f"\033[92mProcessing chapter {chapter_index + 1} of {num_chapters}", refresh = True)
       
       if chapter_index < character_lists_index:
+        progress_bar.update(1)
         continue
         
       chapter_number = chapter_index + 1
@@ -128,12 +141,16 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: int) -
   
   instructions = (
     'You are a developmental editor helping create a story bible. '
-    'For each character in the chapter, note their appearance, personality, mood, relationships with other characters, '
-    'known or apparent sexuality. Be detailed but concise.\n'
-    'For each location in the chapter, note how the location is described, where it is in relation to other locations '
-    'and whether the characters appear to be familiar or unfamiliar with the location. Be detailed but concise.\n'
-    'If you cannot find any mention of a specific attribute in the text, please respond with "None found". '
-    'If you are unsure of a setting or no setting is shown in the text, please respond with "None found". '
+    'For each character in the chapter, note their appearance, personality, '
+    ' mood, relationships with other characters, known or apparent sexuality. '
+    'Be detailed but concise.\n'
+    'For each location in the chapter, note how the location is described, where '
+    'it is in relation to other locations and whether the characters appear to be '
+    'familiar or unfamiliar with the location. Be detailed but concise.\n'
+    'If you cannot find any mention of a specific attribute in the text, please '
+    'respond with "None found". '
+    'If you are unsure of a setting or no setting is shown in the text, please '
+    'respond with "None found".\n'
     'You will provide this information in the following JSON schema:'
   )
 
@@ -201,12 +218,11 @@ def summarize_attributes(folder_name: str) -> None:
   """
 
   prompt_list = []
-  role_list = []
   
   chapter_summaries_path = f"{folder_name}/chapter_summaries.json"
   chapter_summaries = cf.load_json_file(chapter_summaries_path)
 
-  model = "gpt_three"
+  model_key = "gpt_three"
   temperature = 0.4
   max_tokens = 200
 
@@ -220,20 +236,11 @@ def summarize_attributes(folder_name: str) -> None:
 
         prompt_list.append(description)
         role_script = f"You are an expert summarizer. For the following {attribute}, please summarize the description over the course of the story."
-        role_list.append(role_script)
-
-  batched_names = cf.batch_count(prompt_list, role_list, model, max_tokens)
 
   with tqdm(total = len(prompt_list), unit = "Prompt", ncols = 40) as progress_bar:
-    for batch in batched_names:
-      first_name = batch[0][1]
-      last_name = batch[-1][1]
-      progress_bar.set_description(f"\033[92mProcessing batch of names: {first_name}-{last_name}", refresh = True)
-
-      batched_prompts = [name for name_index, name in batch]
-      batched_role_scripts = [role_script for name_index, role_script in batch]
-      
-      batched_summaries = cf.call_gpt_api(model, batched_prompts, batched_role_scripts, temperature, max_tokens)
+    for i, prompt in enumerate(prompt_list):
+      progress_bar.set_description(f"\033[92mProcessing attriribute {i+1} of {len(prompt_list)}", refresh = True)      
+      summary = cf.call_gpt_api(model_key, prompt, role_script, temperature, max_tokens)
       
       for (name_index, _), summary in zip(batch, batched_summaries):
         name = batch[name_index[0]][1]
