@@ -71,15 +71,13 @@ def write_json_file(content, file_path: str):
 def append_json_file(content, file_path: str):
   if os.path.exists(file_path):
       read_file = read_json_file(file_path)
-      print(f"{file_path} exists")
   else:
-      read_file = [] if isinstance(content, list) else {}
+      read_file = {} if isinstance(content, dict) else []
   if isinstance(read_file, list):
       read_file.append(content)
   elif isinstance(read_file, dict) and isinstance(content, dict):
       read_file.update(content)
   write_json_file(read_file, file_path)
-  return
 
 def check_continue():
   continue_program = ""
@@ -203,7 +201,7 @@ def call_gpt_api(model_key, prompt, role_script, temperature, max_tokens, respon
     )
     api_end = time.time()
     api_run = api_end - api_start
-    api_minute = api_run / 60
+    api_minute = api_run // 60
     api_sec = api_run % 60
     print(f"API Call Time: {api_minute} minutes and {api_sec} seconds")
     if response.choices and response.choices[0].message.content:
@@ -231,7 +229,6 @@ def call_gpt_api(model_key, prompt, role_script, temperature, max_tokens, respon
     logging.warning("Max tokens exceeded")
     print("Max tokens exceeded:")
     print(answer)
-    check_continue()
     assistant_message = answer
-    call_gpt_api(model_key, prompt, role_script,  temperature, max_tokens = 500, response_type = response_type, assistant_message = assistant_message)
+    answer = call_gpt_api(model_key, prompt, role_script,  temperature, max_tokens = 500, response_type = response_type, assistant_message = assistant_message)
   return answer

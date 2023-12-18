@@ -101,7 +101,7 @@ def ner_role_script(folder_name) -> str:
 def search_names(chapters: list, folder_name: str, num_chapters: int, character_lists: list, character_lists_index: int) -> list:
 
   character_lists_path = f"{folder_name}/character_lists.json"
-  role_script = ner_role_script()
+  role_script = ner_role_script(folder_name)
   model = "gpt_three"
   max_tokens = 1000
   temperature = 0.2
@@ -175,7 +175,7 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
       prompt = f"Chapter Text: {chapter}"
       attribute_summary = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type = "json")
       chapter_summary[chapter_number] = attribute_summary
-      cf.append_json_file(chapter_summary, chapter_summary_path)
+      cf.write_json_file(chapter_summary, chapter_summary_path)
       progress_bar.update()
   cf.clear_screen()
   return chapter_summary
