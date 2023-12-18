@@ -188,7 +188,7 @@ def summarize_attributes(folder_name: str) -> None:
   prompt_list = []
 
   chapter_summaries_path = f"{folder_name}/chapter_summaries.json"
-  chapter_summaries = cf.load_json_file(chapter_summaries_path)
+  chapter_summaries = cf.read_json_file(chapter_summaries_path)
 
   model_key = "gpt_three"
   temperature = 0.4
