@@ -13,5 +13,6 @@ poetry.lock
 replit.nix
 
 users/*
+rate_limit_data.json
 
 .breakpoints
