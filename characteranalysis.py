@@ -136,7 +136,7 @@ def calculate_max_tokens(chapter_data: dict) -> int:
   return (num_characters * tokens_per_character +
           num_settings * tokens_per_setting +
           num_others * tokens_per_other)
-def character_analysis_role_script(attribute_table: dict, chapter_number: int) -> str:
+def character_analysis_role_script(attribute_table: dict, chapter_number: str) -> str:
 
   chapter_data = attribute_table.get(chapter_number, {})
   characters = chapter_data.get("Characters", [])
@@ -153,8 +153,8 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: int) -
     } for setting_name in settings
   }
   other_attribute_schema = {
-    key: {value: "description" for value in values}
-    for key, values in chapter_data.items() if key not in ["Characters", "Settings"]
+    key: "description" for key in chapter_data.items() 
+    if key not in ["Characters", "Settings"]
   }
   attributes_json = json.dumps({
     "Characters": character_schema, "Settings": settings_schema,
@@ -166,6 +166,8 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: int) -
       if attribute in ["Characters", "Settings"]:
         continue
       other_attribute_instructions = f"Provide any known information about {attribute}\n"
+  else:
+    other_attribute_instructions = ""
 
   instructions = (
   'You are a developmental editor helping create a story bible. '
@@ -198,9 +200,10 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
       if i < chapter_summary_index:
         continue
       chapter_number = i + 1
+
       progress_bar.set_description(f"\033[92mProcessing Chapter {i + 1}\033[0m", refresh = True)
       attribute_summary = ""
-      role_script, max_tokens = character_analysis_role_script(attribute_table, chapter_number)
+      role_script, max_tokens = character_analysis_role_script(attribute_table, str(chapter_number))
       cf.append_json_file(role_script, role_script_path)
       prompt = f"Chapter Text: {chapter}"
       cf.check_continue()
