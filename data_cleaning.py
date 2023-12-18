@@ -1,4 +1,5 @@
 import json
+import os
 import re
 
 import common_functions as cf
@@ -144,7 +145,7 @@ def final_reshape(folder_name: str) -> None:
   """
 
   reshaped_data = {}
-  dictionary = cf.read_json_file(f"{folder_name}/chapter_summaries.json")
+  dictionary = cf.read_json_file(os.path.join(folder_name, "chapter_summaries.json"))
   for attribute, names in dictionary.items():
     if attribute != "Characters" and attribute != "Settings":
       continue
@@ -156,7 +157,7 @@ def final_reshape(folder_name: str) -> None:
           if trait not in reshaped_data[name]:
             reshaped_data[name][trait] = {}
           reshaped_data[name][trait][chapter] = detail
-  cf.write_json_file(reshaped_data, f"{folder_name}/chapter_summaries.json")
+  cf.write_json_file(reshaped_data, os.path.join(folder_name, "chapter_summaries.json"))
 
 def to_singular(plural: str) -> str:
   """
@@ -293,7 +294,7 @@ def data_cleaning(folder_name: str):
   Cleans the json data and writes it to a new file, reshapes the dictionary to demote chapter numbers inside of attribute names, and merges duplicate keys
   """
   
-  chapter_summaries = cf.read_json_file(f"{folder_name}/chapter_summary.json")
+  chapter_summaries = cf.read_json_file(os.path.join(folder_name, "chapter_summary.json"))
   print("json read")
 
   cleaned_json = de_string_json(chapter_summaries)
@@ -303,6 +304,6 @@ def data_cleaning(folder_name: str):
   print("reshaped")
   dedpulicated_dictionary = deduplicate_keys(reshaped_data)
   print("dedpulicated")
-  cf.write_json_file(dedpulicated_dictionary, f"{folder_name}/chapter_summaries.json")
+  cf.write_json_file(dedpulicated_dictionary, os.path.join(folder_name, "chapter_summaries.json"))
   print("new json file written")
   

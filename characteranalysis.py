@@ -11,7 +11,7 @@ def initialize_names(chapters: list, folder_name: str) -> Tuple[int, list, int, 
 
   num_chapters = len(chapters)
   print(f"\nTotal Chapters: {num_chapters} \n\n")
-  print(folder_name)
+
   character_lists_index = 0
   chapter_summary_index = 0
   character_lists_path = os.path.join(folder_name, "character_lists.json")
@@ -32,14 +32,13 @@ def initialize_names(chapters: list, folder_name: str) -> Tuple[int, list, int, 
   else:
     chapter_summary = {}
   chapter_summary_index = len(chapter_summary)
-  cf.check_continue()
   return num_chapters, character_lists, character_lists_index, chapter_summary, chapter_summary_index
 
 def get_attributes(folder_name: str) -> Tuple[str, str]:
 
   dictionary_attributes_list = [] 
   attribute_strings = []
-  attributes_path = f"{folder_name}/attributes.json"
+  attributes_path = os.path.join(folder_name, "attributes.json")
   if os.path.exists(attributes_path):
     role_attributes, custom_attributes = cf.read_json_file(attributes_path)
     return role_attributes, custom_attributes
@@ -102,7 +101,7 @@ def ner_role_script(folder_name) -> str:
 
 def search_names(chapters: list, folder_name: str, num_chapters: int, character_lists: list, character_lists_index: int) -> list:
 
-  character_lists_path = f"{folder_name}/character_lists.json"
+  character_lists_path = os.path.join(folder_name, "character_lists.json")
   role_script = ner_role_script(folder_name)
   model = "gpt_three"
   max_tokens = 1000
@@ -158,10 +157,10 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: int) -
     for key, values in chapter_data.items() if key not in ["Characters", "Settings"]
   }
   attributes_json = json.dumps({
-    "Characters": character_schema, "Settings": settings_schema
+    "Characters": character_schema, "Settings": settings_schema,
     **other_attribute_schema
   })
-  
+
   if other_attribute_schema:
     for attribute in chapter_data.items():
       if attribute in ["Characters", "Settings"]:
@@ -189,8 +188,8 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: int) -
 
 def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, num_chapters: int, chapter_summary: dict, chapter_summary_index: int) -> dict:
 
-  chapter_summary_path = os.join.path(folder_name, "chapter_summary.json")
-  role_script_path = os.join.path(folder_name, "role_script.json")
+  chapter_summary_path = os.path.join(folder_name, "chapter_summary.json")
+  role_script_path = os.path.join(folder_name, "role_script.json")
   model = "gpt_four"
   temperature = 0.4
 
@@ -204,6 +203,7 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
       role_script, max_tokens = character_analysis_role_script(attribute_table, chapter_number)
       cf.append_json_file(role_script, role_script_path)
       prompt = f"Chapter Text: {chapter}"
+      cf.check_continue()
       attribute_summary = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type = "json")
       chapter_summary[chapter_number] = attribute_summary
       cf.append_json_file(attribute_summary, chapter_summary_path)
@@ -218,7 +218,7 @@ def summarize_attributes(folder_name: str) -> None:
 
   prompt_list = []
 
-  chapter_summaries_path = f"{folder_name}/chapter_summaries.json"
+  chapter_summaries_path = os.path.join(folder_name, "chapter_summaries.json")
   chapter_summaries = cf.read_json_file(chapter_summaries_path)
 
   model_key = "gpt_three"
@@ -263,7 +263,7 @@ def analyze_book(user_folder: str, book_name: str):
     character_lists = search_names(chapters, folder_name, num_chapters, character_lists, character_lists_index)
   else:
     print("Character lists complete")
-    character_lists = cf.read_json_file(f"{folder_name}/character_lists.json")
+    character_lists = cf.read_json_file(os.path.join(folder_name, "character_lists.json"))
 
   attribute_table_path = os.path.join(folder_name, "attribute_table.json")
   if not os.path.exists(attribute_table_path):

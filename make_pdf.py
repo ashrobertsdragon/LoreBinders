@@ -18,8 +18,8 @@ def create_pdf(folder_name: str, book_name: str) -> None:
 
   story = []
 
-  input_path = f"{folder_name}/chapter_summaries.json"
-  output_path = f"{folder_name}/{book_name}.pdf"
+  input_path = os.path.join(folder_name, "chapter_summaries.json")
+  output_path = os.path.join(folder_name, f"{book_name}.pdf")
 
   folder_split = folder_name.split('/')
   user_name = folder_split[0]

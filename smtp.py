@@ -30,10 +30,10 @@ def send_mail(folder_name: str, book_name: str, user_email: str) -> None:
   password = os.environ['mailPassword']
   username = os.environ['mailUsername']
 
-  server = "server310.web-hosting.com"
+  server = "prosepal.io"
   port = 465
 
-  file_path = f"{folder_name}/{book_name}.pdf"
+  file_path = os.path.join(folder_name, f"{book_name}.pdf")
 
   email_body = get_email_body()
 
