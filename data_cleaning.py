@@ -15,26 +15,19 @@ def compare_names(inner_values: list, name_map: dict) -> list:
 
     for j, value_j in enumerate(inner_values):
       if i != j and value_i != value_j and not value_i.endswith(")") and not value_j.endswith(")") and (value_i.startswith(value_j) or value_i.endswith(value_j)):
-
         value_j_split = value_j.split()
         if value_j_split[0] in titles:
           value_j = ' '.join(value_j_split[1:])
-
           if value_i in value_j or value_j in value_i:
             if value_i.endswith('s') and not value_j.endswith('s'):
               value_i = value_i[:-1]
             elif value_j.endswith('s') and not value_i.endswith('s'):
               value_j = value_j[:-1]
-
           shorter_value, longer_value = sorted([value_i, value_j], key = len)
           name_map.setdefault(shorter_value, longer_value)
           name_map.setdefault(longer_value, longer_value)
-
   standardized_names = [name_map.get(name, name) for name in inner_values]
-  inner_values = list(dict.fromkeys(standardized_names))
-
-
-  return inner_values
+  return list(dict.fromkeys(standardized_names))
 
 def sort_names(character_lists: list) -> dict:
 
@@ -49,9 +42,8 @@ def sort_names(character_lists: list) -> dict:
   missing_newline_before_pattern = re.compile(r"(?<=\w)(?=[A-Z][a-z]*:)")
   missing_newline_between_pattern = re.compile(r"(\w+ \(\w+\))\s+(\w+)")
   missing_newline_after_pattern = re.compile(r"(?<=\w):\s*(?=\w)")
-
   junk_lines = ["additional", "note", "none"]
-  stop_words = ["mentioned", "unknown", "he", "they", "she", "we", "it", "boy", "girl", "main", "him", "her", "narrator", "I", "</s>", "a"]
+  stop_words = ["mentioned", "unknown", "he", "they", "she", "we", "it", "boy", "girl", "main", "him", "her", "I", "</s>", "a"]
 
   for chapter_index, proto_dict in character_lists:
     if chapter_index not in parse_tuples:
@@ -65,67 +57,52 @@ def sort_names(character_lists: list) -> dict:
     inner_dict = {}
     attribute_name = None
     inner_values = []
-
     lines = proto_dict.split("\n")
 
     i = 0
     while i < len(lines):
-
       line = lines[i]
       line = list_formatting_pattern.sub("", line)
       line = re.sub(r'(interior|exterior)', lambda m: m.group().lower(), line, flags=re.IGNORECASE)
-
       if line.startswith("interior:") or line.startswith("exterior:"):
-
         prefix, places = line.split(":", 1)
         setting = "(interior)" if prefix == "interior" else "(exterior)"
         split_lines = [f"{place.strip()} {setting}" for place in places.split(",")]
         lines[i:i + 1] = split_lines
         continue
-
       line = inverted_setting_pattern.sub(r"\2 (\1)", line)
-
       if ", " in line:
         comma_split = line.split(", ")
         lines[i:i + 1] = comma_split
         continue
-
       added_newline = missing_newline_before_pattern.sub("\n", line)
       if added_newline != line:
         added_newlines = added_newline.split("\n")
         lines[i: i + 1] = added_newlines
         continue
-
       added_newline = missing_newline_between_pattern.sub(r"\1\n\2", line)
       if added_newline != line:
         added_newlines = added_newline.split("\n")
         lines[i: i + 1] = added_newlines
         continue
-
       added_newline = missing_newline_after_pattern.sub(":\n", line)
       if added_newline != line:
         added_newlines = added_newline.split("\n")
         lines[i: i + 1] = added_newlines
         continue
-
       line = leading_colon_pattern.sub("", line)
       line = line.strip()
-
       if line == "":
         i += 1
         continue
-
       if line.lower() in [word.lower() for word in stop_words]:
           i += 1
           continue
-
       if any(junk in line.lower() for junk in junk_lines):
         i += 1
         continue
-
       if line.count("(") != line.count(")"):
         line.replace("(", "").replace(")", "")
-
       line = character_info_pattern.sub("", line)
 
       #Remaining lines ending with a colon are attribute names and lines following belong in a list for that attribute
@@ -151,16 +128,12 @@ def sort_names(character_lists: list) -> dict:
         inner_values = compare_names(inner_values, name_map)
         attribute_table[chapter_index][attribute_name] = inner_values
       inner_values = []
-
   # Remove empty attribute_name keys
   for chapter_index in list(attribute_table.keys()):
     for attribute_name, inner_values in list(attribute_table[chapter_index].items()):
       if not inner_values:
         del attribute_table[chapter_index][attribute_name]
-
-
   return attribute_table
-
 
 def final_reshape(folder_name: str) -> None:
   """
@@ -171,36 +144,29 @@ def final_reshape(folder_name: str) -> None:
   """
 
   reshaped_data = {}
-
   dictionary = cf.read_json_file(f"{folder_name}/chapter_summaries.json")
-
   for attribute, names in dictionary.items():
     if attribute != "Characters" and attribute != "Settings":
       continue
-
     for name, chapters in names.items():
       if name not in reshaped_data:
         reshaped_data[name] = {}
-
       for chapter, traits in chapters.items():
         for trait, detail in traits.items():
           if trait not in reshaped_data[name]:
             reshaped_data[name][trait] = {}
-
           reshaped_data[name][trait][chapter] = detail
-
   cf.write_json_file(reshaped_data, f"{folder_name}/chapter_summaries.json")
-
 
 def to_singular(plural: str) -> str:
   """
-    Converts a plural word to its singular form based on common English pluralization rules.
+  Converts a plural word to its singular form based on common English pluralization rules.
     
-    Argument:
+  Argument:
     plural: A string representing the plural form of a word.
     
-    Returns the singular form of the given word if a pattern matches, otherwise the original word.
-    """
+  Returns the singular form of the given word if a pattern matches, otherwise the original word.
+  """
     
   patterns = {
     r'(\w+)(ves)$': r'\1f',
@@ -219,11 +185,7 @@ def to_singular(plural: str) -> str:
   for pattern, repl in patterns.items():
     singular = re.sub(pattern, repl, plural)
     if plural != singular:
-
-
       return singular
-
-
     return plural 
 
 def merge_values(value1, value2):
@@ -241,31 +203,19 @@ def merge_values(value1, value2):
       if k in value1:
         value1[k] = merge_values(value1[k], v)
       else:
-        value1[k] = v
-        
+        value1[k] = v  
   elif isinstance(value1, list) and isinstance(value2, list):
     value1.extend(value2)
-
   elif isinstance(value1, dict):
     for key in value1:
       if key == value2:
-
-
         return value1
-
     value1["Also"] = value2
-    
   elif isinstance(value2, list):
     value2.append(value1)
-
-
     return value2
-    
   else:
-
-
     return [value1, value2]
-
   return value1
     
 def deduplicate_keys(dictionary:dict) -> dict:
@@ -275,8 +225,8 @@ def deduplicate_keys(dictionary:dict) -> dict:
   Arguments:
     dictionary: The dictionary to deduplicate.
   
-   Returns the deduplicated dictionary.
-    """
+  Returns the deduplicated dictionary.
+  """
 
   duplicate_keys = []
 
