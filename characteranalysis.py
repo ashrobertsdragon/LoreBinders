@@ -213,14 +213,14 @@ def summarize_attributes(folder_name: str) -> None:
   cf.append_json_file(chapter_summaries, chapter_summaries_path)
 
 def analyze_book(user_folder: str, book_name: str):
+
   start_time = time.time()
 
   # Prep work before doing the real work
-  file_path = f"{user_folder}/{book_name}"
-  sub_folder = os.path.basename(file_path).split('.')[0]
-  folder_name = f"{user_folder}/{sub_folder}"
+  file_path = os.path.join(user_folder, book_name)
+  sub_folder = os.path.basename(book_name).split('.')[0]
+  folder_name = os.path.join(user_folder, sub_folder)
   os.makedirs(folder_name, exist_ok = True)
-
   full_text = cf.read_text_file(file_path)
   chapters = cf.separate_into_chapters(full_text)
 
