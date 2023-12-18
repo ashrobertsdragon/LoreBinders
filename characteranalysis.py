@@ -11,6 +11,7 @@ def initialize_names(chapters: list, folder_name: str) -> Tuple[int, list, int, 
 
   num_chapters = len(chapters)
   print(f"\nTotal Chapters: {num_chapters} \n\n")
+  print(folder_name)
   character_lists_index = 0
   chapter_summary_index = 0
   character_lists_path = os.path.join(folder_name, "character_lists.json")
@@ -22,7 +23,7 @@ def initialize_names(chapters: list, folder_name: str) -> Tuple[int, list, int, 
       character_lists = []
   else:
     character_lists = []
-    character_lists_index = len(character_lists)
+  character_lists_index = len(character_lists)
 
   if os.path.exists(chapter_summary_path):
     chapter_summary = cf.read_json_file(chapter_summary_path)
@@ -30,7 +31,8 @@ def initialize_names(chapters: list, folder_name: str) -> Tuple[int, list, int, 
       chapter_summary = {}
   else:
     chapter_summary = {}
-    chapter_summary_index = len(chapter_summary)
+  chapter_summary_index = len(chapter_summary)
+  cf.check_continue()
   return num_chapters, character_lists, character_lists_index, chapter_summary, chapter_summary_index
 
 def get_attributes(folder_name: str) -> Tuple[str, str]:
@@ -175,7 +177,7 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
       prompt = f"Chapter Text: {chapter}"
       attribute_summary = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type = "json")
       chapter_summary[chapter_number] = attribute_summary
-      cf.write_json_file(chapter_summary, chapter_summary_path)
+      cf.append_json_file(attribute_summary, chapter_summary_path)
       progress_bar.update()
   cf.clear_screen()
   return chapter_summary
