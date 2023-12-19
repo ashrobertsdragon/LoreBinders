@@ -27,10 +27,10 @@ def initialize_names(chapters: list, folder_name: str) -> Tuple[int, list, int, 
 
   if os.path.exists(chapter_summary_path):
     chapter_summary = cf.read_json_file(chapter_summary_path)
-    if not isinstance(chapter_summary, dict):
-      chapter_summary = {}
+    if not isinstance(chapter_summary, list):
+      chapter_summary = []
   else:
-    chapter_summary = {}
+    chapter_summary = []
   chapter_summary_index = len(chapter_summary)
   return num_chapters, character_lists, character_lists_index, chapter_summary, chapter_summary_index
 
@@ -128,9 +128,9 @@ def search_names(chapters: list, folder_name: str, num_chapters: int, character_
 
 def calculate_max_tokens(chapter_data: dict) -> int:
 
-  tokens_per_character = 125
-  tokens_per_setting = 100
-  tokens_per_other = 50
+  tokens_per_character = 200
+  tokens_per_setting = 150
+  tokens_per_other = 100
 
   num_characters = len(chapter_data.get("Characters", []))
   num_settings = len(chapter_data.get("Settings", []))
@@ -156,8 +156,8 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
     } for setting_name in settings
   }
   other_attribute_schema = {
-    key: "description" for key, value in chapter_data.items() 
-    if key not in ["Characters", "Settings"]
+    key: {value: "description" for value in values} for key, values in 
+    chapter_data.items() if key not in ["Characters", "Settings"]
   }
   attributes_json = json.dumps({
     "Characters": character_schema, "Settings": settings_schema,
@@ -165,19 +165,24 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
   })
 
   if other_attribute_schema:
-    other_attribute_list = [attribute for attribute, _ in chapter_data.items() 
-                            if attribute not in ["Characters", "Settings"]]
-    other_attribute_instructions = ("Provide any known information about "
-                                    + ",".join(other_attribute_list) + "\n")
+    other_attribute_list = []
+    for attribute, values in chapter_data.items():
+      if attribute not in ["Characters", "Settings"]:
+          values_str = ", ".join(values)  # Joining all values into a single string
+          attribute_description = f"{attribute} ({values_str})"
+          other_attribute_list.append(attribute_description)
+    other_attribute_instructions = ('Provide descriptons of ' +
+                                    '; '.join(other_attribute_list) + 'without '
+                                    ' referenceing specific characters or plot points\n')
   else:
     other_attribute_instructions = ""
+
 
   instructions = (
     f'You are a developmental editor helping create a story bible. '
     f'For each character in the chapter, note their appearance, personality, '
     f'mood, relationships with other characters, known or apparent sexuality. If '
-    f'"Narrator" is listed as a character, use the name of the narrator instead. Be '
-    f'detailed but concise.\n'
+    f'"Narrator" is listed as a character, use the name of the narrator instead.\n'
     f'For each location in the chapter, note how the location is described, where '
     f'it is in relation to other locations and whether the characters appear to be '
     f'familiar or unfamiliar with the location. Be detailed but concise.\n'
@@ -186,8 +191,10 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
     f'If you are unsure of a setting or no setting is shown in the text, please '
     f'respond with "None found".\n'
     f'{other_attribute_instructions}'
-    f'If something appears to be miscatagorized, please put it under the correct '
-    f'attribute.'
+    f'Be detailed but concise, using short phrases instead of sentences. You do not '
+    f'need to justrify your reasoning. Only one attribute per line, just like in the '
+    f'schema below. If something appears to be miscatagorized, please put it under '
+    f'the correct attribute.'
     f'You will provide this information in the following JSON schema:'
   )
   role_script = f'{instructions}\n\n{attributes_json}'
@@ -211,6 +218,7 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
       attribute_summary = ""
       role_script, max_tokens = character_analysis_role_script(attribute_table, str(chapter_number))
       cf.append_json_file(role_script, role_script_path)
+      print(max_tokens)
       prompt = f"Chapter Text: {chapter}"
       attribute_summary = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type = "json")
       chapter_summary[chapter_number] = attribute_summary
