@@ -156,7 +156,7 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
     } for setting_name in settings
   }
   other_attribute_schema = {
-    key: "description" for key in chapter_data.items() 
+    key: "description" for key, value in chapter_data.items() 
     if key not in ["Characters", "Settings"]
   }
   attributes_json = json.dumps({
@@ -165,11 +165,8 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
   })
 
   if other_attribute_schema:
-    other_attribute_list = []
-    for attribute in chapter_data.items():
-      if attribute in ["Characters", "Settings"]:
-        continue
-      other_attribute_list.append(attribute)
+    other_attribute_list = [attribute for attribute, _ in chapter_data.items() 
+                            if attribute not in ["Characters", "Settings"]]
     other_attribute_instructions = ("Provide any known information about "
                                     + ",".join(other_attribute_list) + "\n")
   else:
