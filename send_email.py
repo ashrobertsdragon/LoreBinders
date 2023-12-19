@@ -6,6 +6,10 @@ from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 
+if not os.path.exists(".replit"):
+  from dotenv import load_dotenv
+  load_dotenv()
+
 def get_email_body() -> str:
   """
   Reads the contents of an html file and returns it as the email body text.

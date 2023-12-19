@@ -78,11 +78,14 @@ def ner_role_script(folder_name) -> str:
     f"their name and no other information. Please also determine the settings, "
     f"both interior (e.g. ship's bridge, classroom, bar) and exterior (e.g. moon, "
     f"Kastea, Hell's Kitchen).{custom_attributes}.\n"
-    f"If the scene is written in the first person, identify the narrator by their name.\n"
+    f"If the scene is written in the first person, try to identify the narrator by "
+    f"their name. If you can't determine the narrator's identity. List 'Narrator' as "
+    f"a character.\n"
     f"Be as brief as possible, using one or two words for each entry, and avoid "
     f"descriptions. For example, 'On board the Resolve' should be 'Resolve'. 'Debris "
     f"field of leftover asteroid pieces' should be 'Asteroid debris field'. 'Unmarked "
-    f"section of wall (potentially a hidden door)' should be 'unmarked wall section'\n"
+    f"section of wall (potentially a hidden door)' should be 'unmarked wall section' "
+    f"Do not use these examples unless they actually appear in the text.\n"
     f"If you cannot find any mention of a specific attribute in the text, please "
     f"respond with 'None found' on the same line as the attribute name. If you are "
     f"unsure of a setting or no setting is shown in the text, please respond with "
@@ -162,27 +165,33 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
   })
 
   if other_attribute_schema:
+    other_attribute_list = []
     for attribute in chapter_data.items():
       if attribute in ["Characters", "Settings"]:
         continue
-      other_attribute_instructions = f"Provide any known information about {attribute}\n"
+      other_attribute_list.append(attribute)
+    other_attribute_instructions = ("Provide any known information about "
+                                    + ",".join(other_attribute_list) + "\n")
   else:
     other_attribute_instructions = ""
 
   instructions = (
-  'You are a developmental editor helping create a story bible. '
-  'For each character in the chapter, note their appearance, personality, '
-  ' mood, relationships with other characters, known or apparent sexuality. '
-  'Be detailed but concise.\n'
-  'For each location in the chapter, note how the location is described, where '
-  'it is in relation to other locations and whether the characters appear to be '
-  'familiar or unfamiliar with the location. Be detailed but concise.\n'
-  'If you cannot find any mention of a specific attribute in the text, please '
-  'respond with "None found". '
-  'If you are unsure of a setting or no setting is shown in the text, please '
-  'respond with "None found".\n'
-  f'{other_attribute_instructions}'
-  'You will provide this information in the following JSON schema:'
+    f'You are a developmental editor helping create a story bible. '
+    f'For each character in the chapter, note their appearance, personality, '
+    f'mood, relationships with other characters, known or apparent sexuality. If '
+    f'"Narrator" is listed as a character, use the name of the narrator instead. Be '
+    f'detailed but concise.\n'
+    f'For each location in the chapter, note how the location is described, where '
+    f'it is in relation to other locations and whether the characters appear to be '
+    f'familiar or unfamiliar with the location. Be detailed but concise.\n'
+    f'If you cannot find any mention of a specific attribute in the text, please '
+    f'respond with "None found". '
+    f'If you are unsure of a setting or no setting is shown in the text, please '
+    f'respond with "None found".\n'
+    f'{other_attribute_instructions}'
+    f'If something appears to be miscatagorized, please put it under the correct '
+    f'attribute.'
+    f'You will provide this information in the following JSON schema:'
   )
   role_script = f'{instructions}\n\n{attributes_json}'
   max_tokens = calculate_max_tokens(chapter_data)
@@ -206,7 +215,6 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
       role_script, max_tokens = character_analysis_role_script(attribute_table, str(chapter_number))
       cf.append_json_file(role_script, role_script_path)
       prompt = f"Chapter Text: {chapter}"
-      cf.check_continue()
       attribute_summary = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type = "json")
       chapter_summary[chapter_number] = attribute_summary
       cf.append_json_file(attribute_summary, chapter_summary_path)
@@ -290,3 +298,4 @@ def analyze_book(user_folder: str, book_name: str):
   end_time = time.time()
   run_time = end_time - start_time
   cf.write_to_file(run_time, "run.txt")
+  return folder_name
