@@ -126,60 +126,73 @@ def search_names(chapters: list, folder_name: str, num_chapters: int, character_
   cf.clear_screen()
   return character_lists
 
-def calculate_max_tokens(chapter_data: dict) -> int:
+def character_analysis_role_script(attribute_table: dict, chapter_number: str) -> list:
 
-  tokens_per_character = 200
-  tokens_per_setting = 150
-  tokens_per_other = 100
+  absolute_max_tokens = 4096
+  max_tokens = 0
+  to_batch = []
+  role_script_info = []
+  attributes_batch = []
+  attributes_json = ""
 
-  num_characters = len(chapter_data.get("Characters", []))
-  num_settings = len(chapter_data.get("Settings", []))
-  num_others = sum(len(values) for key, values in chapter_data.items() if key not in ["Characters", "Settings"])
-
-  return (num_characters * tokens_per_character +
-          num_settings * tokens_per_setting +
-          num_others * tokens_per_other)
-def character_analysis_role_script(attribute_table: dict, chapter_number: str) -> str:
+  tokens_per = {
+    "Characters": 200,
+    "Settings": 150,
+    "Other": 100
+  }
 
   chapter_data = attribute_table.get(chapter_number, {})
-  characters = chapter_data.get("Characters", [])
+
   character_schema = {
     character_name: {
       "Appearance": "description", "Personality": "description", "Mood": "description", 
       "Relationships": "description", "Sexuality": "description"
-    } for character_name in characters
+    } for character_name in chapter_data.get("Characters", [])
   }
-  settings = chapter_data.get("Settings", [])
   settings_schema = {
     setting_name: {
       "Relative location": "description", "Main character's familiarity": "description"
-    } for setting_name in settings
+    } for setting_name in chapter_data.get("Settings", [])
   }
   other_attribute_schema = {
     key: {value: "description" for value in values} for key, values in 
     chapter_data.items() if key not in ["Characters", "Settings"]
   }
-  attributes_json = json.dumps({
-    "Characters": character_schema, "Settings": settings_schema,
-    **other_attribute_schema
-  })
 
-  if other_attribute_schema:
-    other_attribute_list = []
-    for attribute, values in chapter_data.items():
-      if attribute not in ["Characters", "Settings"]:
-          values_str = ", ".join(values)  # Joining all values into a single string
-          attribute_description = f"{attribute} ({values_str})"
-          other_attribute_list.append(attribute_description)
-    other_attribute_instructions = ('Provide descriptons of ' +
-                                    '; '.join(other_attribute_list) + 'without '
-                                    ' referenceing specific characters or plot points\n')
-  else:
-    other_attribute_instructions = ""
+  def form_schema(to_batch, attributes_json):
+    if "Characters" in to_batch:
+      attributes_json += json.dumps({"Characters": character_schema})
+    if "Settings" in to_batch:
+      attributes_json += json.dumps({"Settings": settings_schema})
+    for attr in to_batch:
+      if attr not in ["Characters", "Settings"]:
+        attributes_json += json.dumps({attr: other_attribute_schema[attr]})
+    return attributes_json
 
+  for attribute, attribute_names in chapter_data.items():
+    token_value = tokens_per.get(attribute, tokens_per["Other"])
+    token_count = len(attribute_names) * token_value
+    if max_tokens + token_count > absolute_max_tokens:
+      attributes_json = form_schema(to_batch, attributes_json)
+      attributes_batch.append((attributes_json, max_tokens))
+      to_batch = []
+      max_tokens = 0
+      attributes_json = ""
+    else:
+      to_batch.append(attribute)
+      max_tokens += token_count
+
+  if to_batch:
+    attributes_json = form_schema(to_batch, attributes_json)
+    attributes_batch.append((attributes_json, max_tokens))
 
   instructions = (
-    f'You are a developmental editor helping create a story bible. '
+    f'You are a developmental editor helping create a story bible. \n'
+    f'Be detailed but concise, using short phrases instead of sentences. Do not '
+    f'justify your reasoning. Only one attribute per line, just like in the schema '
+    f'below, but all description for that attribute should be on the same line. If '
+    f'something appears to be miscatagorized, please put it under the correct '
+    f'attribute.\n'
     f'For each character in the chapter, note their appearance, personality, '
     f'mood, relationships with other characters, known or apparent sexuality. If '
     f'"Narrator" is listed as a character, use the name of the narrator instead.\n'
@@ -190,16 +203,29 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
     f'respond with "None found". '
     f'If you are unsure of a setting or no setting is shown in the text, please '
     f'respond with "None found".\n'
-    f'{other_attribute_instructions}'
-    f'Be detailed but concise, using short phrases instead of sentences. You do not '
-    f'need to justrify your reasoning. Only one attribute per line, just like in the '
-    f'schema below. If something appears to be miscatagorized, please put it under '
-    f'the correct attribute.'
-    f'You will provide this information in the following JSON schema:'
   )
-  role_script = f'{instructions}\n\n{attributes_json}'
-  max_tokens = calculate_max_tokens(chapter_data)
-  return role_script, max_tokens
+
+  for attributes_json, max_tokens in attributes_batch:
+    if other_attribute_schema:
+      other_attribute_list = []
+      for attribute, _ in chapter_data.items():
+        if attribute not in ["Characters", "Settings"]:
+          other_attribute_list.append(attribute)
+      other_attribute_instructions = ('Provide descriptons of ' +
+                                      '; '.join(other_attribute_list) + 'without '
+                                      ' referenceing specific characters or plot points\n')
+    else:
+      other_attribute_instructions = ""
+
+    role_script =(
+      f'{instructions}'
+      f'{other_attribute_instructions}'
+      f'You will provide this information in the following JSON schema:'
+      f'{attributes_json}'
+    )
+    role_script_info.append((role_script, max_tokens))
+
+  return role_script_info 
 
 def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, num_chapters: int, chapter_summary: dict, chapter_summary_index: int) -> dict:
 
@@ -213,14 +239,16 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
       if i < chapter_summary_index:
         continue
       chapter_number = i + 1
-
       progress_bar.set_description(f"\033[92mProcessing Chapter {i + 1}\033[0m", refresh = True)
       attribute_summary = ""
-      role_script, max_tokens = character_analysis_role_script(attribute_table, str(chapter_number))
-      cf.append_json_file(role_script, role_script_path)
-      print(max_tokens)
+      attribute_summary_part = []
+      attribute_summary_whole = []
       prompt = f"Chapter Text: {chapter}"
-      attribute_summary = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type = "json")
+      role_script_info = character_analysis_role_script(attribute_table, str(chapter_number))
+      for role_script, max_tokens in role_script_info:
+        attribute_summary_part = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type = "json")
+        attribute_summary_whole.append(attribute_summary_part)
+      attribute_summary = "{" + ",".join(part.lstrip("{").rstrip("}") for part in attribute_summary_whole) + "}"
       chapter_summary[chapter_number] = attribute_summary
       cf.append_json_file(attribute_summary, chapter_summary_path)
       progress_bar.update()
