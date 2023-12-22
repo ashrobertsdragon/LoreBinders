@@ -200,9 +200,9 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
     f'it is in relation to other locations and whether the characters appear to be '
     f'familiar or unfamiliar with the location. Be detailed but concise.\n'
     f'If you cannot find any mention of a specific attribute in the text, please '
-    f'respond with "None found". '
+    f'respond with "None found" as the description for that attribute. '
     f'If you are unsure of a setting or no setting is shown in the text, please '
-    f'respond with "None found".\n'
+    f'respond with "None found" as the description for that setting.\n'
   )
 
   for attributes_json, max_tokens in attributes_batch:
@@ -213,7 +213,7 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
           other_attribute_list.append(attribute)
       other_attribute_instructions = ('Provide descriptons of ' +
                                       '; '.join(other_attribute_list) + 'without '
-                                      ' referenceing specific characters or plot points\n')
+                                      ' referencing specific characters or plot points\n')
     else:
       other_attribute_instructions = ""
 
