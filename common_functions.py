@@ -149,8 +149,10 @@ def error_handle(e, retry_count):
 
 def call_gpt_api(model_key, prompt, role_script, temperature, max_tokens, response_type = None, retry_count = 0, assistant_message = None):
   rate_limit_data = read_json_file("rate_limit.json") if os.path.exists("rate_limit.json") else {}
-  tokens_used = rate_limit_data.get("tokens_used", 0)
-  minute = rate_limit_data.get("minute", time.time())
+  rate_limit_data["tokens_used"] = rate_limit_data.get("tokens_used", 0)
+  rate_limit_data["minute"] = rate_limit_data.get("minute", time.time())
+  if rate_limit_data["minute"] + 60 > time.time():
+    rate_limit_data["minute"] = time.time()
   model_details = get_model_details(model_key)
   model_name = model_details["model_name"]
   rate_limit = is_rate_limit(model_key)
@@ -178,9 +180,9 @@ def call_gpt_api(model_key, prompt, role_script, temperature, max_tokens, respon
   else:
     response_format = {"type": "text"}
 
-  if tokens_used + input_tokens + max_tokens > rate_limit:
+  if rate_limit_data["tokens_used"] + input_tokens + max_tokens > rate_limit:
     logging.warning("Rate limit exceeded")
-    sleep_time = 60 - (time.time() - minute)
+    sleep_time = 60 - (time.time() - rate_limit_data["minute"])
     logging.info(f"Sleeping {sleep_time} seconds")
     print(f"Rate limit exceeded. Sleeping {sleep_time} seconds")
     time.sleep(sleep_time)    
@@ -203,11 +205,11 @@ def call_gpt_api(model_key, prompt, role_script, temperature, max_tokens, respon
     api_run = api_end - api_start
     api_minute = api_run // 60
     api_sec = api_run % 60
-    print(f"API Call Time: {api_minute} minutes and {api_sec} seconds")
+    print(f"API Call Time: {api_minute} minutes and {api_sec:.2f} seconds")
     if response.choices and response.choices[0].message.content:
       content = response.choices[0].message.content.strip()
       tokens = response.usage.total_tokens
-      rate_limit_data["tokens_used"] = tokens_used + tokens
+      rate_limit_data["tokens_used"]  += tokens
       write_json_file(rate_limit_data, "rate_limit_data.json")
     else:
       logging.error("No message content found")
