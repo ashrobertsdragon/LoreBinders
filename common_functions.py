@@ -151,7 +151,7 @@ def call_gpt_api(model_key, prompt, role_script, temperature, max_tokens, respon
   rate_limit_data = read_json_file("rate_limit.json") if os.path.exists("rate_limit.json") else {}
   rate_limit_data["tokens_used"] = rate_limit_data.get("tokens_used", 0)
   rate_limit_data["minute"] = rate_limit_data.get("minute", time.time())
-  if rate_limit_data["minute"] + 60 > time.time():
+  if time.time() > rate_limit_data["minute"] + 60:
     rate_limit_data["minute"] = time.time()
   model_details = get_model_details(model_key)
   model_name = model_details["model_name"]
