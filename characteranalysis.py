@@ -171,7 +171,7 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
 
   for attribute, attribute_names in chapter_data.items():
     token_value = tokens_per.get(attribute, tokens_per["Other"])
-    token_count = len(attribute_names) * token_value
+    token_count = min(len(attribute_names) * token_value, 4096)
     if max_tokens + token_count > absolute_max_tokens:
       attributes_json = form_schema(to_batch, attributes_json)
       attributes_batch.append((attributes_json, max_tokens))
@@ -209,10 +209,10 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
     if other_attribute_schema:
       other_attribute_list = []
       for attribute, _ in chapter_data.items():
-        if attribute not in ["Characters", "Settings"]:
+        if attribute not in ["Characters", "Settings", "Setting"]:
           other_attribute_list.append(attribute)
       other_attribute_instructions = ('Provide descriptons of ' +
-                                      '; '.join(other_attribute_list) + 'without '
+                                      ', '.join(other_attribute_list) + ' without '
                                       ' referencing specific characters or plot points\n')
     else:
       other_attribute_instructions = ""
@@ -224,7 +224,7 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
       f'{attributes_json}'
     )
     role_script_info.append((role_script, max_tokens))
-
+  cf.write_json_file(role_script_info, "role_script_logging.json")
   return role_script_info 
 
 def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, num_chapters: int, chapter_summary: dict, chapter_summary_index: int) -> dict:
