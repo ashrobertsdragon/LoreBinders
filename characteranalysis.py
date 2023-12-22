@@ -27,10 +27,10 @@ def initialize_names(chapters: list, folder_name: str) -> Tuple[int, list, int, 
 
   if os.path.exists(chapter_summary_path):
     chapter_summary = cf.read_json_file(chapter_summary_path)
-    if not isinstance(chapter_summary, list):
-      chapter_summary = []
+    if not isinstance(chapter_summary, dict):
+      chapter_summary = {}
   else:
-    chapter_summary = []
+    chapter_summary = {}
   chapter_summary_index = len(chapter_summary)
   return num_chapters, character_lists, character_lists_index, chapter_summary, chapter_summary_index
 
@@ -230,7 +230,6 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
 def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, num_chapters: int, chapter_summary: dict, chapter_summary_index: int) -> dict:
 
   chapter_summary_path = os.path.join(folder_name, "chapter_summary.json")
-  role_script_path = os.path.join(folder_name, "role_script.json")
   model = "gpt_four"
   temperature = 0.4
 
@@ -250,7 +249,7 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
         attribute_summary_whole.append(attribute_summary_part)
       attribute_summary = "{" + ",".join(part.lstrip("{").rstrip("}") for part in attribute_summary_whole) + "}"
       chapter_summary[chapter_number] = attribute_summary
-      cf.append_json_file(attribute_summary, chapter_summary_path)
+      cf.append_json_file({chapter_number: attribute_summary}, chapter_summary_path)
       progress_bar.update()
   cf.clear_screen()
   return chapter_summary

@@ -70,11 +70,13 @@ def write_json_file(content, file_path: str):
 
 def append_json_file(content, file_path: str):
   if os.path.exists(file_path):
-      read_file = read_json_file(file_path)
+    read_file = read_json_file(file_path)
   else:
-      read_file = []
+    read_file = {} if isinstance(content, dict) else []
   if isinstance(read_file, list):
-      read_file.append(content)
+    read_file.append(content)
+  elif isinstance(read_file, dict):
+    read_file.update(content)
   write_json_file(read_file, file_path)
 
 def check_continue():
