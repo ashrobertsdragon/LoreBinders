@@ -194,9 +194,8 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
     f'something appears to be miscatagorized, please put it under the correct '
     f'attribute.\n'
     f'For each character in the chapter, note their appearance, personality, '
-    f'mood, relationships with other characters, known or apparent sexuality. If '
-    f'"Narrator" is listed as a character, use the name of the narrator instead.\n'
-    f'For each location in the chapter, note how the location is described, where '
+    f'mood, relationships with other characters, known or apparent sexuality.\n'
+    f'For each setting in the chapter, note how the setting is described, where '
     f'it is in relation to other locations and whether the characters appear to be '
     f'familiar or unfamiliar with the location. Be detailed but concise.\n'
     f'If you cannot find any mention of a specific attribute in the text, please '
@@ -224,8 +223,6 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
       f'{attributes_json}'
     )
     role_script_info.append((role_script, max_tokens))
-  cf.write_json_file(role_script_info, "role_script_logging.json")
-  exit()
   return role_script_info 
 
 def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, num_chapters: int, chapter_summary: dict, chapter_summary_index: int) -> dict:
@@ -287,7 +284,7 @@ def summarize_attributes(folder_name: str) -> None:
       progress_bar.update(1)
   cf.append_json_file(chapter_summaries, chapter_summaries_path)
 
-def analyze_book(user_folder: str, book_name: str):
+def analyze_book(user_folder: str, book_name: str, narrator: str) -> str:
 
   start_time = time.time()
 
@@ -312,7 +309,7 @@ def analyze_book(user_folder: str, book_name: str):
   attribute_table_path = os.path.join(folder_name, "attribute_table.json")
   if not os.path.exists(attribute_table_path):
     print("Building attribute table")
-    attribute_table = data_cleaning.sort_names(character_lists) 
+    attribute_table = data_cleaning.sort_names(character_lists, narrator) 
     cf.write_json_file(attribute_table, attribute_table_path)
   else:
     print("Attribute table complete")

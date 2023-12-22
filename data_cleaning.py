@@ -30,7 +30,7 @@ def compare_names(inner_values: list, name_map: dict) -> list:
   standardized_names = [name_map.get(name, name) for name in inner_values]
   return list(dict.fromkeys(standardized_names))
 
-def sort_names(character_lists: list) -> dict:
+def sort_names(character_lists: list, narrator: str) -> dict:
 
   parse_tuples = {}
   attribute_table = {}
@@ -104,8 +104,10 @@ def sort_names(character_lists: list) -> dict:
         continue
       if line.count("(") != line.count(")"):
         line.replace("(", "").replace(")", "")
-      if line.lowercase() == "setting:":
+      if line.lower() == "setting:":
         line = "Settings:"
+      if line.lower() == "narrator":
+        line = narrator
       line = character_info_pattern.sub("", line)
 
       #Remaining lines ending with a colon are attribute names and lines following belong in a list for that attribute

@@ -16,8 +16,9 @@ def main():
 
   #book_name = input("Enter the file name of the book (including the .txt extension): ")
   book_name = "DragonRun.txt"
+  narrator = "Kalia"
 
-  folder_name = characteranalysis.analyze_book(user_folder, book_name)
+  folder_name = characteranalysis.analyze_book(user_folder, book_name, narrator)
   create_pdf(folder_name, book_name)
   send_mail(folder_name, book_name, user_email)
 
