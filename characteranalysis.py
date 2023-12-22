@@ -209,7 +209,7 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
     if other_attribute_schema:
       other_attribute_list = []
       for attribute, _ in chapter_data.items():
-        if attribute not in ["Characters", "Settings", "Setting"]:
+        if attribute not in ["Characters", "Settings"]:
           other_attribute_list.append(attribute)
       other_attribute_instructions = ('Provide descriptons of ' +
                                       ', '.join(other_attribute_list) + ' without '
@@ -225,6 +225,7 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
     )
     role_script_info.append((role_script, max_tokens))
   cf.write_json_file(role_script_info, "role_script_logging.json")
+  exit()
   return role_script_info 
 
 def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, num_chapters: int, chapter_summary: dict, chapter_summary_index: int) -> dict:

@@ -104,6 +104,8 @@ def sort_names(character_lists: list) -> dict:
         continue
       if line.count("(") != line.count(")"):
         line.replace("(", "").replace(")", "")
+      if line.lowercase() == "setting:":
+        line = "Settings:"
       line = character_info_pattern.sub("", line)
 
       #Remaining lines ending with a colon are attribute names and lines following belong in a list for that attribute
