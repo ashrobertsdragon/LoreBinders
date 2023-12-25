@@ -106,8 +106,7 @@ def sort_names(character_lists: list, narrator: str) -> dict:
         line.replace("(", "").replace(")", "")
       if line.lower() == "setting:":
         line = "Settings:"
-      if line.lower() == "narrator":
-        line = narrator
+      line = re.sub(r"narrator", narrator, line, flags=re.IGNORECASE)
       line = character_info_pattern.sub("", line)
 
       #Remaining lines ending with a colon are attribute names and lines following belong in a list for that attribute
