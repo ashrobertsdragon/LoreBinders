@@ -175,8 +175,8 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
     if max_tokens + token_count > absolute_max_tokens:
       attributes_json = form_schema(to_batch, attributes_json)
       attributes_batch.append((attributes_json, max_tokens))
-      to_batch = []
-      max_tokens = 0
+      to_batch = [attribute]
+      max_tokens = token_count
       attributes_json = ""
     else:
       to_batch.append(attribute)
@@ -206,10 +206,8 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
 
   for attributes_json, max_tokens in attributes_batch:
     if other_attribute_schema:
-      other_attribute_list = []
-      for attribute, _ in chapter_data.items():
-        if attribute not in ["Characters", "Settings"]:
-          other_attribute_list.append(attribute)
+      other_attribute_list = [attr for attr in chapter_data 
+                              if attr not in ["Characters", "Settings"]]
       other_attribute_instructions = ('Provide descriptons of ' +
                                       ', '.join(other_attribute_list) + ' without '
                                       ' referencing specific characters or plot points\n')
@@ -230,7 +228,7 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
   chapter_summary_path = os.path.join(folder_name, "chapter_summary.json")
   model = "gpt_four"
   temperature = 0.4
-
+  roles = []
   with tqdm(total = num_chapters, unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|") as progress_bar:
     for i, chapter in enumerate(chapters):
       if i < chapter_summary_index:
@@ -242,6 +240,8 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
       attribute_summary_whole = []
       prompt = f"Chapter Text: {chapter}"
       role_script_info = character_analysis_role_script(attribute_table, str(chapter_number))
+      roles.append((chapter_number, role_script_info))
+      continue
       for role_script, max_tokens in role_script_info:
         attribute_summary_part = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type = "json")
         attribute_summary_whole.append(attribute_summary_part)
@@ -250,6 +250,7 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
       cf.append_json_file({chapter_number: attribute_summary}, chapter_summary_path)
       progress_bar.update()
   cf.clear_screen()
+  cf.append_json_file(roles, "role_scripts.json")
   return chapter_summary
 
 def summarize_attributes(folder_name: str) -> None:
