@@ -80,7 +80,11 @@ def ner_role_script(folder_name) -> str:
     f"Kastea, Hell's Kitchen).{custom_attributes}.\n"
     f"If the scene is written in the first person, try to identify the narrator by "
     f"their name. If you can't determine the narrator's identity. List 'Narrator' as "
-    f"a character.\n"
+    f"a character. Use characters' names instead of their relationship to the "
+    f"narrator (e.g. 'Uncle Joe' should be 'Joe'. If the character is only identified "
+    f"by their relationship to the narrator (e.g. 'Mom' or 'Grandfather'), list the "
+    f"character by that identifier instead of the relationship (e.g. 'Mom' instead of "
+    f"'Narrator's mom' or 'Grandfather' instead of 'Kalia's Grandfather'\n"
     f"Be as brief as possible, using one or two words for each entry, and avoid "
     f"descriptions. For example, 'On board the Resolve' should be 'Resolve'. 'Debris "
     f"field of leftover asteroid pieces' should be 'Asteroid debris field'. 'Unmarked "
@@ -241,7 +245,6 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
       prompt = f"Chapter Text: {chapter}"
       role_script_info = character_analysis_role_script(attribute_table, str(chapter_number))
       roles.append((chapter_number, role_script_info))
-      continue
       for role_script, max_tokens in role_script_info:
         attribute_summary_part = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type = "json")
         attribute_summary_whole.append(attribute_summary_part)
