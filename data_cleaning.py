@@ -136,6 +136,19 @@ def sort_names(character_lists: list, narrator: str) -> dict:
         del attribute_table[chapter_index][attribute_name]
   return attribute_table
 
+def remove_none_found(d):
+  if isinstance(d, dict):
+    new_dict = {}
+    for key, value in d.items():
+      cleaned_value = remove_none_found(value)
+      if cleaned_value != "None found":
+        new_dict[key] = cleaned_value
+    return new_dict
+  elif isinstance(d, list):
+    return [remove_none_found(item) for item in d]
+  else:
+    return d
+
 def final_reshape(folder_name: str) -> None:
   """
   Demotes chapter numbers to lowest dictionary in Characters and Settings dictionaries.

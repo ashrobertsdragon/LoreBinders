@@ -7,6 +7,8 @@ import time
 import tiktoken
 from openai import OpenAI
 
+from send_email import email_error
+
 logging.basicConfig(filename='api_calls.log', level=logging.INFO,
                     format='%(asctime)s %(levelname)s:%(message)s')
 
@@ -72,6 +74,7 @@ def check_json(json_str: str, attempt_count: int = 0) -> str:
       attempt_count += 1
       if attempt_count > 1:
         logging.error("JSON cleaning failed")
+        email_error(f"JSON cleaning failed: {e}")
         exit()
       return check_json(json_str)
 
@@ -96,6 +99,7 @@ def read_text_file(file_path: str):
     return read_file
   except FileNotFoundError:
     logging.error(f"Error: File '{file_path}' not found.")
+    email_error(f"Error: File '{file_path}' not found")
     exit()
 
 def read_json_file(file_path: str):
@@ -105,12 +109,15 @@ def read_json_file(file_path: str):
     return read_file
   except FileNotFoundError:
     logging.error(f"Error: File '{file_path}' not found.")
+    email_error(f"Error: File '{file_path}' not found.")
     exit()
   except json.decoder.JSONDecodeError:
     logging.error(f"Error: File '{file_path}' not valid JSON.")
+    email_error(f"Error: File '{file_path}' not vaid JSON")
     exit()
   except Exception as e:
     logging.error(f"Error: {e}")
+    email_error(e)
     exit()
 
 def write_to_file(content, file_path):
@@ -149,19 +156,6 @@ def check_continue():
     clear_screen()
   return
 
-def remove_none_found(d):
-  if isinstance(d, dict):
-    new_dict = {}
-    for key, value in d.items():
-      cleaned_value = remove_none_found(value)
-      if cleaned_value != "None found":
-        new_dict[key] = cleaned_value
-    return new_dict
-  elif isinstance(d, list):
-    return [remove_none_found(item) for item in d]
-  else:
-    return d
-
 def get_model_details(model_key: str) -> dict:
   """
   Interprets the generic model key and returns model-specific details.
@@ -196,6 +190,7 @@ def error_handle(e, retry_count):
   retry_count += 1
   if retry_count == 5:
     logging.error("Maximum retry count reached")
+    email_error("retry count reached")
     exit()
   else:
     sleep_time = (5 - retry_count)  + (retry_count ** 2)

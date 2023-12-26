@@ -56,14 +56,42 @@ def send_mail(folder_name: str, book_name: str, user_email: str) -> None:
     part.add_header('Content-Disposition', f"attachment; filename= {file_path}")
     msg.attach(part)
     msg.attach(MIMEText(email_body, "html"))
-
     s.send_message(msg)
-
-    del msg
     print("email sent")
-
   except Exception as e:
     print(f"Failed to send email. Reason: {e}")
+  return
 
 
+def email_error(error: str) -> None:
+  """
+  Send user the pdf of their story bible.
+
+  Arguments:
+    folder_name: Name of the folder containing the story bible.
+    book_name: Name of the book.
+    user_email: Email address of the user.
+  """
+
+  error_email = os.environ['error_email']
+  password = os.environ['mailPassword']
+  username = os.environ['mailUsername']
+  server = "prosepal.io"
+  port = 465
+
+  email_body = error
+
+  try:
+    s = smtplib.SMTP_SSL(host = server, port = port)
+    s.login(username, password)
+
+    msg = MIMEMultipart()
+    msg["To"] =  error_email
+    msg["From"] = username
+    msg["Subject"] = "A critical error occured"
+    msg.attach(MIMEText(email_body, "html"))
+    s.send_message(msg)
+    print("email sent")
+  except Exception as e:
+    print(f"Failed to send email. Reason: {e}")
   return
