@@ -10,9 +10,9 @@ if not os.path.exists(".replit"):
 
 def main():
 
-  user = "ashdragon" # placeholder
+  # placeholder
   user_email = os.getenv("user_email")
-  user_folder = os.path.join("ProsePal", "users", user)
+  user_folder = os.path.join("ProsePal", "users", user_email)
 
   #book_name = input("Enter the file name of the book (including the .txt extension): ")
   book_name = "DragonRun.txt"
