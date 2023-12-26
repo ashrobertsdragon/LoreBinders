@@ -245,14 +245,16 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
       prompt = f"Chapter Text: {chapter}"
       role_script_info = character_analysis_role_script(attribute_table, str(chapter_number))
       roles.append((chapter_number, role_script_info))
+      progress_increment = 1 /len(role_script_info)
       for role_script, max_tokens in role_script_info:
         attribute_summary_part = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type = "json")
         attribute_summary_whole.append(attribute_summary_part)
+      progress_bar.update(progress_increment)
       attribute_summary = "{" + ",".join(part.lstrip("{").rstrip("}") for part in attribute_summary_whole) + "}"
       chapter_summary[chapter_number] = attribute_summary
       cf.append_json_file({chapter_number: attribute_summary}, chapter_summary_path)
-      progress_bar.update()
-  cf.clear_screen()
+      
+  #cf.clear_screen()
   cf.append_json_file(roles, "role_scripts.json")
   return chapter_summary
 
@@ -321,6 +323,7 @@ def analyze_book(user_folder: str, book_name: str, narrator: str) -> str:
 
   # Semantic search based on attributes pulled
   if chapter_summary_index < num_chapters:
+    print(len(attribute_table))
     print(f"Starting chapter summaries at chapter {chapter_summary_index + 1}")
     chapter_summary = analyze_attributes(chapters, attribute_table, folder_name, num_chapters, chapter_summary, chapter_summary_index)
 
