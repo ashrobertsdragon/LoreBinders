@@ -20,6 +20,62 @@ if not api_key:
 
 OPENAI_CLIENT = OpenAI()
 
+def attempt_json_repair(json_str: str) -> str:
+  """
+  Attempts to repair a potentially invalid JSON string by adding closing braces
+  to match the number of opening braces."""
+
+  open_braces = json_str.count("{")
+  close_braces = json_str.count("}")
+  if open_braces > close_braces:
+    json_str += "}" * (open_braces - close_braces)
+  return json_str
+
+def last_resort_json_repair(json_str: str) -> str:
+  "Call GPT-4 to repair broken JSON"
+
+  model_key = "gpt_four"
+  prompt = json_str
+  role_script = (
+    "You are an expert JSON formatter. Please locate and fix any errors in the "
+    "following JSON object and return only the JSON object without any commentary"
+  )
+  temperature = 0.2
+  role_script_tokens = 20
+  head_room = 10
+  max_tokens = count_tokens(json_str) + role_script_tokens + head_room
+  response_type = "json"  
+  return call_gpt_api(model_key, prompt, role_script, temperature, max_tokens, response_type)
+
+def check_json(json_str: str, attempt_count: int = 0) -> str:
+  """
+  Check if a JSON string is valid and repair it if necessary.
+
+  Args:
+    json_str (str): The JSON string to be checked.
+    attempt_flag (bool, optional): A flag indicating whether JSON repair has 
+    been attempted or not. Iniitially set to false.
+
+  Returns:
+    str: The repaired JSON string.
+  """
+  try:
+    return json.loads(json_str)
+  except json.JSONDecodeError as e:
+    logging.exception(e)
+    if not attempt_count:
+      json_str = attempt_json_repair(json_str)
+      attempt_count += 1
+      return check_json(json_str, attempt_count)
+    else:
+      json_str = last_resort_json_repair(json_str)
+      attempt_count += 1
+      if attempt_count > 1:
+        logging.error("JSON cleaning failed")
+        exit()
+      return check_json(json_str)
+
+
 def append_to_dict_list(dictionary, key, value):
   if key in dictionary:
       dictionary[key].append(value)
@@ -221,7 +277,7 @@ def call_gpt_api(model_key, prompt, role_script, temperature, max_tokens, respon
     call_gpt_api(model_key, prompt, role_script, temperature, max_tokens, response_type, retry_count, assistant_message)
 
   if assistant_message:
-    answer = assistant_message + content
+    answer =  assistant_message.rstrip("}") + content.lstrip("{")
     print(answer)
     check_continue()
   else:

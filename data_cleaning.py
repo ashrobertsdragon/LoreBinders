@@ -1,4 +1,3 @@
-import json
 import os
 import re
 
@@ -117,13 +116,11 @@ def sort_names(character_lists: list, narrator: str) -> dict:
         attribute_name = line[:-1].title()
       else:
         inner_values.append(line)
-
       i += 1
 
     if attribute_name:
       inner_dict.setdefault(attribute_name, []).extend(inner_values)
       inner_values = []
-
     if inner_dict:
       for attribute_name, inner_values in inner_dict.items():
         if attribute_name.endswith("s") and attribute_name[:-1] in inner_dict:
@@ -149,6 +146,7 @@ def final_reshape(folder_name: str) -> None:
 
   reshaped_data = {}
   dictionary = cf.read_json_file(os.path.join(folder_name, "chapter_summaries.json"))
+
   for attribute, names in dictionary.items():
     if attribute != "Characters" and attribute != "Settings":
       continue
@@ -239,11 +237,8 @@ def deduplicate_keys(dictionary:dict) -> dict:
     if singular_form != key and singular_form in dictionary:
       merge_values(dictionary[key], dictionary[singular_form])
       duplicate_keys.append(singular_form)
-
   for key in duplicate_keys:
     del dictionary[key]
-
-
   return dictionary
 
 def reshape_dict(chapter_summaries: dict) -> dict:
@@ -263,15 +258,12 @@ def reshape_dict(chapter_summaries: dict) -> dict:
       section = section.title()
       if section not in reshaped_data:
         reshaped_data[section] = {}
-
       for entity, entity_details in section_data.items():
         if isinstance(entity_details, dict):
           for key, value in entity_details.items():
             reshaped_data[section].setdefault(entity, {}).setdefault(chapter, {}).setdefault(key, []).append(value)
-
         elif isinstance(entity_details, str):
           reshaped_data[section].setdefault(entity, {}).setdefault(chapter, []).append(entity_details)
-
   return reshaped_data
 
 def de_string_json(json_data):
@@ -287,9 +279,7 @@ def de_string_json(json_data):
   cleaned_data = {}
 
   for key in json_data:
-    cleaned_data[key] = json.loads(json_data[key])
-
-
+    cleaned_data[key] = cf.check_json(json_data[key])
   return cleaned_data
 
 def data_cleaning(folder_name: str):
@@ -309,4 +299,3 @@ def data_cleaning(folder_name: str):
   print("dedpulicated")
   cf.write_json_file(dedpulicated_dictionary, os.path.join(folder_name, "chapter_summaries.json"))
   print("new json file written")
-  
