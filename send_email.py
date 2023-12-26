@@ -31,8 +31,8 @@ def send_mail(folder_name: str, book_name: str, user_email: str) -> None:
     user_email: Email address of the user.
   """
 
-  password = os.environ['mailPassword']
-  username = os.environ['mailUsername']
+  password = os.environ['mail_password']
+  username = os.environ['mail_username']
 
   server = "prosepal.io"
   port = 465
@@ -61,7 +61,6 @@ def send_mail(folder_name: str, book_name: str, user_email: str) -> None:
   except Exception as e:
     print(f"Failed to send email. Reason: {e}")
   return
-
 
 def email_error(error: str) -> None:
   """
