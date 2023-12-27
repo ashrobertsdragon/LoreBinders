@@ -3,6 +3,7 @@ import os
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import Image, ListFlowable, ListItem, Paragraph, PageBreak, SimpleDocTemplate, Spacer, TableOfContents
+from reportlab.platypus.flowables import Bookmark
 
 from common_functions import read_json_file
 
@@ -30,23 +31,26 @@ def create_pdf(folder_name: str, book_name: str) -> None:
   styles = getSampleStyleSheet()
   toc_style = ParagraphStyle('TOCHeading', parent = styles['Heading2'], spaceAfter = 10)
 
-  story.append(Paragraph(book_name, styles["Title"]), PageBreak())
+  story.append(Paragraph(f"LoreBinder\nfor\n{book_name}", styles["Title"]))
+  story.append(PageBreak())
 
   toc = TableOfContents()
   toc.levelStyles = [toc_style]
   story.append(toc)
   story.append(PageBreak())
 
+  def add_toc_entry(doc, key, depth):
+    toc.add_entry(depth, key, doc.page)
+
   for attribute, names in chapter_summaries.items():
     story.append(Paragraph(attribute, styles["Heading1"]))
-    doc.bookmarkPage(attribute)
+    doc.afterFlowable = lambda: add_toc_entry(doc, attribute, 0)
     story.append(Spacer(1, 12))
     
     for name, content in names.items():
-      bookmark_name = f"{attribute}_{name}"
       story.append(PageBreak())
       story.append(Paragraph(name, styles["Heading2"]))
-      doc.bookmarkPage(bookmark_name)
+      doc.afterFlowable = lambda: add_toc_entry(doc, name, 1)
       story.append(Spacer(1, 12))
       
       image_path = content.get("image")
