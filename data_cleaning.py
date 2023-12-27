@@ -149,7 +149,7 @@ def remove_none_found(d):
   else:
     return d
 
-def final_reshape(folder_name: str) -> None:
+def final_reshape(chapter_summaries: dict, folder_name: str) -> None:
   """
   Demotes chapter numbers to lowest dictionary in Characters and Settings dictionaries.
   
@@ -158,22 +158,22 @@ def final_reshape(folder_name: str) -> None:
   """
 
   reshaped_data = {}
-  dictionary = cf.read_json_file(os.path.join(folder_name, "chapter_summaries.json"))
 
-  for attribute, names in dictionary.items():
-    if attribute != "Characters" and attribute != "Settings":
+  for attribute, names in chapter_summaries.items():
+    if attribute not in ["Characters", "Settings"]:
+      reshaped_data[attribute] = names
       continue
     for name, chapters in names.items():
-      if name not in reshaped_data:
-        reshaped_data[name] = {}
+      if name not in reshaped_data[attribute]:
+        reshaped_data[attribute][name] = {}
       for chapter, traits in chapters.items():
         if not isinstance(traits, dict):
-          reshaped_data[name][chapter] = traits
+          reshaped_data[attribute][name][chapter] = traits
           continue
         for trait, detail in traits.items():
-          if trait not in reshaped_data[name]:
-            reshaped_data[name][trait] = {}
-          reshaped_data[name][trait][chapter] = detail
+          if trait not in reshaped_data[attribute][name]:
+            reshaped_data[attribute][name][trait] = {}
+          reshaped_data[attribute][name][trait][chapter] = detail
   cf.write_json_file(reshaped_data, os.path.join(folder_name, "chapter_summaries.json"))
 
 def remove_none_found(d):
@@ -329,3 +329,4 @@ def data_cleaning(folder_name: str):
   print("dedpulicated")
   cf.write_json_file(dedpulicated_dictionary, os.path.join(folder_name, "chapter_summaries.json"))
   print("new json file written")
+  return dedpulicated_dictionary

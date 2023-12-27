@@ -258,7 +258,7 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
   cf.append_json_file(roles, "role_scripts.json")
   return chapter_summary
 
-def summarize_attributes(folder_name: str) -> None:
+def summarize_attributes(chapter_summaries: dict, folder_name: str) -> None:
   """
   Summarize the names for the attributes of the chapters in the folder.
   """
@@ -266,7 +266,6 @@ def summarize_attributes(folder_name: str) -> None:
   prompt_list = []
 
   chapter_summaries_path = os.path.join(folder_name, "chapter_summaries.json")
-  chapter_summaries = cf.read_json_file(chapter_summaries_path)
 
   model_key = "gpt_three"
   temperature = 0.4
@@ -289,6 +288,7 @@ def summarize_attributes(folder_name: str) -> None:
       chapter_summaries[attribute][attribute_name]["summary"] = summary
       progress_bar.update(1)
   cf.append_json_file(chapter_summaries, chapter_summaries_path)
+  return chapter_summaries
 
 def analyze_book(user_folder: str, book_name: str, narrator: str) -> str:
 
@@ -330,9 +330,9 @@ def analyze_book(user_folder: str, book_name: str, narrator: str) -> str:
   # Cleaning data and preparing for presentation
   chapter_summaries_path = os.path.join(folder_name, "chapter_summaries.json")
   if not os.path.exists(chapter_summaries_path):
-    data_cleaning.data_cleaning(folder_name)
-    summarize_attributes(folder_name)
-    data_cleaning.final_reshape(folder_name)
+    chapter_summaries = data_cleaning.data_cleaning(folder_name)
+    chapter_summaries = summarize_attributes(chapter_summaries, folder_name)
+    data_cleaning.final_reshape(chapter_summaries, folder_name)
 
   end_time = time.time()
   run_time = end_time - start_time
