@@ -4,19 +4,19 @@ import re
 import common_functions as cf
 
 
-def compare_names(inner_values: list, name_map: dict) -> list:
+TITLES = ["princess", "prince", "king", "queen", "count", "duke", "duchess", "baron", "baroness", "countess", "lord", "lady", "earl", "marquis", "ensign", "private", "sir", "cadet", "sergeant", "lieutenant", "leftenant", "lt", "pfc", "cap", "sarge", "mjr", "col", "gen", "captain", "major", "colonel", "general", "admiral", "ambassador", "commander", "corporal", "airman", "seaman", "commodore", "mr", "mrs", "ms", "miss", "missus", "madam", "mister", "ma'am", "aunt", "uncle", "cousin"]
 
-  titles = ["princess", "prince", "king", "queen", "count", "duke", "duchess", "baron", "baroness", "countess", "lord", "lady", "earl", "marquis", "ensign", "private", "sir", "cadet", "sergeant", "lieutenant", "leftenant", "lt", "pfc", "cap", "sarge", "mjr", "col", "gen", "captain", "major", "colonel", "general", "admiral", "ambassador", "commander", "corporal", "airman", "seaman", "commodore", "mr", "mrs", "ms", "miss", "missus", "madam", "mister", "ma'am", "aunt", "uncle", "cousin"]
+def compare_names(inner_values: list, name_map: dict) -> list:
 
   for i, value_i in enumerate(inner_values):
     value_i_split = value_i.split()
-    if value_i_split[0] in titles:
+    if value_i_split[0] in TITLES:
       value_i = ' '.join(value_i_split[1:])
 
     for j, value_j in enumerate(inner_values):
       if i != j and value_i != value_j and not value_i.endswith(")") and not value_j.endswith(")") and (value_i.startswith(value_j) or value_i.endswith(value_j)):
         value_j_split = value_j.split()
-        if value_j_split[0] in titles:
+        if value_j_split[0] in TITLES:
           value_j = ' '.join(value_j_split[1:])
           if value_i in value_j or value_j in value_i:
             if value_i.endswith('s') and not value_j.endswith('s'):
@@ -163,9 +163,9 @@ def final_reshape(chapter_summaries: dict, folder_name: str) -> None:
     if attribute not in ["Characters", "Settings"]:
       reshaped_data[attribute] = names
       continue
+    reshaped_data[attribute] = {}
     for name, chapters in names.items():
-      if name not in reshaped_data[attribute]:
-        reshaped_data[attribute][name] = {}
+      reshaped_data[attribute][name] = {}
       for chapter, traits in chapters.items():
         if not isinstance(traits, dict):
           reshaped_data[attribute][name][chapter] = traits
@@ -174,18 +174,21 @@ def final_reshape(chapter_summaries: dict, folder_name: str) -> None:
           if trait not in reshaped_data[attribute][name]:
             reshaped_data[attribute][name][trait] = {}
           reshaped_data[attribute][name][trait][chapter] = detail
-  cf.write_json_file(reshaped_data, os.path.join(folder_name, "chapter_summaries.json"))
+  cf.write_json_file(reshaped_data, os.path.join(folder_name, "lorebinder.json"))
 
 def remove_none_found(d):
   if isinstance(d, dict):
     new_dict = {}
     for key, value in d.items():
-      cleaned_value = remove_none_found(value)
-      if cleaned_value != "None found":
-        new_dict[key] = cleaned_value
+      if value != "None found":
+        cleaned_value = remove_none_found(value)
+        if cleaned_value not in ["None found", [], {}, ""]:
+          new_dict[key] = cleaned_value
     return new_dict
   elif isinstance(d, list):
-    return [remove_none_found(item) for item in d]
+    if d == ["None found"]:
+      return []
+    return [remove_none_found(item) for item in d if item != "None found"]
   else:
     return d
 
@@ -248,6 +251,21 @@ def merge_values(value1, value2):
   else:
     return [value1, value2]
   return value1
+
+def remove_titles(key: str) -> str:
+  key_words = key.title().split()
+  de_titled = [word for word in key_words if word not in TITLES]
+  return " ".join(de_titled)
+
+def is_similar_key(key1: str, key2: str) -> bool:
+  "Determines if two keys are similar after removing titles"
+  
+  key1 = remove_titles(key1)
+  key2 = remove_titles(key2)
+  s_key1 = to_singular(key1)
+  s_key2 = to_singular(key2)
+
+  return key1==key2 or key1 == s_key2 or s_key1 == key2 or key1 in key2 or key2 in key1
     
 def deduplicate_keys(dictionary:dict) -> dict:
   """
@@ -260,15 +278,25 @@ def deduplicate_keys(dictionary:dict) -> dict:
   """
 
   duplicate_keys = []
+  cleaned_dict = {}
 
-  for key in dictionary:
-    singular_form = to_singular(key)
-    if singular_form != key and singular_form in dictionary:
-      merge_values(dictionary[key], dictionary[singular_form])
-      duplicate_keys.append(singular_form)
-  for key in duplicate_keys:
-    del dictionary[key]
-  return dictionary
+  for key1 in dictionary:
+    if key1 in duplicate_keys:
+      continue
+    for key2 in dictionary:
+      if key2 in duplicate_keys or key1 == key2:
+        continue
+      if is_similar_key(key1, key2):
+        shorter_key, longer_key = sorted([key1, key2], key = len)
+        dictionary[longer_key] = merge_values(dictionary[longer_key], dictionary[shorter_key])
+        duplicate_keys.append(shorter_key)
+
+  for key, value in dictionary.items():
+    if key in duplicate_keys:
+      continue
+    cleaned_key = remove_titles(key)
+    cleaned_dict[cleaned_key] = value
+  return cleaned_dict
 
 def reshape_dict(chapter_summaries: dict) -> dict:
   """
