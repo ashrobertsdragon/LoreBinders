@@ -280,7 +280,7 @@ def summarize_attributes(folder_name: str) -> None:
           description = ", ".join(f"{trait}: {','.join(detail)}" for trait, detail in details.items())
         else:
           description = ", ".join(details)
-        prompt_list.append(attribute, attribute_name, f"{attribute_name}: {description}")
+        prompt_list.append((attribute, attribute_name, f"{attribute_name}: {description}"))
 
   with tqdm(total = len(prompt_list), unit = "Prompt", ncols = 40) as progress_bar:
     for i, (attribute, attribute_name, prompt) in enumerate(prompt_list):
@@ -328,8 +328,10 @@ def analyze_book(user_folder: str, book_name: str, narrator: str) -> str:
     chapter_summary = analyze_attributes(chapters, attribute_table, folder_name, num_chapters, chapter_summary, chapter_summary_index)
 
   # Cleaning data and preparing for presentation
-  data_cleaning.data_cleaning(folder_name)
-  summarize_attributes(folder_name)
+  chapter_summaries_path = os.path.join(folder_name, "chapter_summaries.json")
+  if not os.path.exists(chapter_summaries_path):
+    data_cleaning.data_cleaning(folder_name)
+    summarize_attributes(folder_name)
   data_cleaning.final_reshape(folder_name)
 
   end_time = time.time()

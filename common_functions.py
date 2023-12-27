@@ -72,7 +72,7 @@ def check_json(json_str: str, attempt_count: int = 0) -> str:
     else:
       json_str = last_resort_json_repair(json_str)
       attempt_count += 1
-      if attempt_count > 1:
+      if attempt_count > 2:
         logging.error("JSON cleaning failed")
         email_error(f"JSON cleaning failed: {e}")
         exit()
