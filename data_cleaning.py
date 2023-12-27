@@ -176,6 +176,19 @@ def final_reshape(folder_name: str) -> None:
           reshaped_data[name][trait][chapter] = detail
   cf.write_json_file(reshaped_data, os.path.join(folder_name, "chapter_summaries.json"))
 
+def remove_none_found(d):
+  if isinstance(d, dict):
+    new_dict = {}
+    for key, value in d.items():
+      cleaned_value = remove_none_found(value)
+      if cleaned_value != "None found":
+        new_dict[key] = cleaned_value
+    return new_dict
+  elif isinstance(d, list):
+    return [remove_none_found(item) for item in d]
+  else:
+    return d
+
 def to_singular(plural: str) -> str:
   """
   Converts a plural word to its singular form based on common English pluralization rules.
@@ -311,7 +324,8 @@ def data_cleaning(folder_name: str):
   
   reshaped_data = reshape_dict(cleaned_json)
   print("reshaped")
-  dedpulicated_dictionary = deduplicate_keys(reshaped_data)
+  only_found = remove_none_found(reshaped_data)
+  dedpulicated_dictionary = deduplicate_keys(only_found)
   print("dedpulicated")
   cf.write_json_file(dedpulicated_dictionary, os.path.join(folder_name, "chapter_summaries.json"))
   print("new json file written")

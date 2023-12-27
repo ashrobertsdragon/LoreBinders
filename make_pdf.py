@@ -3,7 +3,6 @@ import os
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import Image, ListFlowable, ListItem, Paragraph, PageBreak, SimpleDocTemplate, Spacer, TableOfContents
-from reportlab.platypus.flowables import Bookmark
 
 from common_functions import read_json_file
 
