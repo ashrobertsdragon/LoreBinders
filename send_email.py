@@ -73,8 +73,8 @@ def email_error(error: str) -> None:
   """
 
   error_email = os.environ['error_email']
-  password = os.environ['mailPassword']
-  username = os.environ['mailUsername']
+  password = os.environ['mail_password']
+  username = os.environ['mail_username']
   server = "prosepal.io"
   port = 465
 
