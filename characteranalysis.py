@@ -332,9 +332,9 @@ def analyze_book(user_folder: str, book_name: str, narrator: str) -> str:
   if not os.path.exists(chapter_summaries_path):
     data_cleaning.data_cleaning(folder_name)
     summarize_attributes(folder_name)
-  data_cleaning.final_reshape(folder_name)
+    data_cleaning.final_reshape(folder_name)
 
   end_time = time.time()
   run_time = end_time - start_time
-  cf.write_to_file(run_time, "run.txt")
+  cf.write_to_file(str(run_time), "run.txt")
   return folder_name

@@ -169,6 +169,7 @@ def final_reshape(folder_name: str) -> None:
       for chapter, traits in chapters.items():
         if not isinstance(traits, dict):
           reshaped_data[name][chapter] = traits
+          continue
         for trait, detail in traits.items():
           if trait not in reshaped_data[name]:
             reshaped_data[name][trait] = {}
