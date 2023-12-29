@@ -1,10 +1,23 @@
 import os
 import re
+from typing import Tuple
 
 import common_functions as cf
 
 
-TITLES = ["princess", "prince", "king", "queen", "count", "duke", "duchess", "baron", "baroness", "countess", "lord", "lady", "earl", "marquis", "ensign", "private", "sir", "cadet", "sergeant", "lieutenant", "leftenant", "lt", "pfc", "cap", "sarge", "mjr", "col", "gen", "captain", "major", "colonel", "general", "admiral", "ambassador", "commander", "corporal", "airman", "seaman", "commodore", "mr", "mrs", "ms", "miss", "missus", "madam", "mister", "ma'am", "aunt", "uncle", "cousin"]
+TITLES = [
+  "admiral", "airman", "ambassador", "aunt", "baron", "baroness", "brother", "cadet",
+  "cap", "captain", "col", "colonel", "commander", "commodore", "corporal", "count",
+  "countess", "cousin", "dad", "daddy", "doc", "doctor", "dr", "duchess", "duke",
+  "earl", "ensign", "father", "gen", "general", "granddad", "grandfather", "grandma",
+  "grandmom", "grandmother", "grandpop", "great aunt", "great grandfather",
+  "great grandmother", "great uncle", "great-aunt", "great-grandfather",
+  "great-grandmother", "great-uncle", "king", "lady", "leftenant", "lieutenant",
+  "lord", "lt", "ma", "ma'am", "madam", "major", "marquis", "miss", "missus", "mister",
+  "mjr", "mom", "mommy", "mother", "mr", "mrs", "ms", "nurse", "pa", "pfc", "pop",
+  "prince", "princess", "private", "queen", "sarge", "seaman", "sergeant", "sir",
+  "sister", "uncle"
+  ]
 
 def compare_names(inner_values: list, name_map: dict) -> list:
 
@@ -205,7 +218,6 @@ def to_singular(plural: str) -> str:
   patterns = {
     r'(\w+)(ves)$': r'\1f',
     r'(\w+)(ies)$': r'\1y',
-    r'(\w+)(s)$': r'\1[^s]',
     r'(\w+)(i)$': r'\1us',
     r'(\w+)(a)$': r'\1um',
     r'(\w+)(en)$': r'\1an',
@@ -220,7 +232,7 @@ def to_singular(plural: str) -> str:
     singular = re.sub(pattern, repl, plural)
     if plural != singular:
       return singular
-    return plural 
+    return plural[:-1]
 
 def merge_values(value1, value2):
   """
@@ -253,20 +265,73 @@ def merge_values(value1, value2):
   return value1
 
 def remove_titles(key: str) -> str:
-  key_words = key.title().split()
-  de_titled = [word for word in key_words if word not in TITLES]
+  "Removes words in TITLES list from key"
+
+  key_words = key.split()
+  de_titled = [word for word in key_words if word.lower().strip(".,") not in TITLES]
   return " ".join(de_titled)
 
-def is_similar_key(key1: str, key2: str) -> bool:
-  "Determines if two keys are similar after removing titles"
-  
-  key1 = remove_titles(key1)
-  key2 = remove_titles(key2)
-  s_key1 = to_singular(key1)
-  s_key2 = to_singular(key2)
+def is_title(key: str) -> bool:
+  return any(title == key.lower() for title in TITLES)
 
-  return key1==key2 or key1 == s_key2 or s_key1 == key2 or key1 in key2 or key2 in key1
-    
+def prioritize_keys(key1: str, key2: str) -> Tuple[str, str]:
+  "Determines priority of keys, based on whether one is standalone title or length"
+  "Order is lower priority, higher priority"
+
+  key1_is_title = is_title(key1)
+  key2_is_title = is_title(key2)
+  lower_key1 = key1.lower()
+  lower_key2 = key2.lower()
+
+  if (lower_key1 in lower_key2 or lower_key2 in lower_key1) and lower_key1 != lower_key2:
+    if key1_is_title:
+      return key2, key1
+    if key2_is_title:
+      return key1, key2
+  return sorted([key1, key2], key = len)
+
+def is_similar_key(key1: str, key2: str) -> bool:
+  "Determines if two keys are similar"
+
+  detitled_key1 = remove_titles(key1)
+  detitled_key2 = remove_titles(key2)
+  singular_key1 = to_singular(key1)
+  singular_key2 = to_singular(key2)
+
+  if (
+      key1 + " " in key2
+      or key2 + " " in key1
+      or key1 == singular_key2
+      or singular_key1 == key2
+  ):
+    print(f"{key1} is similar to {key2} (check 1)")
+    return True
+
+  key1_is_title = is_title(key1)
+  key2_is_title = is_title(key2)
+  if key1_is_title and key1.lower() in key2.lower():
+    print(f"{key1} is similar to {key2} (check 2)")
+    return True
+  if key2_is_title and key2.lower() in key1.lower():
+    print(f"{key1} is similar to {key2} (check 2)")
+    return True
+  
+  if detitled_key1 and detitled_key2:
+    if (
+      detitled_key1 == key2
+      or key1 == detitled_key2
+      or detitled_key1 == singular_key2
+      or singular_key1 == detitled_key2
+      or detitled_key1 + " " in key2
+      or detitled_key2 + " " in key1
+      or key1 + " " in detitled_key2
+      or key2 + " " in detitled_key1
+    ):
+      print(f"{key1} is similar to {key2} (check 3)")
+      return True
+  debugging = f"{key1} is not similar to {key2}.\nChecked {detitled_key1} and {singular_key1}.\nChecked {detitled_key2} and {singular_key2}"
+  cf.write_to_file(debugging, "debugging2.txt")
+
 def deduplicate_keys(dictionary:dict) -> dict:
   """
   Removes duplicate keys in a dictionary by merging singular and plural forms of keys.
@@ -277,25 +342,31 @@ def deduplicate_keys(dictionary:dict) -> dict:
   Returns the deduplicated dictionary.
   """
 
-  duplicate_keys = []
   cleaned_dict = {}
 
-  for key1 in dictionary:
-    if key1 in duplicate_keys:
+  for outer_key, nested_dict in dictionary.items():
+    if not isinstance(nested_dict, dict):
       continue
-    for key2 in dictionary:
-      if key2 in duplicate_keys or key1 == key2:
-        continue
-      if is_similar_key(key1, key2):
-        shorter_key, longer_key = sorted([key1, key2], key = len)
-        dictionary[longer_key] = merge_values(dictionary[longer_key], dictionary[shorter_key])
-        duplicate_keys.append(shorter_key)
+    duplicate_keys = []
+    temp_dict = {}
 
-  for key, value in dictionary.items():
-    if key in duplicate_keys:
-      continue
-    cleaned_key = remove_titles(key)
-    cleaned_dict[cleaned_key] = value
+    for key1 in nested_dict:
+      if key1 in duplicate_keys:
+        continue
+      for key2 in nested_dict:
+        if key2 in duplicate_keys or key1 == key2:
+          continue
+        if is_similar_key(key1, key2):
+          key_to_merge, key_to_keep = prioritize_keys(key1, key2)
+          nested_dict[key_to_keep] = merge_values(nested_dict[key_to_keep],
+                                                  nested_dict[key_to_merge])
+          duplicate_keys.append(key_to_merge)
+
+    for key, value in nested_dict.items():
+      if key in duplicate_keys:
+        continue
+      temp_dict[key] = value
+    cleaned_dict[outer_key] = temp_dict
   return cleaned_dict
 
 def reshape_dict(chapter_summaries: dict) -> dict:
@@ -347,14 +418,19 @@ def data_cleaning(folder_name: str):
   chapter_summaries = cf.read_json_file(os.path.join(folder_name, "chapter_summary.json"))
   print("json read")
 
-  cleaned_json = de_string_json(chapter_summaries)
-  print("json cleaned")
-  
-  reshaped_data = reshape_dict(cleaned_json)
-  print("reshaped")
-  only_found = remove_none_found(reshaped_data)
+  if os.path.exists(os.path.join(folder_name, "chapter_summaries.json")):
+    only_found = cf.read_json_file(os.path.join(folder_name, "chapter_summaries.json"))
+  else:
+    cleaned_json = de_string_json(chapter_summaries)
+    print("json cleaned")
+    
+    reshaped_data = reshape_dict(cleaned_json)
+    print("reshaped")
+    only_found = remove_none_found(reshaped_data)
+  cf.write_json_file(only_found, os.path.join(folder_name, "chapter_summaries.json"))
+
   dedpulicated_dictionary = deduplicate_keys(only_found)
   print("dedpulicated")
-  cf.write_json_file(dedpulicated_dictionary, os.path.join(folder_name, "chapter_summaries.json"))
+  cf.write_json_file(dedpulicated_dictionary, os.path.join(folder_name, "chapter_summaries2.json"))
   print("new json file written")
   return dedpulicated_dictionary
