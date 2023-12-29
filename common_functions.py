@@ -34,9 +34,9 @@ def attempt_json_repair(json_str: str) -> str:
   return json_str
 
 def last_resort_json_repair(json_str: str) -> str:
-  "Call GPT-4 to repair broken JSON"
+  "Call GPT-3.5 to repair broken JSON"
 
-  model_key = "gpt_four"
+  model_key = "gpt_three"
   prompt = json_str
   role_script = (
     "You are an expert JSON formatter. Please locate and fix any errors in the "
