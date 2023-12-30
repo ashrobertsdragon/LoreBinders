@@ -331,7 +331,7 @@ def analyze_book(user_folder: str, book_name: str, narrator: str) -> str:
   chapter_summaries_path = os.path.join(folder_name, "chapter_summaries.json")
   if not os.path.exists(chapter_summaries_path):
     chapter_summaries = data_cleaning.data_cleaning(folder_name)
-    #chapter_summaries = summarize_attributes(chapter_summaries, folder_name)
+    chapter_summaries = summarize_attributes(chapter_summaries, folder_name)
   else:
     chapter_summaries = cf.read_json_file(chapter_summaries_path)
   data_cleaning.final_reshape(chapter_summaries, folder_name)
