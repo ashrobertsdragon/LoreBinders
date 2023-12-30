@@ -189,6 +189,22 @@ def final_reshape(chapter_summaries: dict, folder_name: str) -> None:
           reshaped_data[attribute][name][trait][chapter] = detail
   cf.write_json_file(reshaped_data, os.path.join(folder_name, "lorebinder.json"))
 
+def sort_dictionary(attribute_summaries: dict) -> dict:
+  "Sorts dictionary keys"
+
+  sorted_dict = {}
+
+  for outer_key, nested_dict in attribute_summaries.items():
+    middle_dict = {key: nested_dict[key] for key in sorted(nested_dict)}
+    for key, inner_dict in middle_dict.items():
+      if isinstance(inner_dict, dict):
+        sorted_inner_dict = {str(inner_key): inner_dict[str(inner_key)]
+                            for inner_key in sorted(map(int, inner_dict.keys()))}
+        middle_dict[key] = sorted_inner_dict
+    sorted_dict[outer_key] = middle_dict
+
+  return sorted_dict
+
 def remove_none_found(d):
   if isinstance(d, dict):
     new_dict = {}
@@ -264,6 +280,28 @@ def merge_values(value1, value2):
     return [value1, value2]
   return value1
 
+def deduplcate_across_dictionaries(attribute_summaries: dict) -> dict:
+  "Finds dupicates across dictionaries"
+
+  character_keys = set(attribute_summaries["Characters"].keys())
+  duplicate_keys = []
+  for outer_key, nested_dict in attribute_summaries.items():
+    if outer_key == "Characters":
+      continue
+    for key in nested_dict:
+      if key in character_keys:
+        attribute_summaries["Characters"][key] = merge_values(attribute_summaries["Characters"][key], nested_dict[key])
+        duplicate_keys.append(key)
+
+  for outer_key, nested_dict in attribute_summaries.items():
+    if outer_key == "Characters":
+      continue
+    for key in duplicate_keys:
+      if key in nested_dict:
+        del nested_dict[key]
+
+  return attribute_summaries
+
 def remove_titles(key: str) -> str:
   "Removes words in TITLES list from key"
 
@@ -304,20 +342,17 @@ def is_similar_key(key1: str, key2: str) -> bool:
       or key1 == singular_key2
       or singular_key1 == key2
   ):
-    print(f"{key1} is similar to {key2} (check 1)")
     return True
 
   key1_is_title = is_title(key1)
   key2_is_title = is_title(key2)
   if key1_is_title and key1.lower() in key2.lower():
-    print(f"{key1} is similar to {key2} (check 2)")
     return True
   if key2_is_title and key2.lower() in key1.lower():
-    print(f"{key1} is similar to {key2} (check 2)")
     return True
   
   if detitled_key1 and detitled_key2:
-    if (
+    return (
       detitled_key1 == key2
       or key1 == detitled_key2
       or detitled_key1 == singular_key2
@@ -326,11 +361,7 @@ def is_similar_key(key1: str, key2: str) -> bool:
       or detitled_key2 + " " in key1
       or key1 + " " in detitled_key2
       or key2 + " " in detitled_key1
-    ):
-      print(f"{key1} is similar to {key2} (check 3)")
-      return True
-  debugging = f"{key1} is not similar to {key2}.\nChecked {detitled_key1} and {singular_key1}.\nChecked {detitled_key2} and {singular_key2}"
-  cf.write_to_file(debugging, "debugging2.txt")
+    )
 
 def deduplicate_keys(dictionary:dict) -> dict:
   """
@@ -348,7 +379,7 @@ def deduplicate_keys(dictionary:dict) -> dict:
     if not isinstance(nested_dict, dict):
       continue
     duplicate_keys = []
-    temp_dict = {}
+    inner_dict = {}
 
     for key1 in nested_dict:
       if key1 in duplicate_keys:
@@ -365,9 +396,10 @@ def deduplicate_keys(dictionary:dict) -> dict:
     for key, value in nested_dict.items():
       if key in duplicate_keys:
         continue
-      temp_dict[key] = value
-    cleaned_dict[outer_key] = temp_dict
-  return cleaned_dict
+      inner_dict[key] = value
+    cleaned_dict[outer_key] = inner_dict
+  deduplicated_dict = deduplcate_across_dictionaries(cleaned_dict)
+  return deduplicated_dict
 
 def reshape_dict(chapter_summaries: dict) -> dict:
   """
@@ -412,25 +444,24 @@ def de_string_json(json_data):
 
 def data_cleaning(folder_name: str):
   """
-  Cleans the json data and writes it to a new file, reshapes the dictionary to demote chapter numbers inside of attribute names, and merges duplicate keys
+  Cleans the json data and writes it to a new file, reshapes the dictionary to 
+  demote chapter numbers inside of attribute names, and merges duplicate keys
   """
   
   chapter_summaries = cf.read_json_file(os.path.join(folder_name, "chapter_summary.json"))
-  print("json read")
 
   if os.path.exists(os.path.join(folder_name, "chapter_summaries.json")):
     only_found = cf.read_json_file(os.path.join(folder_name, "chapter_summaries.json"))
   else:
     cleaned_json = de_string_json(chapter_summaries)
-    print("json cleaned")
-    
     reshaped_data = reshape_dict(cleaned_json)
-    print("reshaped")
     only_found = remove_none_found(reshaped_data)
-  cf.write_json_file(only_found, os.path.join(folder_name, "chapter_summaries.json"))
+  cf.write_json_file(only_found, os.path.join(folder_name, "chapter_summaries_reshaped.json"))
 
   dedpulicated_dictionary = deduplicate_keys(only_found)
-  print("dedpulicated")
-  cf.write_json_file(dedpulicated_dictionary, os.path.join(folder_name, "chapter_summaries2.json"))
-  print("new json file written")
-  return dedpulicated_dictionary
+  cf.write_json_file(dedpulicated_dictionary, os.path.join(folder_name, "chapter_summaries_deduplicated.json"))
+
+  sorted_dictionary = sort_dictionary(dedpulicated_dictionary)
+  cf.write_json_file(sorted_dictionary, os.path.join(folder_name, "chapter_summaries.json"))
+
+  return sorted_dictionary
