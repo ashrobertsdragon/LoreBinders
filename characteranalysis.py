@@ -331,10 +331,14 @@ def analyze_book(user_folder: str, book_name: str, narrator: str) -> str:
   chapter_summaries_path = os.path.join(folder_name, "chapter_summaries.json")
   if not os.path.exists(chapter_summaries_path):
     chapter_summaries = data_cleaning.data_cleaning(folder_name)
-    chapter_summaries = summarize_attributes(chapter_summaries, folder_name)
   else:
     chapter_summaries = cf.read_json_file(chapter_summaries_path)
-  data_cleaning.final_reshape(chapter_summaries, folder_name)
+  with_summaries_path = os.path.join(folder_name, "chapter_summaries_with.json")
+  if not os.path.exists(with_summaries_path):
+    with_summaries = summarize_attributes(chapter_summaries, folder_name)
+  else:
+    with_summaries = cf.read_json_file(with_summaries_path)
+  data_cleaning.final_reshape(with_summaries, folder_name)
 
   end_time = time.time()
   run_time = end_time - start_time
