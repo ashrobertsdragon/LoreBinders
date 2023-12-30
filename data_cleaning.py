@@ -442,7 +442,7 @@ def de_string_json(json_data):
     cleaned_data[key] = cf.check_json(json_data[key])
   return cleaned_data
 
-def data_cleaning(folder_name: str, chapter_summaries: dict) -> dict:
+def data_cleaning(folder_name: str, chapter_summary: dict) -> dict:
   """
   Cleans the json data and writes it to a new file, reshapes the dictionary to 
   demote chapter numbers inside of attribute names, and merges duplicate keys
@@ -455,7 +455,7 @@ def data_cleaning(folder_name: str, chapter_summaries: dict) -> dict:
   chapter_summaries_path = os.path.join(folder_name, "chapter_summaries.json")
 
   if not os.path.exists(destrung_path):
-    destrung_json = de_string_json(chapter_summaries)
+    destrung_json = de_string_json(chapter_summary)
     cf.write_json_file(destrung_json, destrung_path)
   else:
     destrung_json = cf.read_json_file(destrung_path)
