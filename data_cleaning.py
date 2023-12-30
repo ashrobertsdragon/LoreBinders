@@ -442,26 +442,46 @@ def de_string_json(json_data):
     cleaned_data[key] = cf.check_json(json_data[key])
   return cleaned_data
 
-def data_cleaning(folder_name: str):
+def data_cleaning(folder_name: str, chapter_summaries: dict) -> dict:
   """
   Cleans the json data and writes it to a new file, reshapes the dictionary to 
   demote chapter numbers inside of attribute names, and merges duplicate keys
   """
   
-  chapter_summaries = cf.read_json_file(os.path.join(folder_name, "chapter_summary.json"))
+  destrung_path = os.path.join(folder_name, "chapter_summaries_destrung.json")
+  only_found_path = os.path.join(folder_name, "chapter_summaries_only_found")
+  reshaped_path = os.path.join(folder_name, "chapter_summaries_reshaped.json")
+  deduplicated_path = os.path.join(folder_name, "chapter_summaries_deduplicated.json")
+  chapter_summaries_path = os.path.join(folder_name, "chapter_summaries.json")
 
-  if os.path.exists(os.path.join(folder_name, "chapter_summaries.json")):
-    only_found = cf.read_json_file(os.path.join(folder_name, "chapter_summaries.json"))
+  if not os.path.exists(destrung_path):
+    destrung_json = de_string_json(chapter_summaries)
+    cf.write_json_file(destrung_json, destrung_path)
   else:
-    cleaned_json = de_string_json(chapter_summaries)
-    reshaped_data = reshape_dict(cleaned_json)
-    only_found = remove_none_found(reshaped_data)
-  cf.write_json_file(only_found, os.path.join(folder_name, "chapter_summaries_reshaped.json"))
+    destrung_json = cf.read_json_file(destrung_path)
 
-  dedpulicated_dictionary = deduplicate_keys(only_found)
-  cf.write_json_file(dedpulicated_dictionary, os.path.join(folder_name, "chapter_summaries_deduplicated.json"))
+  if not os.path.exists(reshaped_path):
+    reshaped_dict = reshape_dict(destrung_json)
+    cf.write_json_file(reshaped_dict, reshaped_path)
+  else:
+    reshaped_dict = cf.read_json_file(reshaped_path)
 
-  sorted_dictionary = sort_dictionary(dedpulicated_dictionary)
-  cf.write_json_file(sorted_dictionary, os.path.join(folder_name, "chapter_summaries.json"))
+  if not os.path.exists(only_found_path):
+    only_found = remove_none_found(reshaped_dict)
+    cf.write_json_file(only_found, only_found_path)
+  else:
+    only_found = cf.read_json_file(only_found_path)
+
+  if not os.path.exists(only_found_path):
+    dedpulicated_dict = deduplicate_keys(only_found)
+    cf.write_json_file(dedpulicated_dict, deduplicated_path)
+  else:
+    dedpulicated_dict = cf.read_json_file(deduplicated_path)
+
+  if not os.path.exists(chapter_summaries_path):
+    sorted_dictionary = sort_dictionary(dedpulicated_dict)
+    cf.write_json_file(sorted_dictionary, chapter_summaries_path)
+  else:
+    sorted_dictionary = cf.read_json_file(chapter_summaries_path)
 
   return sorted_dictionary
