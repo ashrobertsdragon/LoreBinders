@@ -1,6 +1,6 @@
 import os
 
-import characteranalysis
+from character_analysis import analyze_book
 from make_pdf import create_pdf
 from send_email import send_mail
 
@@ -17,7 +17,7 @@ def main():
   book_name = "DragonRun.txt" # placeholder
   narrator = "Kalia" # placeholder
 
-  folder_name = characteranalysis.analyze_book(user_folder, book_name, narrator)
+  folder_name = analyze_book(user_folder, book_name, narrator)
   create_pdf(folder_name, book_name)
   send_mail(folder_name, book_name, user_email)
 
