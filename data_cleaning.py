@@ -268,6 +268,22 @@ def merge_values(value1, value2):
         value1[k] = v  
   elif isinstance(value1, list) and isinstance(value2, list):
     value1.extend(value2)
+  elif isinstance(value1, dict) and isinstance(value2, list):
+    for item in value2:
+      if isinstance(item, dict):
+        for k, v in item.items():
+          if k in value1:
+            value1[k] = merge_values(value1[k], v)
+          else:
+            value1[k] = v
+      else:
+        value1["Also"] = value2
+  elif isinstance(value1, list) and isinstance(value2, dict):
+    for k, v in value2.items():
+      if k in value1:
+        value1[k] = merge_values(value1[k], v)
+      else:
+        value1.append({k: v})
   elif isinstance(value1, dict):
     for key in value1:
       if key == value2:
@@ -449,7 +465,7 @@ def data_cleaning(folder_name: str, chapter_summary: dict) -> dict:
   """
   
   destrung_path = os.path.join(folder_name, "chapter_summaries_destrung.json")
-  only_found_path = os.path.join(folder_name, "chapter_summaries_only_found")
+  only_found_path = os.path.join(folder_name, "chapter_summaries_only_found.json")
   reshaped_path = os.path.join(folder_name, "chapter_summaries_reshaped.json")
   deduplicated_path = os.path.join(folder_name, "chapter_summaries_deduplicated.json")
   chapter_summaries_path = os.path.join(folder_name, "chapter_summaries.json")
@@ -472,7 +488,7 @@ def data_cleaning(folder_name: str, chapter_summary: dict) -> dict:
   else:
     only_found = cf.read_json_file(only_found_path)
 
-  if not os.path.exists(only_found_path):
+  if not os.path.exists(deduplicated_path):
     dedpulicated_dict = deduplicate_keys(only_found)
     cf.write_json_file(dedpulicated_dict, deduplicated_path)
   else:
