@@ -18,38 +18,70 @@ def create_pdf(folder_name: str, book_name: str) -> None:
 
   story = []
 
+  book_title, _ = os.path.splitext(book_name)
   input_path = os.path.join(folder_name, "lorebinder.json")
-  output_path = os.path.join(folder_name, f"{book_name}.pdf")
+  output_path = os.path.join(folder_name, f"{book_title}.pdf")
 
   folder_split = folder_name.split('/')
   user_name = folder_split[0]
   
   chapter_summaries = read_json_file(input_path)
   
-  doc = SimpleDocTemplate(output_path, pagesize =  letter, author = user_name, title = book_name)
+  doc = SimpleDocTemplate(output_path, pagesize =  letter, author = user_name, title = book_title)
   styles = getSampleStyleSheet()
-  toc_style = ParagraphStyle('TOCHeading', parent = styles['Heading2'], spaceAfter = 10)
+
+  toc_style_attributes = ParagraphStyle(
+    'TOCLevel0', 
+    parent=styles['Normal'], 
+    fontSize=12, 
+    leading=14, 
+    spaceAfter=6,
+    spaceBefore=6
+)
+
+  toc_style_names = ParagraphStyle(
+    'TOCLevel1', 
+    parent=styles['Normal'], 
+    fontSize=10, 
+    leading=12, 
+    spaceAfter=3,
+    spaceBefore=3,
+    leftIndent=10
+)
 
   story.append(Paragraph(f"LoreBinder\nfor\n{book_name}", styles["Title"]))
   story.append(PageBreak())
 
   toc = TableOfContents()
-  toc.levelStyles = [toc_style]
+  toc.levelStyles = [toc_style_attributes, toc_style_names]
   story.append(toc)
   story.append(PageBreak())
 
-  def add_toc_entry(doc, key, depth):
-    toc.add_entry(depth, key, doc.page)
+  def add_toc_entry(flowable):
+    if isinstance(flowable, Paragraph) and flowable.style.name in ["Heading1", "Heading2"]:
+      level = 0 if flowable.style.name == "Heading1" else 1
+      text = flowable.getPlainText()
+      toc.addEntry(level, doc.page, text)
+
+  def create_detail_list(chapters: dict) -> list:
+    detail_list = []
+    for chapter, details in chapters.items():
+      if chapter ==  "summary":
+        continue
+      detail_string = "\n".join(str(detail) for detail in details)
+      list_item = ListItem(Paragraph(detail_string, styles["Normal"]),
+                            bulletType = "1", value = int(chapter))
+      detail_list.append(list_item)
+    return detail_list
+
+  doc.afterFlowable = add_toc_entry
 
   for attribute, names in chapter_summaries.items():
     story.append(Paragraph(attribute, styles["Heading1"]))
-    doc.afterFlowable = lambda: add_toc_entry(doc, attribute, 0)
-    story.append(Spacer(1, 12))
+    story.append(PageBreak())
     
     for name, content in names.items():
-      story.append(PageBreak())
       story.append(Paragraph(name, styles["Heading2"]))
-      doc.afterFlowable = lambda: add_toc_entry(doc, name, 1)
       story.append(Spacer(1, 12))
       
       image_path = content.get("image")
@@ -66,14 +98,14 @@ def create_pdf(folder_name: str, book_name: str) -> None:
         for trait, chapters in content.items():
           if trait == "summary":
             continue
-            
           story.append(Paragraph(trait, styles["Heading3"]))
-
-          detail_list = [ListItem(Paragraph(detail, styles["Normal"]), bulletType = "1", value = int(chapter)) for chapter, detail in chapters.items()]
+          detail_list = create_detail_list(chapters)
           story.append(ListFlowable(detail_list))
 
       else:
-        detail_list = [ListItem(Paragraph(detail, styles["Normal"]), bulletType = "1", value = int(chapter)) for chapter, detail in chapters.items()]
+        story.append(Paragraph(trait, styles["Heading3"]))
+        detail_list = create_detail_list(content)
         story.append(ListFlowable(detail_list))
+      story.append(PageBreak())
 
   doc.build(story)
