@@ -266,6 +266,7 @@ def summarize_attributes(chapter_summaries: dict, folder_name: str) -> None:
   prompt_list = []
 
   chapter_summaries_path = os.path.join(folder_name, "chapter_summaries.json")
+  with_summaries_path = os.path.join(folder_name, "chapter_summaries_with.json")
 
   model_key = "gpt_three"
   temperature = 0.4
@@ -287,7 +288,7 @@ def summarize_attributes(chapter_summaries: dict, folder_name: str) -> None:
       summary = cf.call_gpt_api(model_key, prompt, role_script, temperature, max_tokens)
       chapter_summaries[attribute][attribute_name]["summary"] = summary
       progress_bar.update(1)
-  cf.append_json_file(chapter_summaries, chapter_summaries_path)
+  cf.append_json_file(chapter_summaries, with_summaries_path)
   return chapter_summaries
 
 def analyze_book(user_folder: str, book_name: str, narrator: str) -> str:
@@ -337,6 +338,7 @@ def analyze_book(user_folder: str, book_name: str, narrator: str) -> str:
   with_summaries_path = os.path.join(folder_name, "chapter_summaries_with.json")
   if not os.path.exists(with_summaries_path):
     with_summaries = summarize_attributes(cleaned_summaries, folder_name)
+    cf.write_json_file(with_summaries, with_summaries_path)
   else:
     with_summaries = cf.read_json_file(with_summaries_path)
   lorebinder_path = os.path.join(folder_name, "lorebinder.json")
