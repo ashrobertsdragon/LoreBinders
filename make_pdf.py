@@ -27,7 +27,7 @@ def create_pdf(folder_name: str, book_name: str) -> None:
   
   chapter_summaries = read_json_file(input_path)
   
-  doc = SimpleDocTemplate(output_path, pagesize =  letter, author = user_name, title = book_title)
+  doc = SimpleDocTemplate(output_path, pagesize = letter, author = user_name, title = book_title)
   styles = getSampleStyleSheet()
 
   toc_style_attributes = ParagraphStyle(
@@ -49,7 +49,7 @@ def create_pdf(folder_name: str, book_name: str) -> None:
     leftIndent=10
 )
 
-  story.append(Paragraph(f"LoreBinder\nfor\n{book_name}", styles["Title"]))
+  story.append(Paragraph(f"LoreBinder\nfor\n{book_title}", styles["Title"]))
   story.append(PageBreak())
 
   toc = TableOfContents()
@@ -61,7 +61,7 @@ def create_pdf(folder_name: str, book_name: str) -> None:
     if isinstance(flowable, Paragraph) and flowable.style.name in ["Heading1", "Heading2"]:
       level = 0 if flowable.style.name == "Heading1" else 1
       text = flowable.getPlainText()
-      toc.addEntry(level, doc.page, text)
+      toc.addEntry(level, text, doc.page)
 
   def create_detail_list(chapters: dict) -> list:
     detail_list = []
@@ -108,4 +108,4 @@ def create_pdf(folder_name: str, book_name: str) -> None:
         story.append(ListFlowable(detail_list))
       story.append(PageBreak())
 
-  doc.build(story)
+  doc.multiBuild(story)
