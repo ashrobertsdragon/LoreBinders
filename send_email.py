@@ -14,8 +14,8 @@ def get_email_body() -> str:
   """
   Reads the contents of an html file and returns it as the email body text.
   """
-  
-  with open ("email_content.html", "r") as f:
+  html_path = os.path.join("ProsePal", "email_content.html")
+  with open (html_path, "r") as f:
     email_body = f.read()
 
 
@@ -37,7 +37,7 @@ def send_mail(folder_name: str, book_name: str, user_email: str) -> None:
   server = "prosepal.io"
   port = 465
 
-  file_path = os.path.join(folder_name, f"{book_name}.pdf")
+  file_path = os.path.join(folder_name, f"{book_name}-lorebinder.pdf")
 
   email_body = get_email_body()
 

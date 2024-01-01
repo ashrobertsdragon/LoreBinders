@@ -10,14 +10,15 @@ if not os.path.exists(".replit"):
 
 def main():
 
-  user = "ashdragon" # placeholder
-  user_email = os.getenv("user_email")
-  user_folder = os.path.join("ProsePal", "users", user)
-
-  book_name = "DragonRun.txt" # placeholder
+  book_file = "DragonRun.txt" # placeholder
   narrator = "Kalia" # placeholder
+  user = "ashdragon" # placeholder
+  user_email = os.getenv("user_email") # placeholder
 
-  folder_name = analyze_book(user_folder, book_name, narrator)
+  user_folder = os.path.join("ProsePal", "users", user)
+  book_name, _ = os.path.splitext(book_file)
+
+  folder_name = analyze_book(user_folder, book_file, narrator)
   create_pdf(folder_name, book_name)
   send_mail(folder_name, book_name, user_email)
 

@@ -18,16 +18,16 @@ def create_pdf(folder_name: str, book_name: str) -> None:
 
   story = []
 
-  book_title, _ = os.path.splitext(book_name)
+  
   input_path = os.path.join(folder_name, "lorebinder.json")
-  output_path = os.path.join(folder_name, f"{book_title}.pdf")
+  output_path = os.path.join(folder_name, f"{book_name}-lorebinder.pdf")
 
   folder_split = folder_name.split('/')
   user_name = folder_split[0]
   
   chapter_summaries = read_json_file(input_path)
   
-  doc = SimpleDocTemplate(output_path, pagesize = letter, author = user_name, title = book_title)
+  doc = SimpleDocTemplate(output_path, pagesize = letter, author = user_name, title = book_name)
   styles = getSampleStyleSheet()
 
   toc_style_attributes = ParagraphStyle(
@@ -49,7 +49,7 @@ def create_pdf(folder_name: str, book_name: str) -> None:
     leftIndent=10
 )
 
-  story.append(Paragraph(f"LoreBinder\nfor\n{book_title}", styles["Title"]))
+  story.append(Paragraph(f"LoreBinder\nfor\n{book_name}", styles["Title"]))
   story.append(PageBreak())
 
   toc = TableOfContents()
