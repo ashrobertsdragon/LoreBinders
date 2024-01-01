@@ -268,22 +268,17 @@ def merge_values(value1, value2):
         value1[k] = v  
   elif isinstance(value1, list) and isinstance(value2, list):
     value1.extend(value2)
-  elif isinstance(value1, dict) and isinstance(value2, list):
-    for item in value2:
-      if isinstance(item, dict):
-        for k, v in item.items():
-          if k in value1:
-            value1[k] = merge_values(value1[k], v)
-          else:
-            value1[k] = v
-      else:
-        value1["Also"] = value2
   elif isinstance(value1, list) and isinstance(value2, dict):
     for k, v in value2.items():
       if k in value1:
         value1[k] = merge_values(value1[k], v)
       else:
         value1.append({k: v})
+  elif isinstance(value1, dict) and isinstance(value2, list):
+    if "Also" in value1:
+      value1["Also"].extend(value2)
+    else:
+      value1["Also"] = value2
   elif isinstance(value1, dict):
     for key in value1:
       if key == value2:
@@ -299,22 +294,23 @@ def merge_values(value1, value2):
 def deduplcate_across_dictionaries(attribute_summaries: dict) -> dict:
   "Finds dupicates across dictionaries"
 
-  character_keys = set(attribute_summaries["Characters"].keys())
-  duplicate_keys = []
-  for outer_key, nested_dict in attribute_summaries.items():
-    if outer_key == "Characters":
-      continue
-    for key in nested_dict:
-      if key in character_keys:
-        attribute_summaries["Characters"][key] = merge_values(attribute_summaries["Characters"][key], nested_dict[key])
-        duplicate_keys.append(key)
+  characters_dict = attribute_summaries.get("Characters", {})
 
-  for outer_key, nested_dict in attribute_summaries.items():
-    if outer_key == "Characters":
+  for attribute, names in attribute_summaries.items():
+    if attribute == "Characters":
       continue
-    for key in duplicate_keys:
-      if key in nested_dict:
-        del nested_dict[key]
+    for name in list(names.keys()):
+      if name not in characters_dict:
+        continue
+      for chapter, details in names[name].items():
+        if chapter in characters_dict[name]:
+          merged_values = merge_values(characters_dict[name][chapter], details)
+          attribute_summaries["Characters"][name][chapter] = merged_values
+        elif isinstance(details, dict):
+          attribute_summaries["Characters"][name][chapter] = details
+        else:
+          attribute_summaries["Characters"][name][chapter] ={"Also": details}
+      del names[name]
 
   return attribute_summaries
 
