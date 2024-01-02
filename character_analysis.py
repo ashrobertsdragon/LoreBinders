@@ -7,15 +7,23 @@ from typing import Tuple
 import common_functions as cf
 from data_cleaning import data_cleaning, final_reshape
 
-def initialize_names(chapters: list, folder_name: str) -> Tuple[int, list, int, dict, int]:
+
+ABSOLUTE_MAX_TOKENS = 4096
+DEFAULT_ATTRIBUTES = ["Characters", "Settings"]
+
+def initialize_names(chapters: list, folder_name: str) -> Tuple[int, list, int, dict, int, dict, int]:
 
   num_chapters = len(chapters)
   print(f"\nTotal Chapters: {num_chapters} \n\n")
 
   character_lists_index = 0
+  chapter_sumamary_paragraphs_index = 0
   chapter_summary_index = 0
+  summaries_index = 0
   character_lists_path = os.path.join(folder_name, "character_lists.json")
+  chapter_summary_paragraphs_path = os.path.join(folder_name, "chapter_summary_paragraphs.json")
   chapter_summary_path = os.path.join(folder_name, "chapter_summary.json")
+  summaries_path = os.path.join(folder_name, "summaries.json")
 
   if os.path.exists(character_lists_path):
     character_lists =  cf.read_json_file(character_lists_path)
@@ -25,6 +33,14 @@ def initialize_names(chapters: list, folder_name: str) -> Tuple[int, list, int, 
     character_lists = []
   character_lists_index = len(character_lists)
 
+  if os.path.exists(chapter_summary_paragraphs_path):
+    chapter_summary_paragraphs = cf.read_json_file(chapter_summary_paragraphs_path)
+    if not isinstance(chapter_summary_paragraphs, dict):
+      chapter_summary = {}
+  else:
+    chapter_summary = {}
+  chapter_sumamary_paragraphs_index = len(chapter_summary_paragraphs)
+
   if os.path.exists(chapter_summary_path):
     chapter_summary = cf.read_json_file(chapter_summary_path)
     if not isinstance(chapter_summary, dict):
@@ -32,7 +48,20 @@ def initialize_names(chapters: list, folder_name: str) -> Tuple[int, list, int, 
   else:
     chapter_summary = {}
   chapter_summary_index = len(chapter_summary)
-  return num_chapters, character_lists, character_lists_index, chapter_summary, chapter_summary_index
+
+  if os.path.exists(summaries_path):
+    summaries = cf.read_json_file(summaries_path)
+    if not isinstance(summaries, list):
+      summaries = []
+  else:
+    summaries = []
+  summaries_index = len(summaries)
+
+  return (
+    num_chapters, character_lists, character_lists_index, chapter_summary_paragraphs,
+    chapter_sumamary_paragraphs_index, chapter_summary, chapter_summary_index,
+    summaries, summaries_index
+  )
 
 def get_attributes(folder_name: str) -> Tuple[str, str]:
 
@@ -131,8 +160,94 @@ def search_names(chapters: list, folder_name: str, num_chapters: int, character_
   return character_lists
 
 def character_analysis_role_script(attribute_table: dict, chapter_number: str) -> list:
+  
+  max_tokens = 0
+  tokens_per = 200
+  attr_list = []
+  other_attribute_list = []
+  role_batch = []
 
-  absolute_max_tokens = 4096
+  chapter_data = attribute_table.get(chapter_number, {})
+  characters = ("Characters", f"Characters: {', '.join(character for character 
+                                          in chapter_data.get('Characters', []))}\n")
+  settings = ("Settings", f"Settings: {', '.join(setting for setting 
+                                      in chapter_data.get('Settings', []))}\n")
+  other_attributes = (attribute, [f'{attribute}: {", ".join(attribute_names)}\n' 
+                      for attribute, attribute_names in chapter_data.items() 
+                      if attribute not in DEFAULT_ATTRIBUTES])
+  attributes_list = [characters, settings] + other_attributes
+
+  def create_script(other_attribute_list: list, attr_list: list, role_batch: list, max_tokens: int) -> str:
+
+    instructions = (
+      f'You are a developmental editor helping create a story bible. For each of '
+      f'the below write 1-2 paragraphs.\n'
+      f'For each character in the chapter, note their appearance, personality, '
+      f'mood, relationships with other characters, known or apparent sexuality.\n'
+      f'For each setting in the chapter, note how the setting is described, where '
+      f'it is in relation to other locations and whether the characters appear to be '
+      f'familiar or unfamiliar with the location. Be detailed but concise.\n'
+    )
+    if other_attribute_list:
+      other_attribute_instructions = ('Provide descriptons of ' +
+                                      ', '.join(other_attribute_list) + ' without '
+                                      ' referencing specific characters or plot '
+                                      'points\n')
+    else:
+      other_attribute_instructions = ""
+    role_script = instructions + other_attribute_instructions + "\n".join(attr_list)
+    role_batch.append((role_script, max_tokens))
+    return role_batch
+
+  for attribute, attribute_str in attributes_list:
+    if attribute not in DEFAULT_ATTRIBUTES:
+      other_attribute_list.append(attribute_str)
+    token_count = min(len(chapter_data[attribute]) * tokens_per, ABSOLUTE_MAX_TOKENS)
+    if max_tokens + token_count > ABSOLUTE_MAX_TOKENS:
+      role_batch = create_script(other_attribute_list, attr_list, role_batch, max_tokens)
+      max_tokens = token_count
+      attr_list = [attribute]
+      other_attribute_list = []
+    else:
+      max_tokens += token_count
+      attr_list.append(attribute)
+
+  if attr_list:
+    role_batch = create_script(other_attribute_list, attr_list, role_batch, max_tokens)
+  return role_batch
+
+def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, num_chapters: int, chapter_summary_paragraphs: dict, chapter_summary_index: int) -> dict:
+
+  chapter_summary_paragraphs_path = os.path.join(folder_name, "chapter_summary_paragraphs.json")
+  model = "gpt_four"
+  temperature = 0.4
+  roles = []
+  with tqdm(total = num_chapters, unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|") as progress_bar:
+    for i, chapter in enumerate(chapters):
+      if i < chapter_summary_index:
+        continue
+      chapter_number = i + 1
+      progress_bar.set_description(f"\033[92mProcessing Chapter {i + 1}\033[0m", refresh = True)
+      attribute_summary = ""
+      attribute_summary_part = []
+      attribute_summary_whole = []
+      prompt = f"Chapter Text: {chapter}"
+      role_script_info = character_analysis_role_script(attribute_table, str(chapter_number))
+      roles.append((chapter_number, role_script_info))
+      progress_increment = 1 /len(role_script_info)
+      for role_script, max_tokens in role_script_info:
+        attribute_summary_part = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens)
+        attribute_summary_whole.append(attribute_summary_part)
+      progress_bar.update(progress_increment)
+      attribute_summary = "\n".join(part for part in attribute_summary_whole)
+      chapter_summary_paragraphs[chapter_number] = attribute_summary
+      cf.append_json_file({chapter_number: attribute_summary}, chapter_summary_paragraphs_path)
+      
+  cf.clear_screen()
+  return chapter_summary_paragraphs
+
+def json_formatting_role_script(attribute_table: dict, chapter_number: str) -> list:
+
   max_tokens = 0
   to_batch = []
   role_script_info = []
@@ -160,7 +275,7 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
   }
   other_attribute_schema = {
     key: {value: "description" for value in values} for key, values in 
-    chapter_data.items() if key not in ["Characters", "Settings"]
+    chapter_data.items() if key not in DEFAULT_ATTRIBUTES
   }
 
   def form_schema(to_batch, attributes_json):
@@ -169,14 +284,14 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
     if "Settings" in to_batch:
       attributes_json += json.dumps({"Settings": settings_schema})
     for attr in to_batch:
-      if attr not in ["Characters", "Settings"]:
+      if attr not in DEFAULT_ATTRIBUTES:
         attributes_json += json.dumps({attr: other_attribute_schema[attr]})
     return attributes_json
 
   for attribute, attribute_names in chapter_data.items():
     token_value = tokens_per.get(attribute, tokens_per["Other"])
-    token_count = min(len(attribute_names) * token_value, 4096)
-    if max_tokens + token_count > absolute_max_tokens:
+    token_count = min(len(attribute_names) * token_value, ABSOLUTE_MAX_TOKENS)
+    if max_tokens + token_count > ABSOLUTE_MAX_TOKENS:
       attributes_json = form_schema(to_batch, attributes_json)
       attributes_batch.append((attributes_json, max_tokens))
       to_batch = [attribute]
@@ -191,27 +306,18 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
     attributes_batch.append((attributes_json, max_tokens))
 
   instructions = (
-    f'You are a developmental editor helping create a story bible. \n'
+    f'You are an expert JSON formatter. Please take the text below and output it '
+    f'as JSON using the schema below.\n'
     f'Be detailed but concise, using short phrases instead of sentences. Do not '
     f'justify your reasoning. Only one attribute per line, just like in the schema '
     f'below, but all description for that attribute should be on the same line. If '
     f'something appears to be miscatagorized, please put it under the correct '
     f'attribute.\n'
-    f'For each character in the chapter, note their appearance, personality, '
-    f'mood, relationships with other characters, known or apparent sexuality.\n'
-    f'For each setting in the chapter, note how the setting is described, where '
-    f'it is in relation to other locations and whether the characters appear to be '
-    f'familiar or unfamiliar with the location. Be detailed but concise.\n'
-    f'If you cannot find any mention of a specific attribute in the text, please '
-    f'respond with "None found" as the description for that attribute. '
-    f'If you are unsure of a setting or no setting is shown in the text, please '
-    f'respond with "None found" as the description for that setting.\n'
   )
-
   for attributes_json, max_tokens in attributes_batch:
     if other_attribute_schema:
       other_attribute_list = [attr for attr in chapter_data 
-                              if attr not in ["Characters", "Settings"]]
+                              if attr not in DEFAULT_ATTRIBUTES]
       other_attribute_instructions = ('Provide descriptons of ' +
                                       ', '.join(other_attribute_list) + ' without '
                                       ' referencing specific characters or plot points\n')
@@ -225,47 +331,58 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
       f'{attributes_json}'
     )
     role_script_info.append((role_script, max_tokens))
-  return role_script_info 
+  return role_script_info
 
-def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, num_chapters: int, chapter_summary: dict, chapter_summary_index: int) -> dict:
+def form_json(chapter_summary_paragraphs: dict, attribute_table: dict, folder_name: str, num_chapters: int, chapter_summary: dict, chapter_summary_index: int) -> dict:
 
   chapter_summary_path = os.path.join(folder_name, "chapter_summary.json")
-  model = "gpt_four"
-  temperature = 0.4
+  model = "gpt_three"
+  temperature = 0.2
   roles = []
   with tqdm(total = num_chapters, unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|") as progress_bar:
-    for i, chapter in enumerate(chapters):
+    for i, paragraphs in enumerate(chapter_summary_paragraphs):
       if i < chapter_summary_index:
         continue
       chapter_number = i + 1
-      progress_bar.set_description(f"\033[92mProcessing Chapter {i + 1}\033[0m", refresh = True)
+      progress_bar.set_description(f"\033[92mProcessing Chapter {chapter_number}\033[0m", refresh = True)
       attribute_summary = ""
       attribute_summary_part = []
       attribute_summary_whole = []
-      prompt = f"Chapter Text: {chapter}"
-      role_script_info = character_analysis_role_script(attribute_table, str(chapter_number))
-      roles.append((chapter_number, role_script_info))
-      progress_increment = 1 /len(role_script_info)
-      for role_script, max_tokens in role_script_info:
-        attribute_summary_part = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type = "json")
+      prompt = f"Information to add to JSON: {paragraphs}"
+      role_script_tuple = json_formatting_role_script(attribute_table, str(chapter_number))
+      progress_increment = 1 /len(role_script_tuple)
+      for role_script, max_tokens in role_script_tuple:
+        attribute_summary_part = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_ = "json")
         attribute_summary_whole.append(attribute_summary_part)
       progress_bar.update(progress_increment)
       attribute_summary = "{" + ",".join(part.lstrip("{").rstrip("}") for part in attribute_summary_whole) + "}"
       chapter_summary[chapter_number] = attribute_summary
       cf.append_json_file({chapter_number: attribute_summary}, chapter_summary_path)
       
-  #cf.clear_screen()
-  cf.append_json_file(roles, "role_scripts.json")
+  cf.clear_screen()
   return chapter_summary
 
-def summarize_attributes(chapter_summaries: dict, folder_name: str) -> None:
+def create_summarization_prompts(chapter_summaries: dict) -> tuple:
+
+  prompt_list = []
+  for attribute, attribute_names in chapter_summaries.items():
+    for attribute_name, chapters in attribute_names.items():
+      for _, details in chapters.items():
+        if attribute in DEFAULT_ATTRIBUTES:
+          description = ", ".join(f"{trait}: {','.join(detail)}" for trait, detail in details.items())
+        else:
+          description = ", ".join(details)
+        prompt_list.append((attribute, attribute_name, f"{attribute_name}: {description}"))
+  return prompt_list
+
+def summarize_attributes(chapter_summaries: dict, folder_name: str, summaries: list, summaries_index: int, prompt_list: tuple) -> dict:
   """
   Summarize the names for the attributes of the chapters in the folder.
   """
 
   prompt_list = []
 
-  chapter_summaries_path = os.path.join(folder_name, "chapter_summaries.json")
+  summaries_path = os.path.join(folder_name, "summaries.json")
   with_summaries_path = os.path.join(folder_name, "chapter_summaries_with.json")
 
   model_key = "gpt_three"
@@ -273,22 +390,18 @@ def summarize_attributes(chapter_summaries: dict, folder_name: str) -> None:
   max_tokens = 200
   role_script = f"You are an expert summarizer. Please summarize the description over the course of the story for the following:"
 
-  for attribute, attribute_names in chapter_summaries.items():
-    for attribute_name, chapters in attribute_names.items():
-      for chapter, details in chapters.items():
-        if attribute == "Characters" or attribute == "Settings":
-          description = ", ".join(f"{trait}: {','.join(detail)}" for trait, detail in details.items())
-        else:
-          description = ", ".join(details)
-        prompt_list.append((attribute, attribute_name, f"{attribute_name}: {description}"))
-
-  with tqdm(total = len(prompt_list), unit = "Prompt", ncols = 40) as progress_bar:
+  with tqdm(total = len(prompt_list), unit = "Summary", ncols = 40) as progress_bar:
     for i, (attribute, attribute_name, prompt) in enumerate(prompt_list):
-      progress_bar.set_description(f"\033[92mProcessing attriribute {i+1} of {len(prompt_list)}", refresh = True)      
+      progress_bar.set_description(f"\033[92mProcessing attriribute {i+1} of {len(prompt_list)}", refresh = True)
+      if i < summaries_index:
+        progress_bar.update(1)
       summary = cf.call_gpt_api(model_key, prompt, role_script, temperature, max_tokens)
+      summaries.append(summary)
       chapter_summaries[attribute][attribute_name]["summary"] = summary
+      cf.append_json_file(summary, summaries_path)
+      cf.append_json_file(chapter_summaries[attribute][attribute_name]["summary"], with_summaries_path)
       progress_bar.update(1)
-  cf.append_json_file(chapter_summaries, with_summaries_path)
+
   return chapter_summaries
 
 def analyze_book(user_folder: str, book_name: str, narrator: str) -> str:
@@ -303,7 +416,7 @@ def analyze_book(user_folder: str, book_name: str, narrator: str) -> str:
   full_text = cf.read_text_file(file_path)
   chapters = cf.separate_into_chapters(full_text)
 
-  num_chapters, character_lists, character_lists_index, chapter_summary, chapter_summary_index = initialize_names(chapters, folder_name)
+  num_chapters, character_lists, character_lists_index, chapter_summary_paragraphs, chapter_summary_paragraphs_index, chapter_summary, chapter_summary_index, summaries, summaries_index = initialize_names(chapters, folder_name)
 
   # Named Entity Recognition  
   if character_lists_index < num_chapters:
@@ -323,10 +436,19 @@ def analyze_book(user_folder: str, book_name: str, narrator: str) -> str:
     attribute_table = cf.read_json_file(attribute_table_path)
 
   # Semantic search based on attributes pulled
+  if chapter_summary_paragraphs_index < num_chapters:
+    print(f"Starting chapter summary paragraphs at chapter {chapter_summary_index + 1}")
+    chapter_summary_paragraphs = analyze_attributes(chapters, attribute_table, folder_name, num_chapters, chapter_summary_paragraphs, chapter_summary_paragraphs_index)
+  else:
+    print("Chapter summary paragraphs written")
+    chapter_summary_paragraphs = cf.read_json_file(os.path.join(folder_name, "chapter_summary_paragraphs.json"))
+  
+  # Form JSON for chapter summaries
   if chapter_summary_index < num_chapters:
-    print(len(attribute_table))
-    print(f"Starting chapter summaries at chapter {chapter_summary_index + 1}")
-    chapter_summary = analyze_attributes(chapters, attribute_table, folder_name, num_chapters, chapter_summary, chapter_summary_index)
+    print(f"Starting JSON formation of chapter summaries at chapter {chapter_summary_index + 1}")
+    chapter_summary = form_json(chapter_summary_paragraphs, attribute_table, folder_name, num_chapters, chapter_summary, chapter_summary_index)
+  else:
+    chapter_summary = cf.read_json_file(os.path.join(folder_name, "chapter_summary.json"))
 
   # Cleaning data and preparing for presentation
   chapter_summaries_path = os.path.join(folder_name, "chapter_summaries.json")
@@ -335,14 +457,15 @@ def analyze_book(user_folder: str, book_name: str, narrator: str) -> str:
   else:
     cleaned_summaries = cf.read_json_file(chapter_summaries_path)
 
+  prompt_list = create_summarization_prompts(cleaned_summaries)
   with_summaries_path = os.path.join(folder_name, "chapter_summaries_with.json")
-  if not os.path.exists(with_summaries_path):
-    with_summaries = summarize_attributes(cleaned_summaries, folder_name)
-    cf.write_json_file(with_summaries, with_summaries_path)
+  if summaries_index < len(prompt_list):
+    print(f"Generating summaries starting at {summaries_index}")
+    with_summaries = summarize_attributes(cleaned_summaries, folder_name, summaries, summaries_index, prompt_list)
   else:
     with_summaries = cf.read_json_file(with_summaries_path)
-  lorebinder_path = os.path.join(folder_name, "lorebinder.json")
 
+  lorebinder_path = os.path.join(folder_name, "lorebinder.json")
   if not os.path.exists(lorebinder_path):
     final_reshape(with_summaries, folder_name)
 
