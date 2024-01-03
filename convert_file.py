@@ -531,29 +531,16 @@ def parse_text_file(book_content: str) -> str:
   parsed_lines = ["\n***\n" if is_chapter(line) else desmarten_text(line) for line in book_lines]
   return "\n".join(parsed_lines)
 
-def extract_metadata(file_path):
-  """
-  Extracts author and title from the given file path.
-  Arguments:
-    file_path: Path of the file.
-  Returns tuple containing author and title.
-  """
-  path_components = file_path.split(os.sep)
-  author = path_components[-2]
-  title = path_components[-1].split(' - ')[0]
-  return author, title
-
-def convert_file(folder_name: str, book_name: str) -> None:
+def convert_file(user_folder: str, book_name: str, metadata: dict) -> None:
   """
   Converts a book to a text file with 3 asterisks for chapter breaks
   Arguments:
     book_name: Name of the book.
     folder_name: Name of the folder containing the book.
-  Returns the name of the text file.
   """
 
   book_content = ""
-  file_path = os.path.join(folder_name, book_name)
+  file_path = os.path.join(user_folder, book_name)
 
   book_name = book_name.replace(" ", "_")
   book_name = book_name.replace("-", "_")
@@ -563,8 +550,7 @@ def convert_file(folder_name: str, book_name: str) -> None:
   else:
     base_name = filename_list[0]
   extension = filename_list[-1].lower()
-  author, title = extract_metadata(file_path)
-  metadata= {"title": title, "author": author}
+
   if extension == "epub":
     book_content = read_epub(file_path, metadata)
   elif extension == "docx":
@@ -576,14 +562,9 @@ def convert_file(folder_name: str, book_name: str) -> None:
     book_content = parse_text_file(book_content)
   else:
     raise ValueError("Invalid file type")
-  book_content = desmarten_text(book_content)
+
   book_name = f"{base_name}.txt"
   processed_files_path = os.path.join(folder_name, "processed")
   book_path = os.path.join(processed_files_path, book_name)
   write_to_file(book_content, book_path)
 
-folder_name = "folder"
-for book_name in os.listdir(folder_name):
-  full_path = os.path.join(folder_name, book_name)
-  if os.path.isfile(full_path):
-    convert_file(folder_name, book_name)

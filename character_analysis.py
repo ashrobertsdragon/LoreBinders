@@ -5,7 +5,7 @@ import time
 from tqdm import tqdm
 from typing import Tuple
 import common_functions as cf
-from data_cleaning import data_cleaning, final_reshape
+from data_cleaning import data_cleaning, final_reshape, sort_names
 
 
 ABSOLUTE_MAX_TOKENS = 4096
@@ -36,10 +36,10 @@ def initialize_names(chapters: list, folder_name: str) -> Tuple[int, list, int, 
   if os.path.exists(chapter_summary_paragraphs_path):
     chapter_summary_paragraphs = cf.read_json_file(chapter_summary_paragraphs_path)
     if not isinstance(chapter_summary_paragraphs, dict):
-      chapter_summary = {}
+      chapter_summary_paragraphs = {}
   else:
-    chapter_summary = {}
-  chapter_sumamary_paragraphs_index = len(chapter_summary_paragraphs)
+    chapter_summary_paragraphs = {}
+  chapter_summary_paragraphs_index = len(chapter_summary_paragraphs)
 
   if os.path.exists(chapter_summary_path):
     chapter_summary = cf.read_json_file(chapter_summary_path)
@@ -59,14 +59,15 @@ def initialize_names(chapters: list, folder_name: str) -> Tuple[int, list, int, 
 
   return (
     num_chapters, character_lists, character_lists_index, chapter_summary_paragraphs,
-    chapter_sumamary_paragraphs_index, chapter_summary, chapter_summary_index,
+    chapter_summary_paragraphs_index, chapter_summary, chapter_summary_index,
     summaries, summaries_index
   )
 
 def get_attributes(folder_name: str) -> Tuple[str, str]:
 
-  dictionary_attributes_list = [] 
   attribute_strings = []
+  dictionary_attributes_list = []
+
   attributes_path = os.path.join(folder_name, "attributes.json")
   if os.path.exists(attributes_path):
     role_attributes, custom_attributes = cf.read_json_file(attributes_path)
@@ -79,15 +80,12 @@ def get_attributes(folder_name: str) -> Tuple[str, str]:
     "Type N if you only want to search for characters and settings\n> "
   )
 
-  if ask_attributes.strip().lower() == "n":
-    custom_attributes = ""
-    role_attributes = ""
-  elif ask_attributes.strip() == "":
+  if ask_attributes.strip().lower() in ["n", ""]:
     custom_attributes = ""
     role_attributes = ""
   else:
     custom_attributes = f" and the following additional attributes: {ask_attributes}"
-  dictionary_attributes_list = ask_attributes.split(",")
+    dictionary_attributes_list = ask_attributes.split(",")
 
   for attribute in dictionary_attributes_list:
     attribute = attribute.strip()
@@ -98,7 +96,7 @@ def get_attributes(folder_name: str) -> Tuple[str, str]:
   cf.clear_screen()
   return role_attributes, custom_attributes
 
-def ner_role_script(folder_name) -> str:
+def ner_role_script(folder_name: str) -> str:
 
   role_attributes, custom_attributes = get_attributes(folder_name)
   role_script = (
@@ -168,7 +166,7 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
   role_batch = []
 
   chapter_data = attribute_table.get(chapter_number, {})
-  attributes_list = [(attribute, f"{attribute}: ', '.join({names})")
+  attributes_list = [(attribute, f"{attribute}: {', '.join(names)}")
                     for attribute, names in chapter_data.items()]
 
   def create_script(attr_list: list, role_batch: list, max_tokens: int) -> str:
@@ -196,15 +194,15 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
   for attribute, attribute_str in attributes_list:
     token_count = min(len(chapter_data[attribute]) * tokens_per, ABSOLUTE_MAX_TOKENS)
     if max_tokens + token_count > ABSOLUTE_MAX_TOKENS:
-      role_batch = create_script(other_attribute_list, attr_list, role_batch, max_tokens)
+      role_batch = create_script(attr_list, role_batch, max_tokens)
       max_tokens = token_count
-      attr_list = [attribute. attribute_str]
+      attr_list = [(attribute, attribute_str)]
     else:
       max_tokens += token_count
-      attr_list.append(attribute, attribute_str)
+      attr_list.append((attribute, attribute_str))
 
   if attr_list:
-    role_batch = create_script(other_attribute_list, attr_list, role_batch, max_tokens)
+    role_batch = create_script(attr_list, role_batch, max_tokens)
   return role_batch
 
 def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, num_chapters: int, chapter_summary_paragraphs: dict, chapter_summary_index: int) -> dict:
@@ -212,7 +210,7 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
   chapter_summary_paragraphs_path = os.path.join(folder_name, "chapter_summary_paragraphs.json")
   model = "gpt_four"
   temperature = 0.4
-  roles = []
+
   with tqdm(total = num_chapters, unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|") as progress_bar:
     for i, chapter in enumerate(chapters):
       if i < chapter_summary_index:
@@ -342,8 +340,8 @@ def json_formatting_role_script(attribute_table: dict, chapter_number: str, para
     attributes_json, schema_token_count = form_schema(to_batch)
     if exceeds_context_window(max_tokens, token_count, schema_token_count, instructions_tokens):
       remove_last_attribute = to_batch.pop()
-      attributes_batch, schema_token_count = append_attributes_batch(attributes_batch, remove_last_attribute, max_tokens, instructions)
-      to_batch, max_tokens = reset_variables(to_batch, token_count)
+      attributes_batch, schema_token_count = append_attributes_batch(attributes_batch, to_batch, max_tokens, instructions)
+      to_batch, max_tokens = reset_variables(remove_last_attribute, token_count)
       attributes_json, schema_token_count = form_schema(to_batch)
     attributes_batch.append((attributes_json, max_tokens, instructions))
 
@@ -375,7 +373,7 @@ def form_json(chapter_summary_paragraphs: dict, attribute_table: dict, folder_na
       role_script_tuple = json_formatting_role_script(attribute_table, str(chapter_number), paragraphs, model)
       progress_increment = 1 /len(role_script_tuple)
       for role_script, max_tokens in role_script_tuple:
-        attribute_summary_part = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_ = "json")
+        attribute_summary_part = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type = "json")
         attribute_summary_whole.append(attribute_summary_part)
       progress_bar.update(progress_increment)
       attribute_summary = "{" + ",".join(part.lstrip("{").rstrip("}") for part in attribute_summary_whole) + "}"
@@ -402,8 +400,6 @@ def summarize_attributes(chapter_summaries: dict, folder_name: str, summaries: l
   """
   Summarize the names for the attributes of the chapters in the folder.
   """
-
-  prompt_list = []
 
   summaries_path = os.path.join(folder_name, "summaries.json")
   with_summaries_path = os.path.join(folder_name, "chapter_summaries_with.json")
@@ -452,7 +448,7 @@ def analyze_book(user_folder: str, book_name: str, narrator: str) -> str:
   attribute_table_path = os.path.join(folder_name, "attribute_table.json")
   if not os.path.exists(attribute_table_path):
     print("Building attribute table")
-    attribute_table = data_cleaning.sort_names(character_lists, narrator) 
+    attribute_table = sort_names(character_lists, narrator) 
     cf.write_json_file(attribute_table, attribute_table_path)
   else:
     print("Attribute table complete")

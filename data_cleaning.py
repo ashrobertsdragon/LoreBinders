@@ -23,13 +23,13 @@ def compare_names(inner_values: list, name_map: dict) -> list:
 
   for i, value_i in enumerate(inner_values):
     value_i_split = value_i.split()
-    if value_i_split[0] in TITLES:
+    if value_i_split[0] in TITLES and value_i not in TITLES:
       value_i = ' '.join(value_i_split[1:])
 
     for j, value_j in enumerate(inner_values):
       if i != j and value_i != value_j and not value_i.endswith(")") and not value_j.endswith(")") and (value_i.startswith(value_j) or value_i.endswith(value_j)):
         value_j_split = value_j.split()
-        if value_j_split[0] in TITLES:
+        if value_j_split[0] in TITLES and value_j not in TITLES:
           value_j = ' '.join(value_j_split[1:])
           if value_i in value_j or value_j in value_i:
             if value_i.endswith('s') and not value_j.endswith('s'):
@@ -205,21 +205,6 @@ def sort_dictionary(attribute_summaries: dict) -> dict:
 
   return sorted_dict
 
-def remove_none_found(d):
-  if isinstance(d, dict):
-    new_dict = {}
-    for key, value in d.items():
-      if value != "None found":
-        cleaned_value = remove_none_found(value)
-        if cleaned_value not in ["None found", [], {}, ""]:
-          new_dict[key] = cleaned_value
-    return new_dict
-  elif isinstance(d, list):
-    if d == ["None found"]:
-      return []
-    return [remove_none_found(item) for item in d if item != "None found"]
-  else:
-    return d
 
 def to_singular(plural: str) -> str:
   """
@@ -248,7 +233,7 @@ def to_singular(plural: str) -> str:
     singular = re.sub(pattern, repl, plural)
     if plural != singular:
       return singular
-    return plural[:-1]
+  return plural[:-1]
 
 def merge_values(value1, value2):
   """
@@ -291,7 +276,7 @@ def merge_values(value1, value2):
     return [value1, value2]
   return value1
 
-def deduplcate_across_dictionaries(attribute_summaries: dict) -> dict:
+def deduplicate_across_dictionaries(attribute_summaries: dict) -> dict:
   "Finds dupicates across dictionaries"
 
   characters_dict = attribute_summaries.get("Characters", {})
@@ -410,7 +395,7 @@ def deduplicate_keys(dictionary:dict) -> dict:
         continue
       inner_dict[key] = value
     cleaned_dict[outer_key] = inner_dict
-  deduplicated_dict = deduplcate_across_dictionaries(cleaned_dict)
+  deduplicated_dict = deduplicate_across_dictionaries(cleaned_dict)
   return deduplicated_dict
 
 def reshape_dict(chapter_summaries: dict) -> dict:
