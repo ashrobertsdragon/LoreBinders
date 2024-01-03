@@ -237,6 +237,7 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
 def json_formatting_role_script(attribute_table: dict, chapter_number: str, paragraphs: str, model_key: str) -> list:
 
   max_tokens = 0
+  schema_token_count = 0
   attributes_batch = []
   to_batch = []
   role_script_info = []
