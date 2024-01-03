@@ -246,13 +246,12 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
   cf.clear_screen()
   return chapter_summary_paragraphs
 
-def json_formatting_role_script(attribute_table: dict, chapter_number: str) -> list:
+def json_formatting_role_script(attribute_table: dict, chapter_number: str, paragraphs: str, model_key: str) -> list:
 
   max_tokens = 0
+  attributes_batch = []
   to_batch = []
   role_script_info = []
-  attributes_batch = []
-  attributes_json = ""
 
   tokens_per = {
     "Characters": 200,
@@ -261,76 +260,110 @@ def json_formatting_role_script(attribute_table: dict, chapter_number: str) -> l
   }
 
   chapter_data = attribute_table.get(chapter_number, {})
+  context_window = cf.get_model_details(model_key)["context_window"]
+  prompt_length = cf.count_tokens(paragraphs)
 
-  character_schema = {
-    character_name: {
-      "Appearance": "description", "Personality": "description", "Mood": "description", 
-      "Relationships": "description", "Sexuality": "description"
-    } for character_name in chapter_data.get("Characters", [])
-  }
-  settings_schema = {
-    setting_name: {
-      "Relative location": "description", "Main character's familiarity": "description"
-    } for setting_name in chapter_data.get("Settings", [])
-  }
-  other_attribute_schema = {
-    key: {value: "description" for value in values} for key, values in 
-    chapter_data.items() if key not in DEFAULT_ATTRIBUTES
-  }
+  def generate_schema_and_tokens(attribute: str) -> Tuple(str, int):
 
-  def form_schema(to_batch, attributes_json):
-    if "Characters" in to_batch:
-      attributes_json += json.dumps({"Characters": character_schema})
-    if "Settings" in to_batch:
-      attributes_json += json.dumps({"Settings": settings_schema})
-    for attr in to_batch:
-      if attr not in DEFAULT_ATTRIBUTES:
-        attributes_json += json.dumps({attr: other_attribute_schema[attr]})
-    return attributes_json
+    if attribute == "Characters":
+      schema_stub = {
+        "Appearance": "description", "Personality": "description", "Mood": "description", 
+        "Relationships": "description", "Sexuality": "description"
+      }
+    elif attribute == "Settings":
+      schema_stub = {
+        "Relative location": "description", "Main character's familiarity": "description"
+      }
+    else:
+      schema_stub = "description"
 
+    schema = {name: schema_stub for name in chapter_data.get(attribute, [])}
+    schema_json = json.dumps({attribute: schema})
+    schema_tokens = cf.count_tokens(schema_json)
+    return schema_json, schema_tokens
+
+  def create_instructions(to_batch: list) -> Tuple(str, int):
+
+    instructions = (
+      f'You are an expert JSON formatter. Please take the text below and output it '
+      f'as JSON using the schema below.\n'
+      f'Be detailed but concise, using short phrases instead of sentences. Do not '
+      f'justify your reasoning. Only one attribute per line, just like in the schema '
+      f'below, but all description for that attribute should be on the same line. If '
+      f'something appears to be miscatagorized, please put it under the correct '
+      f'attribute.\n'
+    )
+
+    if any(attribute not in DEFAULT_ATTRIBUTES for attribute in to_batch):
+      other_attribute_list = [attr for attr in to_batch
+                            if attr not in DEFAULT_ATTRIBUTES]
+      instructions += (
+        'Provide descriptons of ' +
+        ', '.join(other_attribute_list) +
+        ' without referencing specific characters or plot points\n')
+
+    instructions += "You will provide this information in the following JSON schema:"
+    instruction_tokens = cf.count_tokens(instructions)
+    return instructions, instruction_tokens
+
+  def form_schema(to_batch: list) -> Tuple(str, int):
+
+    attributes_json = ""
+    schema_token_count = 0
+
+    for attribute in to_batch:
+      schema_json, schema_tokens = generate_schema_and_tokens(attribute)
+      attributes_json += schema_json
+      schema_token_count += schema_tokens
+
+    return attributes_json, schema_token_count
+  
+  def exceeds_context_window(max_tokens: int, token_count: int, schema_token_count: int, instructions_tokens: int) -> bool:
+
+    return max_tokens + token_count + schema_token_count + instructions_tokens + prompt_length > context_window
+  
+  def reset_variables(attribute: str, token_count: int) -> Tuple(list, int):
+
+    to_batch = [attribute]
+    max_tokens = token_count
+    return to_batch, max_tokens
+  
+  def append_attributes_batch(attributes_batch, to_batch, max_tokens, instructions):
+      
+    attributes_json, schema_token_count = form_schema(to_batch)
+    attributes_batch.append((attributes_json, max_tokens, instructions))
+    return attributes_batch, schema_token_count
+  
   for attribute, attribute_names in chapter_data.items():
     token_value = tokens_per.get(attribute, tokens_per["Other"])
     token_count = min(len(attribute_names) * token_value, ABSOLUTE_MAX_TOKENS)
+    instructions, instructions_tokens =  create_instructions(to_batch)
     if max_tokens + token_count > ABSOLUTE_MAX_TOKENS:
-      attributes_json = form_schema(to_batch, attributes_json)
-      attributes_batch.append((attributes_json, max_tokens))
-      to_batch = [attribute]
-      max_tokens = token_count
-      attributes_json = ""
+      attributes_batch, schema_token_count = append_attributes_batch(attributes_batch, to_batch, max_tokens, instructions)
+      to_batch, max_tokens = reset_variables(attribute, token_count)
+    elif exceeds_context_window(max_tokens, token_count, schema_token_count, instructions_tokens):
+      attributes_batch, schema_token_count = append_attributes_batch(attributes_batch, to_batch[:-1], max_tokens, instructions)
+      to_batch, max_tokens = reset_variables(attribute, token_count)
     else:
       to_batch.append(attribute)
       max_tokens += token_count
 
   if to_batch:
-    attributes_json = form_schema(to_batch, attributes_json)
-    attributes_batch.append((attributes_json, max_tokens))
+    attributes_json, schema_token_count = form_schema(to_batch)
+    if exceeds_context_window(max_tokens, token_count, schema_token_count, instructions_tokens):
+      remove_last_attribute = to_batch.pop()
+      attributes_batch, schema_token_count = append_attributes_batch(attributes_batch, remove_last_attribute, max_tokens, instructions)
+      to_batch, max_tokens = reset_variables(to_batch, token_count)
+      attributes_json, schema_token_count = form_schema(to_batch)
+    attributes_batch.append((attributes_json, max_tokens, instructions))
 
-  instructions = (
-    f'You are an expert JSON formatter. Please take the text below and output it '
-    f'as JSON using the schema below.\n'
-    f'Be detailed but concise, using short phrases instead of sentences. Do not '
-    f'justify your reasoning. Only one attribute per line, just like in the schema '
-    f'below, but all description for that attribute should be on the same line. If '
-    f'something appears to be miscatagorized, please put it under the correct '
-    f'attribute.\n'
-  )
-  for attributes_json, max_tokens in attributes_batch:
-    if other_attribute_schema:
-      other_attribute_list = [attr for attr in chapter_data 
-                              if attr not in DEFAULT_ATTRIBUTES]
-      other_attribute_instructions = ('Provide descriptons of ' +
-                                      ', '.join(other_attribute_list) + ' without '
-                                      ' referencing specific characters or plot points\n')
-    else:
-      other_attribute_instructions = ""
-
-    role_script =(
+  for attributes_json, max_tokens, instructions in attributes_batch:
+    role_script = (
       f'{instructions}'
-      f'{other_attribute_instructions}'
-      f'You will provide this information in the following JSON schema:'
       f'{attributes_json}'
     )
     role_script_info.append((role_script, max_tokens))
+
   return role_script_info
 
 def form_json(chapter_summary_paragraphs: dict, attribute_table: dict, folder_name: str, num_chapters: int, chapter_summary: dict, chapter_summary_index: int) -> dict:
@@ -338,7 +371,7 @@ def form_json(chapter_summary_paragraphs: dict, attribute_table: dict, folder_na
   chapter_summary_path = os.path.join(folder_name, "chapter_summary.json")
   model = "gpt_three"
   temperature = 0.2
-  roles = []
+
   with tqdm(total = num_chapters, unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|") as progress_bar:
     for i, paragraphs in enumerate(chapter_summary_paragraphs):
       if i < chapter_summary_index:
@@ -349,7 +382,7 @@ def form_json(chapter_summary_paragraphs: dict, attribute_table: dict, folder_na
       attribute_summary_part = []
       attribute_summary_whole = []
       prompt = f"Information to add to JSON: {paragraphs}"
-      role_script_tuple = json_formatting_role_script(attribute_table, str(chapter_number))
+      role_script_tuple = json_formatting_role_script(attribute_table, str(chapter_number), paragraphs, model)
       progress_increment = 1 /len(role_script_tuple)
       for role_script, max_tokens in role_script_tuple:
         attribute_summary_part = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_ = "json")
