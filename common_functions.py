@@ -108,6 +108,8 @@ def read_text_file(file_path: str):
     return read_file
   except FileNotFoundError:
     kill_app(f"Error: File '{file_path}' not found.")
+  except PermissionError:
+    kill_app(f"Error: Permission denied for {file_path}")
 
 
 def read_json_file(file_path: str):

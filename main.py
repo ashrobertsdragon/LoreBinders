@@ -27,15 +27,16 @@ def main():
   narrator = "Kalia" # placeholder
   user = "ashdragon" # placeholder
   user_email = os.getenv("user_email") # placeholder
+  metadata = "" # placeholder
 
   user_folder = os.path.join("ProsePal", "users", user)
   book_name, _ = os.path.splitext(book_file)
 
   if not metadata:
     author, title = extract_metadata(user_folder, book_name)
-    metadata= {"title": title, "author": author}
+    metadata = {"title": title, "author": author}
 
-  convert_file(user_folder, book_name)
+  convert_file(user_folder, book_file, metadata)
   folder_name = analyze_book(user_folder, book_file, narrator)
   create_pdf(folder_name, book_name)
   send_mail(folder_name, book_name, user_email)
