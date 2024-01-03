@@ -224,7 +224,6 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
       attribute_summary_whole = []
       prompt = f"Chapter Text: {chapter}"
       role_script_info = character_analysis_role_script(attribute_table, str(chapter_number))
-      roles.append((chapter_number, role_script_info))
       progress_increment = 1 /len(role_script_info)
       for role_script, max_tokens in role_script_info:
         attribute_summary_part = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens)
