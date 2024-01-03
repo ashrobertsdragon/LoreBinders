@@ -251,7 +251,7 @@ def json_formatting_role_script(attribute_table: dict, chapter_number: str, para
   context_window = cf.get_model_details(model_key)["context_window"]
   prompt_length = cf.count_tokens(paragraphs)
 
-  def generate_schema_and_tokens(attribute: str) -> Tuple(str, int):
+  def generate_schema_and_tokens(attribute: str) -> Tuple[str, int]:
 
     if attribute == "Characters":
       schema_stub = {
@@ -270,7 +270,7 @@ def json_formatting_role_script(attribute_table: dict, chapter_number: str, para
     schema_tokens = cf.count_tokens(schema_json)
     return schema_json, schema_tokens
 
-  def create_instructions(to_batch: list) -> Tuple(str, int):
+  def create_instructions(to_batch: list) -> Tuple[str, int]:
 
     instructions = (
       f'You are an expert JSON formatter. Please take the text below and output it '
@@ -294,7 +294,7 @@ def json_formatting_role_script(attribute_table: dict, chapter_number: str, para
     instruction_tokens = cf.count_tokens(instructions)
     return instructions, instruction_tokens
 
-  def form_schema(to_batch: list) -> Tuple(str, int):
+  def form_schema(to_batch: list) -> Tuple[str, int]:
 
     attributes_json = ""
     schema_token_count = 0
@@ -310,13 +310,13 @@ def json_formatting_role_script(attribute_table: dict, chapter_number: str, para
 
     return max_tokens + token_count + schema_token_count + instructions_tokens + prompt_length > context_window
   
-  def reset_variables(attribute: str, token_count: int) -> Tuple(list, int):
+  def reset_variables(attribute: str, token_count: int) -> Tuple[list, int]:
 
     to_batch = [attribute]
     max_tokens = token_count
     return to_batch, max_tokens
   
-  def append_attributes_batch(attributes_batch, to_batch, max_tokens, instructions):
+  def append_attributes_batch(attributes_batch: list, to_batch: list, max_tokens: int, instructions: str) -> Tuple[list, int]:
       
     attributes_json, schema_token_count = form_schema(to_batch)
     attributes_batch.append((attributes_json, max_tokens, instructions))
