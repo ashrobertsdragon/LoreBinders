@@ -168,16 +168,10 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
   role_batch = []
 
   chapter_data = attribute_table.get(chapter_number, {})
-  characters = ("Characters", f"Characters: {', '.join(character for character 
-                                          in chapter_data.get('Characters', []))}\n")
-  settings = ("Settings", f"Settings: {', '.join(setting for setting 
-                                      in chapter_data.get('Settings', []))}\n")
-  other_attributes = (attribute, [f'{attribute}: {", ".join(attribute_names)}\n' 
-                      for attribute, attribute_names in chapter_data.items() 
-                      if attribute not in DEFAULT_ATTRIBUTES])
-  attributes_list = [characters, settings] + other_attributes
+  attributes_list = [(attribute, f"{attribute}: ', '.join({names})")
+                    for attribute, names in chapter_data.items()]
 
-  def create_script(other_attribute_list: list, attr_list: list, role_batch: list, max_tokens: int) -> str:
+  def create_script(attr_list: list, role_batch: list, max_tokens: int) -> str:
 
     instructions = (
       f'You are a developmental editor helping create a story bible. For each of '
@@ -188,29 +182,26 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
       f'it is in relation to other locations and whether the characters appear to be '
       f'familiar or unfamiliar with the location. Be detailed but concise.\n'
     )
-    if other_attribute_list:
-      other_attribute_instructions = ('Provide descriptons of ' +
-                                      ', '.join(other_attribute_list) + ' without '
-                                      ' referencing specific characters or plot '
-                                      'points\n')
-    else:
-      other_attribute_instructions = ""
-    role_script = instructions + other_attribute_instructions + "\n".join(attr_list)
+    if any(attr not in DEFAULT_ATTRIBUTES for attr in attr_list):
+      instructions += (
+        'Provide descriptons of ' +
+        ', '.join(names for attribute, names in chapter_data.items()
+                  if attribute in attr_list and attribute not in DEFAULT_ATTRIBUTES) +
+        ' without referencing specific characters or plot points\n'
+      )
+    role_script = instructions  + "\n".join(attribute_str for _, attribute_str in attr_list)
     role_batch.append((role_script, max_tokens))
     return role_batch
 
   for attribute, attribute_str in attributes_list:
-    if attribute not in DEFAULT_ATTRIBUTES:
-      other_attribute_list.append(attribute_str)
     token_count = min(len(chapter_data[attribute]) * tokens_per, ABSOLUTE_MAX_TOKENS)
     if max_tokens + token_count > ABSOLUTE_MAX_TOKENS:
       role_batch = create_script(other_attribute_list, attr_list, role_batch, max_tokens)
       max_tokens = token_count
-      attr_list = [attribute]
-      other_attribute_list = []
+      attr_list = [attribute. attribute_str]
     else:
       max_tokens += token_count
-      attr_list.append(attribute)
+      attr_list.append(attribute, attribute_str)
 
   if attr_list:
     role_batch = create_script(other_attribute_list, attr_list, role_batch, max_tokens)
