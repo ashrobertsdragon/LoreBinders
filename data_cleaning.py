@@ -423,21 +423,21 @@ def reshape_dict(chapter_summaries: dict) -> dict:
           reshaped_data[section].setdefault(entity, {}).setdefault(chapter, []).append(entity_details)
   return reshaped_data
 
-def de_string_json(json_data):
-  """
-  Parses string representations of JSON data into Python dictionary objects.
+  def destring_json(json_data):
+    """
+    Parses string representations of JSON data into Python dictionary objects.
 
-  Arguments:
-    json_data: Dictionary with string representations of JSON data.
-    
-  Returns dictionary with parsed JSON data.
-  """
+    Arguments:
+      json_data: Dictionary with string representations of JSON data.
+      
+    Returns dictionary with parsed JSON data.
+    """
 
-  cleaned_data = {}
+    cleaned_data = {}
 
-  for key in json_data:
-    cleaned_data[key] = cf.check_json(json_data[key])
-  return cleaned_data
+    for key in json_data:
+      cleaned_data[key] = cf.check_json(json_data[key])
+    return cleaned_data
 
 def data_cleaning(folder_name: str, chapter_summary: dict) -> dict:
   """
@@ -452,7 +452,7 @@ def data_cleaning(folder_name: str, chapter_summary: dict) -> dict:
   chapter_summaries_path = os.path.join(folder_name, "chapter_summaries.json")
 
   if not os.path.exists(destrung_path):
-    destrung_json = de_string_json(chapter_summary)
+    destrung_json = destring_json(chapter_summary)
     cf.write_json_file(destrung_json, destrung_path)
   else:
     destrung_json = cf.read_json_file(destrung_path)

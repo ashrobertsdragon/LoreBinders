@@ -3,7 +3,7 @@ import json
 import os
 import re
 import time
-from typing import Any
+from typing import Any, Optional
 
 import openai
 import tiktoken
@@ -29,15 +29,18 @@ if not api_key:
 
 OPENAI_CLIENT = OpenAI()
 
+def count_brackets(json_str: str) -> bool:
+
+  open_brackets = json_str.count("{")
+  close_brackets = json_str.count("}")
+  return open_brackets == close_brackets
 def attempt_json_repair(json_str: str) -> str:
   """
   Attempts to repair a potentially invalid JSON string by adding closing braces
   to match the number of opening braces."""
 
-  open_braces = json_str.count("{")
-  close_braces = json_str.count("}")
-  if open_braces > close_braces:
-    json_str += "}" * (open_braces - close_braces)
+  if not count_brackets(json_str):
+    json_str += "}"
   return json_str
 
 def last_resort_json_repair(json_str: str) -> str:
@@ -80,11 +83,48 @@ def check_json(json_str: str, attempt_count: int = 0) -> str:
       json_str = last_resort_json_repair(json_str)
       attempt_count += 1
       if attempt_count > 2:
-        logging.error("JSON cleaning failed")
         email_error(f"JSON cleaning failed: {e}")
-        exit()
+        kill_app(f"JSON cleaning failed: {e}")
       return check_json(json_str)
 
+def find_full_object(string: str, forward: bool = True) -> int:
+  "Finds the position of the first full object of a string representation"
+  " of a partial JSON object"
+
+  balanced = 0 if forward else -1
+  count = 0
+  for i, char in enumerate(string):
+    if char == "{":
+      count += 1
+    elif char == "}":
+      count -= 1
+      if i != 0 and count == balanced:
+        return i
+  return 0
+
+def merge_json_halves(first_half: str, second_half: str) -> Optional[str]:
+  """
+  Merges two strings of a partial JSON object
+
+  Args:
+    first_half: str - the first segment of a partial JSON object in string form
+    second_half: str - the second segment of a partial JSON object in string form
+
+  Returns either the combined string of a full JSON object or None
+  """
+
+  first_end = find_full_object(first_half[::-1], forward = False)
+  second_start = find_full_object(second_half)
+  if first_end and second_start:
+    first_end = len(first_half) - first_end - 1
+    combined_str = first_half[:first_end + 1] + ", " + second_half[second_start:]
+  else:
+    return None
+
+  try:
+    return json.loads(combined_str)
+  except json.JSONDecodeError:
+    return None
 
 def append_to_dict_list(dictionary, key, value):
   "Appends value to list of values in dictionary"
@@ -236,7 +276,7 @@ def error_handle(e: Any, retry_count: int) -> int:
     time.sleep(sleep_time)
   return retry_count
 
-def call_gpt_api(model_key, prompt, role_script, temperature, max_tokens, response_type = None, retry_count = 0, assistant_message = None):
+def call_gpt_api(model_key: str, prompt: str, role_script: str, temperature: float, max_tokens: int, response_type: Optional[str] = None, retry_count: Optional[int] = 0, assistant_message: Optional[str] = None) -> str:
   """
   Makes API calls to the OpenAI ChatCompletions engine.
 
@@ -323,20 +363,24 @@ def call_gpt_api(model_key, prompt, role_script, temperature, max_tokens, respon
 
   except Exception as e:
     retry_count = error_handle(e, retry_count)
-    call_gpt_api(model_key, prompt, role_script, temperature, max_tokens, response_type, retry_count, assistant_message)
+    content = call_gpt_api(model_key, prompt, role_script, temperature, max_tokens, response_type, retry_count, assistant_message)
 
   if assistant_message:
-    answer =  assistant_message.rstrip("}") + content.lstrip("{")
-    print(answer)
-    check_continue()
-    answer = content
+    if response_type == "json":
+      combined =  merge_json_halves(assistant_message, content)
+      if combined:
+        answer = combined
+      else:
+        answer = check_json(assistant_message + content)
+    else:
+      answer = assistant_message + content
   else:
     answer = content
 
   if response.choices[0].finish_reason == "length":
     logging.warning("Max tokens exceeded")
     print("Max tokens exceeded:")
-    print(answer)
-    assistant_message = answer
+    last_complete = answer.rfind("}")
+    assistant_message = answer[:last_complete + 1] if last_complete > 0 else ""
     answer = call_gpt_api(model_key, prompt, role_script,  temperature, max_tokens = 500, response_type = response_type, assistant_message = assistant_message)
   return answer

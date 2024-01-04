@@ -149,7 +149,6 @@ def search_names(chapters: list, folder_name: str, num_chapters: int, character_
 def character_analysis_role_script(attribute_table: dict, chapter_number: str) -> list:
 
   max_tokens = 0
-  schema_token_count = 0
   attributes_batch = []
   to_batch = []
   role_script_info = []
@@ -162,7 +161,7 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
 
   chapter_data = attribute_table.get(chapter_number, {})
 
-  def generate_schema_and_tokens(attribute: str) -> Tuple[str, int]:
+  def generate_schema(attribute: str) -> str:
 
     if attribute == "Characters":
       schema_stub = {
@@ -180,7 +179,7 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
     schema_json = json.dumps({attribute: schema})
     return schema_json
 
-  def create_instructions(to_batch: list) -> Tuple[str, int]:
+  def create_instructions(to_batch: list) -> str:
 
     instructions = (
       f'You are a developmental editor helping create a story bible. \n'
@@ -211,12 +210,12 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
     instructions += "You will provide this information in the following JSON schema:"
     return instructions
 
-  def form_schema(to_batch: list) -> Tuple[str, int]:
+  def form_schema(to_batch: list) -> str:
 
     attributes_json = ""
 
     for attribute in to_batch:
-      schema_json = generate_schema_and_tokens(attribute)
+      schema_json = generate_schema(attribute)
       attributes_json += schema_json
 
     return attributes_json
@@ -229,11 +228,11 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
   
   def append_attributes_batch(
       attributes_batch: list, to_batch: list, max_tokens: int, instructions: str
-    ) -> Tuple[list, int]:
+    ) -> list:
       
-    attributes_json, schema_token_count = form_schema(to_batch)
+    attributes_json = form_schema(to_batch)
     attributes_batch.append((attributes_json, max_tokens, instructions))
-    return attributes_batch, schema_token_count
+    return attributes_batch
   
   for attribute, attribute_names in chapter_data.items():
     token_value = tokens_per.get(attribute, tokens_per["Other"])
@@ -345,7 +344,7 @@ def analyze_book(user_folder: str, book_name: str, narrator: str) -> str:
   full_text = cf.read_text_file(file_path)
   chapters = cf.separate_into_chapters(full_text)
 
-  num_chapters, character_lists, character_lists_index, chapter_summary_paragraphs, chapter_summary_paragraphs_index, chapter_summary, chapter_summary_index, summaries, summaries_index = initialize_names(chapters, folder_name)
+  num_chapters, character_lists, character_lists_index, chapter_summary, chapter_summary_index, summaries, summaries_index = initialize_names(chapters, folder_name)
 
   # Named Entity Recognition  
   if character_lists_index < num_chapters:
