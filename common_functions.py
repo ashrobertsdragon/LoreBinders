@@ -9,6 +9,7 @@ import openai
 import tiktoken
 from openai import OpenAI
 
+from data_cleaning import check_json
 from send_email import email_error
 
 logging.basicConfig(filename='api_calls.log', level=logging.INFO,
@@ -138,7 +139,7 @@ def append_json_file(content, file_path: str):
 
 def check_continue():
   "Asks user to check output before continuing"
-  
+
   continue_program = ""
   while continue_program.upper() not in ["Y", "N"]:
     continue_program = input("If this looks right, type Y to continue the program. Type N to exit: ")

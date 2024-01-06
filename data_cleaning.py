@@ -424,24 +424,24 @@ def reshape_dict(chapter_summaries: dict) -> dict:
           reshaped_data[section].setdefault(entity, {}).setdefault(chapter, []).append(entity_details)
   return reshaped_data
 
-def strip_line(str: str) -> str:
+def strip_line(line: str) -> str:
   "Strips whitespace from string"
 
-  return str.strip()
+  return line.strip()
 
 def double_property(line: str, delim: str) -> str:
   "Regex match to insert delimeter into line"
 
-  fixed = re.sub(r'"(.*?)""', rf'"\1"{delim}\n"', line)
-  fixed = re.sub(r'"(.*?)"{', rf'"\1"{delim}\n{{', line)
+  fixed = re.sub(r'""', rf'"{delim}"', line)
+  fixed = re.sub(r'"{', rf'"{delim}{{', line)
   return fixed
 
-def fix_missing_delimter(line_before: str, line: str, delim: str) -> str:
+def fix_missing_delimiter(line_before: str, line: str, delim: str) -> str:
   """ Inserts missing character in a JSON string. """
 
   before = strip_line(line_before)
   line = line.strip()
-  if before.endsith("}"):
+  if before.endswith("}"):
     line_before += ","
   elif before.startswith("}"):
     line_before = "},\n" + before[1:]
@@ -460,7 +460,7 @@ def fix_extra_data(line_before: str, line: str) -> str:
 
   before = strip_line(line_before)
   if before.endswith("}"):
-    line[1:]
+    line = line[1:]
   return line
 
 def fix_invalid_control(line: str) -> str:
@@ -486,7 +486,7 @@ def attempt_json_repair(json_str: str, e) -> str:
   to match the number of opening braces.
   """
   error_message = e.msg
-  error_line = e.linno
+  error_line = e.lineno
 
   lines = json_str.split("\n")
   for i, line in enumerate(lines):
@@ -494,7 +494,7 @@ def attempt_json_repair(json_str: str, e) -> str:
       line_before = lines[i - 1]
       for delim in [",",":"]:
         if error_message == f"Expecting '{delim}' delimeter":
-          lines[i -1] = fix_missing_delimter(line_before, line, delim)
+          lines[i -1] = fix_missing_delimiter(line_before, line, delim)
         break
       if error_message == "Extra data":
         line = fix_extra_data(line_before, line)
@@ -539,7 +539,7 @@ def check_json_stub(json_lines: list, start: int, end: int, reverse: bool = Fals
     try:
       json.loads(partial_str)
       return i, partial_str
-    except json.JSONDEcodeError:
+    except json.JSONDecodeError:
       continue
   return None, None
 
@@ -566,8 +566,8 @@ def check_json(json_str: str, attempt_count: int = 0) -> str:
 
   Args:
     json_str (str): The JSON string to be checked.
-    attempt_flag (bool, optional): A flag indicating whether JSON repair has 
-    been attempted or not. Iniitially set to false.
+    attempt_count (int, optional): Indicates the number of times repair has been 
+      attempted. Initially set to 0.
 
   Returns:
     str: The repaired JSON string.
@@ -586,7 +586,7 @@ def check_json(json_str: str, attempt_count: int = 0) -> str:
       if attempt_count > gpt_tries:
         cf.kill_app(e)
       attempt_count += 1
-      cleaned_json = find_malformed_json(json_str)
+      cleaned_json = find_malformed_json(json_str, e)
       if cleaned_json:
         return check_json(cleaned_json)
       else:
