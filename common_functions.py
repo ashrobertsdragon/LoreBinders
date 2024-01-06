@@ -29,64 +29,6 @@ if not api_key:
 
 OPENAI_CLIENT = OpenAI()
 
-def count_brackets(json_str: str) -> bool:
-
-  open_brackets = json_str.count("{")
-  close_brackets = json_str.count("}")
-  return open_brackets == close_brackets
-def attempt_json_repair(json_str: str) -> str:
-  """
-  Attempts to repair a potentially invalid JSON string by adding closing braces
-  to match the number of opening braces."""
-
-  if not count_brackets(json_str):
-    json_str += "}"
-  return json_str
-
-def last_resort_json_repair(json_str: str) -> str:
-  "Call GPT-3.5 to repair broken JSON"
-
-  model_key = "gpt_three"
-  prompt = json_str
-  role_script = (
-    "You are an expert JSON formatter. Please locate and fix any errors in the "
-    "following JSON object and return only the JSON object without any commentary"
-  )
-  temperature = 0.2
-  role_script_tokens = 20
-  head_room = 10
-  max_tokens = count_tokens(json_str) + role_script_tokens + head_room
-  response_type = "json"  
-  return call_gpt_api(model_key, prompt, role_script, temperature, max_tokens, response_type)
-
-def check_json(json_str: str, attempt_count: int = 0) -> str:
-  """
-  Check if a JSON string is valid and repair it if necessary.
-
-  Args:
-    json_str (str): The JSON string to be checked.
-    attempt_flag (bool, optional): A flag indicating whether JSON repair has 
-    been attempted or not. Iniitially set to false.
-
-  Returns:
-    str: The repaired JSON string.
-  """
-  try:
-    return json.loads(json_str)
-  except json.JSONDecodeError as e:
-    logging.exception(e)
-    if not attempt_count:
-      json_str = attempt_json_repair(json_str)
-      attempt_count += 1
-      return check_json(json_str, attempt_count)
-    else:
-      json_str = last_resort_json_repair(json_str)
-      attempt_count += 1
-      if attempt_count > 2:
-        email_error(f"JSON cleaning failed: {e}")
-        kill_app(f"JSON cleaning failed: {e}")
-      return check_json(json_str)
-
 def find_full_object(string: str, forward: bool = True) -> int:
   "Finds the position of the first full object of a string representation"
   " of a partial JSON object"
@@ -128,6 +70,7 @@ def merge_json_halves(first_half: str, second_half: str) -> Optional[str]:
 
 def append_to_dict_list(dictionary, key, value):
   "Appends value to list of values in dictionary"
+
   if key in dictionary:
       dictionary[key].append(value)
   else:
@@ -135,6 +78,7 @@ def append_to_dict_list(dictionary, key, value):
 
 def clear_screen():
   "Clears the the screen using OS-specific commands"
+
   if os.name == 'nt':
     os.system('cls')
   else:
@@ -142,6 +86,7 @@ def clear_screen():
 
 def read_text_file(file_path: str):
   "Opens and reads text file"
+
   try:
     with open(file_path, "r") as f:
       read_file = f.read()
@@ -151,9 +96,9 @@ def read_text_file(file_path: str):
   except PermissionError:
     kill_app(f"Error: Permission denied for {file_path}")
 
-
 def read_json_file(file_path: str):
   "Opens and reads JSON file"
+
   try:
     with open(file_path, "r") as f:
       read_file = json.load(f)
@@ -163,20 +108,24 @@ def read_json_file(file_path: str):
 
 def write_to_file(content, file_path):
   "Appends content to text file on new line"
+
   with open(file_path, "a") as f:
     f.write(content + "\n")
 
 def separate_into_chapters(text: str) -> list:
   "Splits string at delimeter of three asterisks"
+
   return re.split("\s*\*\*\s*", text)
 
 def write_json_file(content, file_path: str):
   "Writes JSON file"
+
   with open(file_path, "w") as f:
     json.dump(content, f, indent=2)
 
 def append_json_file(content, file_path: str):
   "Reads JSON file, and adds content to datatype before overwriting"
+
   if os.path.exists(file_path):
     read_file = read_json_file(file_path)
   else:
@@ -189,6 +138,7 @@ def append_json_file(content, file_path: str):
 
 def check_continue():
   "Asks user to check output before continuing"
+  
   continue_program = ""
   while continue_program.upper() not in ["Y", "N"]:
     continue_program = input("If this looks right, type Y to continue the program. Type N to exit: ")
