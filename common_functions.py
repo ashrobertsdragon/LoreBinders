@@ -56,17 +56,24 @@ def merge_json_halves(first_half: str, second_half: str) -> Optional[str]:
   Returns either the combined string of a full JSON object or None
   """
 
+  repair_log = "repair_log.txt"
+  repair_stub = f"First response:\n{first_half}\nSecond response:\n{second_half}"
   first_end = find_full_object(first_half[::-1], forward = False)
   second_start = find_full_object(second_half)
   if first_end and second_start:
     first_end = len(first_half) - first_end - 1
     combined_str = first_half[:first_end + 1] + ", " + second_half[second_start:]
+    log = f"{repair_stub}\nCombined is:\n{combined_str}"
+    write_to_file(log, repair_log)
   else:
+    log = f"Could not combine.\n{repair_stub}"
+    write_to_file(log, repair_log)
     return None
 
   try:
     return json.loads(combined_str)
   except json.JSONDecodeError:
+    log = f"Did not properly repair.\n{repair_stub}\nCombined is:\n{combined_str}"
     return None
 
 def append_to_dict_list(dictionary, key, value):
@@ -331,7 +338,10 @@ def call_gpt_api(model_key: str, prompt: str, role_script: str, temperature: flo
   if response.choices[0].finish_reason == "length":
     logging.warning("Max tokens exceeded")
     print("Max tokens exceeded:")
-    last_complete = answer.rfind("}")
-    assistant_message = answer[:last_complete + 1] if last_complete > 0 else ""
+    if response_type == "json":
+      last_complete = answer.rfind("}")
+      assistant_message = answer[:last_complete + 1] if last_complete > 0 else ""
+    else:
+      assistant_message = answer
     answer = call_gpt_api(model_key, prompt, role_script,  temperature, max_tokens = 500, response_type = response_type, assistant_message = assistant_message)
   return answer

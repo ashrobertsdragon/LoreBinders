@@ -494,6 +494,7 @@ def attempt_json_repair(json_str: str, e: json.JSONDecodeError) -> str:
   for i, line in enumerate(lines):
     if i == error_line:
       line_before = lines[i - 1]
+      added_delimiter = False
       for delim in [",",":"]:
         if error_message == f"Expecting '{delim}' delimeter":
           lines[i -1] = fix_missing_delimiter(line_before, line, delim)
