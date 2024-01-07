@@ -57,7 +57,7 @@ def merge_json_halves(first_half: str, second_half: str) -> Optional[str]:
   """
 
   repair_log = "repair_log.txt"
-  repair_stub = f"First response:\n{first_half}\nSecond response:\n{second_half}"
+  repair_stub = f"{time.time()}\nFirst response:\n{first_half}\nSecond response:\n{second_half}"
   first_end = find_full_object(first_half[::-1], forward = False)
   second_start = find_full_object(second_half)
   if first_end and second_start:
@@ -325,11 +325,12 @@ def call_gpt_api(model_key: str, prompt: str, role_script: str, temperature: flo
 
   if assistant_message:
     if response_type == "json":
-      combined =  merge_json_halves(assistant_message, content)
+      new_part = content[1:]
+      combined =  merge_json_halves(assistant_message, new_part)
       if combined:
         answer = combined
       else:
-        answer = check_json(assistant_message + content)
+        answer = check_json(assistant_message + new_part)
     else:
       answer = assistant_message + content
   else:

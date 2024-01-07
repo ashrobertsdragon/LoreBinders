@@ -606,6 +606,7 @@ def check_json(json_str: str, attempt_count: int = 0) -> str:
   log_stub = f"Before:\n{json_str}\nAfter:\n"
   programmatic_tries = 5
   gpt_tries = 2
+  real_tries = 0
   try:
     return json.loads(json_str)
   except json.JSONDecodeError as e:
