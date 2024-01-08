@@ -9,7 +9,7 @@ import openai
 import tiktoken
 from openai import OpenAI
 
-from data_cleaning import check_json
+from data_cleaning import check_json, merge_json_halves
 from send_email import email_error
 
 logging.basicConfig(filename='api_calls.log', level=logging.INFO,
@@ -29,52 +29,6 @@ if not api_key:
   kill_app("OPENAI_API_KEY environment variable not set")
 
 OPENAI_CLIENT = OpenAI()
-
-def find_full_object(string: str, forward: bool = True) -> int:
-  "Finds the position of the first full object of a string representation"
-  " of a partial JSON object"
-
-  balanced = 0 if forward else -1
-  count = 0
-  for i, char in enumerate(string):
-    if char == "{":
-      count += 1
-    elif char == "}":
-      count -= 1
-      if i != 0 and count == balanced:
-        return i
-  return 0
-
-def merge_json_halves(first_half: str, second_half: str) -> Optional[str]:
-  """
-  Merges two strings of a partial JSON object
-
-  Args:
-    first_half: str - the first segment of a partial JSON object in string form
-    second_half: str - the second segment of a partial JSON object in string form
-
-  Returns either the combined string of a full JSON object or None
-  """
-
-  repair_log = "repair_log.txt"
-  repair_stub = f"{time.time()}\nFirst response:\n{first_half}\nSecond response:\n{second_half}"
-  first_end = find_full_object(first_half[::-1], forward = False)
-  second_start = find_full_object(second_half)
-  if first_end and second_start:
-    first_end = len(first_half) - first_end - 1
-    combined_str = first_half[:first_end + 1] + ", " + second_half[second_start:]
-    log = f"{repair_stub}\nCombined is:\n{combined_str}"
-    write_to_file(log, repair_log)
-  else:
-    log = f"Could not combine.\n{repair_stub}"
-    write_to_file(log, repair_log)
-    return None
-
-  try:
-    return json.loads(combined_str)
-  except json.JSONDecodeError:
-    log = f"Did not properly repair.\n{repair_stub}\nCombined is:\n{combined_str}"
-    return None
 
 def append_to_dict_list(dictionary, key, value):
   "Appends value to list of values in dictionary"
@@ -313,6 +267,7 @@ def call_gpt_api(model_key: str, prompt: str, role_script: str, temperature: flo
     if response.choices and response.choices[0].message.content:
       content = response.choices[0].message.content.strip()
       tokens = response.usage.total_tokens
+      completion_tokens = response.usage.completion_tokens
       rate_limit_data["tokens_used"] += tokens
       write_json_file(rate_limit_data, "rate_limit_data.json")
     else:
@@ -337,11 +292,15 @@ def call_gpt_api(model_key: str, prompt: str, role_script: str, temperature: flo
     answer = content
 
   if response.choices[0].finish_reason == "length":
-    logging.warning("Max tokens exceeded")
-    print("Max tokens exceeded:")
+    length_warning = f"Max tokens exceeded.\nUsed {completion_tokens} of {max_tokens}"
+    logging.warning(length_warning)
+    print(length_warning)
+    stub = f"original:\n{answer}\nLast complete:\n"
     if response_type == "json":
       last_complete = answer.rfind("}")
       assistant_message = answer[:last_complete + 1] if last_complete > 0 else ""
+      debugging = stub + str(last_complete) if last_complete > 0 else f"{stub}Not found"
+      write_to_file(debugging, "repair_log.txt")
     else:
       assistant_message = answer
     answer = call_gpt_api(model_key, prompt, role_script,  temperature, max_tokens = 500, response_type = response_type, assistant_message = assistant_message)

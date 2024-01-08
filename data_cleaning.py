@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import time
 from typing import Optional, Tuple
 
 import common_functions as cf
@@ -119,7 +120,8 @@ def sort_names(character_lists: list, narrator: str) -> dict:
         line.replace("(", "").replace(")", "")
       if line.lower() == "setting:":
         line = "Settings:"
-      line = re.sub(r"narrator", narrator, line, flags=re.IGNORECASE)
+      if line.lower() in ["narrator", "protagonist", "main characater"]:
+        line = narrator
       line = character_info_pattern.sub("", line)
 
       #Remaining lines ending with a colon are attribute names and lines following belong in a list for that attribute
@@ -205,6 +207,30 @@ def sort_dictionary(attribute_summaries: dict) -> dict:
     sorted_dict[outer_key] = middle_dict
 
   return sorted_dict
+
+def clean_narrator(original_dict: dict, narrator_name) -> dict:
+  "Replaces the word narrator, protagonist and synonyms with the chracter's name"
+
+  narrator_list = ["narrator", "protagonist", "the main character", "main character"]
+
+  def iterate_narrator_list(value):
+    for narrator in narrator_list:
+      new_value = value.replace(narrator, narrator_name)
+    return new_value
+  
+  new_dict = {}
+  for key, value in original_dict.items():
+    if key in narrator_list:
+      new_dict[narrator_name] = value
+    if isinstance(value, dict):
+      new_dict[key] = clean_narrator(value, narrator_name)
+    elif isinstance(value, str):
+      new_dict[key] = iterate_narrator_list(value)
+    elif isinstance(value, list):
+      new_dict[key] = [iterate_narrator_list(val) for val in value]
+    else:
+      new_dict[key] = value # any other data type will not match a string
+  return new_dict
 
 
 def to_singular(plural: str) -> str:
@@ -423,6 +449,52 @@ def reshape_dict(chapter_summaries: dict) -> dict:
         elif isinstance(entity_details, str):
           reshaped_data[section].setdefault(entity, {}).setdefault(chapter, []).append(entity_details)
   return reshaped_data
+
+def find_full_object(string: str, forward: bool = True) -> int:
+  "Finds the position of the first full object of a string representation"
+  " of a partial JSON object"
+
+  balanced = 0 if forward else -1
+  count = 0
+  for i, char in enumerate(string):
+    if char == "{":
+      count += 1
+    elif char == "}":
+      count -= 1
+      if i != 0 and count == balanced:
+        return i
+  return 0
+
+def merge_json_halves(first_half: str, second_half: str) -> Optional[str]:
+  """
+  Merges two strings of a partial JSON object
+
+  Args:
+    first_half: str - the first segment of a partial JSON object in string form
+    second_half: str - the second segment of a partial JSON object in string form
+
+  Returns either the combined string of a full JSON object or None
+  """
+
+  repair_log = "repair_log.txt"
+  repair_stub = f"{time.time()}\nFirst response:\n{first_half}\nSecond response:\n{second_half}"
+  first_end = find_full_object(first_half[::-1], forward = False)
+  second_start = find_full_object(second_half)
+  if first_end and second_start:
+    first_end = len(first_half) - first_end - 1
+    combined_str = first_half[:first_end + 1] + ", " + second_half[second_start:]
+    log = f"{repair_stub}\nCombined is:\n{combined_str}"
+    cf.write_to_file(log, repair_log)
+  else:
+    log = f"Could not combine.\n{repair_stub}"
+    cf.write_to_file(log, repair_log)
+    return None
+
+  try:
+    return json.loads(combined_str)
+  except json.JSONDecodeError:
+    log = f"Did not properly repair.\n{repair_stub}\nCombined is:\n{combined_str}"
+    return None
 
 def double_property(line: str, delim: str) -> str:
   "Regex match to insert missing delimeter into line with two properties on single line"
@@ -644,7 +716,7 @@ def destring_json(json_data):
   cleaned_data = {}
 
   for key in json_data:
-    cleaned_value = cf.check_json2(json_data[key])
+    cleaned_value = cf.check_json(json_data[key])
     if key in cleaned_data:
       cleaned_data[key] = merge_values(cleaned_data[key], cleaned_value)
   return cleaned_data
@@ -686,7 +758,8 @@ def data_cleaning(folder_name: str, chapter_summary: dict) -> dict:
     dedpulicated_dict = cf.read_json_file(deduplicated_path)
 
   if not os.path.exists(chapter_summaries_path):
-    sorted_dictionary = sort_dictionary(dedpulicated_dict)
+    replaced_narrator_dict = clean_narrator(dedpulicated_dict)
+    sorted_dictionary = sort_dictionary(replaced_narrator_dict)
     cf.write_json_file(sorted_dictionary, chapter_summaries_path)
   else:
     sorted_dictionary = cf.read_json_file(chapter_summaries_path)

@@ -170,7 +170,7 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
       }
     elif attribute == "Settings":
       schema_stub = {
-        "Relative location": "description", "Main character's familiarity": "description"
+        "Appearance": "description", "Relative location": "description", "Main character's familiarity": "description"
       }
     else:
       schema_stub = "description"
@@ -184,30 +184,43 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
     instructions = (
       f'You are a developmental editor helping create a story bible. \n'
       f'Be detailed but concise, using short phrases instead of sentences. Do not '
-      f'justify your reasoning. Only one attribute per line, just like in the schema '
-      f'below, but all description for that attribute should be on the same line. If '
-      f'something appears to be miscatagorized, please put it under the correct '
-      f'attribute.\n'
-      f'For each character in the chapter, note their appearance, personality, '
-      f'mood, relationships with other characters, known or apparent sexuality.\n'
+      f'justify your reasoning or provide commentary, only facts. Only one attribute '
+      f'per line, just like in the schema below, but all description for that '
+      f'attribute should be on the same line. If something appears to be '
+      f'miscatagorized, please put it under the correct attribute. USE ONLY STRINGS '
+      f'AND JSON OBJECTS, NO JSON ARRAYS. The output must be valid JSON.\n'
+      f'If you cannot find any mention of something in the text, please '
+      f'respond with "None found" as the description for that attribute. \n'
+    )
+    character_instructions = (
+      f'For each character in the chapter, describe their appearance, personality, '
+      f'mood, relationships to other characters, known or apparent sexuality.\n'
+    )
+    setting_instructions = (
       f'For each setting in the chapter, note how the setting is described, where '
       f'it is in relation to other locations and whether the characters appear to be '
       f'familiar or unfamiliar with the location. Be detailed but concise.\n'
-      f'If you cannot find any mention of a specific attribute in the text, please '
-      f'respond with "None found" as the description for that attribute. '
       f'If you are unsure of a setting or no setting is shown in the text, please '
       f'respond with "None found" as the description for that setting.\n'
     )
 
-    if any(attribute not in DEFAULT_ATTRIBUTES for attribute in to_batch):
-      other_attribute_list = [attr for attr in to_batch
-                            if attr not in DEFAULT_ATTRIBUTES]
-      instructions += (
-        'Provide descriptons of ' +
-        ', '.join(other_attribute_list) +
-        ' without referencing specific characters or plot points\n')
+    for attribute in to_batch:
+      if attribute == "Characters":
+        instructions += character_instructions
+      if attribute == "Settings":
+        instructions += setting_instructions
+      else:
+        other_attribute_list = [attr for attr in to_batch
+                              if attr not in DEFAULT_ATTRIBUTES]
+        instructions += (
+          'Provide descriptons of ' +
+          ', '.join(other_attribute_list) +
+          ' without referencing specific characters or plot points\n')
 
-    instructions += "You will provide this information in the following JSON schema:"
+    instructions += (
+      'You will format this information as a JSON object using the folllowing schema '
+      'where "description" is replaced with the actual information.\n'
+    )
     return instructions
 
   def form_schema(to_batch: list) -> str:
@@ -260,7 +273,6 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
       f'{attributes_json}'
     )
     role_script_info.append((role_script, max_tokens))
-
   return role_script_info
 
 def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, num_chapters: int, chapter_summary: dict, chapter_summary_index: int) -> dict:
@@ -268,13 +280,16 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
   chapter_summary_path = os.path.join(folder_name, "chapter_summary.json")
   model = "gpt_four"
   temperature = 0.4
-  roles = []
+  num_digits = len(str(num_chapters))
+
   with tqdm(total = num_chapters, unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|") as progress_bar:
     for i, chapter in enumerate(chapters):
+      chapter_number = i + 1
+      progress_bar.set_description(
+        f"\033[92mProcessing Chapter {chapter_number:0{num_digits}d}", refresh = True
+      )
       if i < chapter_summary_index:
         continue
-      chapter_number = i + 1
-      progress_bar.set_description(f"\033[92mProcessing Chapter {i + 1}\033[0m", refresh = True)
       attribute_summary = ""
       attribute_summary_part = []
       attribute_summary_whole = []
