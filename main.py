@@ -5,6 +5,7 @@ from convert_file import convert_file
 from error_handler import ErrorHandler
 from make_pdf import create_pdf
 from send_email import send_mail
+from supabase_db import SupabaseDatabase
 
 if not os.path.exists(".replit"):
   from dotenv import load_dotenv
@@ -22,13 +23,20 @@ def extract_metadata(user_folder, book_name):
   title = book_name
   return author, title
 
+def check_db(new_row):
+  db = SupabaseDatabase()
+  if not db.check_existing("craftbinders", new_row):
+    db.insert_data("craftbinders", new_row)
+  else:
+    print("Already in database")
+
 def main():
 
   book_file = "DragonRun.txt" # placeholder
   narrator = "Kalia" # placeholder
   user = "ashdragon" # placeholder
   user_email = os.getenv("user_email") # placeholder
-  metadata = "" # placeholder
+  metadata = {"title": "Dragon Run", "author": "Ash Roberts"} # placeholder
 
   user_folder = os.path.join("ProsePal", "users", user)
   book_name, _ = os.path.splitext(book_file)
@@ -37,8 +45,18 @@ def main():
     author, title = extract_metadata(user_folder, book_name)
     metadata = {"title": title, "author": author}
 
+  new_row = {
+    "user": user,
+    "user_email": user_email,
+    "book_name": book_name,
+    "narrator": narrator,
+    "metadata": metadata
+  }
+
+
   ErrorHandler.set_current_file(os.path.join(user_folder, book_name))
-  
+  check_db(new_row)
+
   convert_file(user_folder, book_file, metadata)
   folder_name = analyze_book(user_folder, book_file, narrator)
   create_pdf(folder_name, book_name)
