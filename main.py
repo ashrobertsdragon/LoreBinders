@@ -23,8 +23,8 @@ def extract_metadata(user_folder, book_name):
   title = book_name
   return author, title
 
-def check_db(new_row):
-  db = SupabaseDatabase()
+def check_db(new_row, jwt_token):
+  db = SupabaseDatabase(jwt_token)
   if not db.check_existing("craftbinders", new_row):
     db.insert_data("craftbinders", new_row)
   else:
@@ -36,6 +36,7 @@ def main():
   narrator = "Kalia" # placeholder
   user = "ashdragon" # placeholder
   user_email = os.getenv("user_email") # placeholder
+  jwt_token = os.environ.get("goddamned_token") #placeholder
   metadata = {"title": "Dragon Run", "author": "Ash Roberts"} # placeholder
 
   user_folder = os.path.join("ProsePal", "users", user)
@@ -55,7 +56,7 @@ def main():
 
 
   ErrorHandler.set_current_file(os.path.join(user_folder, book_name))
-  check_db(new_row)
+  check_db(new_row, jwt_token)
 
   convert_file(user_folder, book_file, metadata)
   folder_name = analyze_book(user_folder, book_file, narrator)

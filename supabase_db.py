@@ -1,13 +1,19 @@
 import os
+
+from dotenv import load_dotenv
 from supabase import create_client, Client
 from typing import List, Dict, Any
 
 
+load_dotenv()
+
 class SupabaseDatabase:
-  def __init__(self):
+  def __init__(self, jwt_token: str):
     url: str = os.environ.get("SUPABASE_URL")
     key: str = os.environ.get("SUPABASE_KEY")
-    self.supabase: Client = create_client(url, key)
+    self.supabase: Client = create_client(url, key, headers = {
+      "Authentication": f"Bearer: {jwt_token}"
+    })
 
   def read_data(self, table: str, fields: List[str]) -> List[Dict[str, Any]]:
     return self.supabase.table(table).select(", ".join(fields)).execute().data
