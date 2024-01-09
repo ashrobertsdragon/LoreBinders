@@ -2,6 +2,7 @@ import os
 
 from character_analysis import analyze_book
 from convert_file import convert_file
+from error_handler import ErrorHandler
 from make_pdf import create_pdf
 from send_email import send_mail
 
@@ -36,6 +37,8 @@ def main():
     author, title = extract_metadata(user_folder, book_name)
     metadata = {"title": title, "author": author}
 
+  ErrorHandler.set_current_file(os.path.join(user_folder, book_name))
+  
   convert_file(user_folder, book_file, metadata)
   folder_name = analyze_book(user_folder, book_file, narrator)
   create_pdf(folder_name, book_name)

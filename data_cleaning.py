@@ -5,6 +5,7 @@ import time
 from typing import Optional, Tuple
 
 import common_functions as cf
+from error_handler import ErrorHandler
 
 
 TITLES = [
@@ -657,7 +658,6 @@ def find_malformed_json(json_str: str, e: json.JSONDecodeError) -> Optional[str]
   else:
     return None
 
-
 def check_json(json_str: str, attempt_count: int = 0) -> str:
   """
   Check if a JSON string is valid and attempt to repair it if necessary. First a 
@@ -695,13 +695,13 @@ def check_json(json_str: str, attempt_count: int = 0) -> str:
       try_differential = programmatic_tries - real_tries
       real_count = attempt_count - try_differential
       if attempt_count > programmatic_tries + gpt_tries:
-        cf.kill_app(f"Unable to repair error {e} in {real_count} tries")
+        ErrorHandler.kill_app(f"Unable to repair error {e} in {real_count} tries")
       cleaned_json = find_malformed_json(json_str, e)
       if cleaned_json:
         cf.write_to_file(f"{log_stub}{cleaned_json}", repair_log)
         return check_json(cleaned_json, attempt_count + 1)
       else:
-        cf.kill_app(f"Unable to repair error {e} in {real_count} tries")
+        ErrorHandler.kill_app(f"Unable to repair error {e} in {real_count} tries")
 
 def destring_json(json_data):
   """

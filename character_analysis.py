@@ -193,15 +193,25 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
       f'respond with "None found" as the description for that attribute. \n'
     )
     character_instructions = (
-      f'For each character in the chapter, describe their appearance, personality, '
-      f'mood, relationships to other characters, known or apparent sexuality.\n'
+      'For each character in the chapter, describe their appearance, personality, '
+      'mood, relationships to other characters, known or apparent sexuality.\n'
+      'An example from an early chapter of Jane Eyre:\n'
+      '"Jane Eyre": {"Appearance": "Average height, slender build, fair skin, '
+      'dark brown hair, hazel eyes, plain apearance", "Personality": "Reserved, '
+      'self-reliant, modest", "Mood": "Angry at her aunt about her treatment while '
+      'at Gateshead", "Sexuality": "None found}'
     )
     setting_instructions = (
-      f'For each setting in the chapter, note how the setting is described, where '
-      f'it is in relation to other locations and whether the characters appear to be '
-      f'familiar or unfamiliar with the location. Be detailed but concise.\n'
-      f'If you are unsure of a setting or no setting is shown in the text, please '
-      f'respond with "None found" as the description for that setting.\n'
+      'For each setting in the chapter, note how the setting is described, where '
+      'it is in relation to other locations and whether the characters appear to be '
+      'familiar or unfamiliar with the location. Be detailed but concise.\n'
+      'If you are unsure of a setting or no setting is shown in the text, please '
+      'respond with "None found" as the description for that setting.\n'
+      'Here is an example from Wuthering Heights:\n'
+      '"Moors": {"Appearance": Expansive, desolate, rugged, with high winds and '
+      'cragy rocks", "Relative location": "Surrounds Wuthering Heights estate", '
+      '"Main character\'s familiarity": "Very familiar, Catherine spent significant '
+      'time roaming here as a child and represents freedom to her"}'
     )
 
     for attribute in to_batch:
@@ -347,13 +357,13 @@ def summarize_attributes(chapter_summaries: dict, folder_name: str, summaries: l
 
   return chapter_summaries
 
-def analyze_book(user_folder: str, book_name: str, narrator: str) -> str:
+def analyze_book(user_folder: str, book_file: str, narrator: str) -> str:
 
   start_time = time.time()
 
   # Prep work before doing the real work
-  file_path = os.path.join(user_folder, book_name)
-  sub_folder = os.path.basename(book_name).split('.')[0]
+  file_path = os.path.join(user_folder, book_file)
+  sub_folder = os.path.basename(book_file).split('.')[0]
   folder_name = os.path.join(user_folder, sub_folder)
   os.makedirs(folder_name, exist_ok = True)
   full_text = cf.read_text_file(file_path)

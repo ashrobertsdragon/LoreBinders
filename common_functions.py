@@ -10,7 +10,7 @@ import tiktoken
 from openai import OpenAI
 
 from data_cleaning import check_json, merge_json_halves
-from send_email import email_error
+from error_handler import ErrorHandler
 
 logging.basicConfig(filename='api_calls.log', level=logging.INFO,
                     format='%(asctime)s %(levelname)s:%(message)s')
@@ -19,14 +19,9 @@ if not os.path.exists(".replit"):
   from dotenv import load_dotenv
   load_dotenv()
 
-def kill_app(e):
-  logging.critical(e)
-  email_error(e)
-  exit(1)
-
 api_key = os.environ.get("OPENAI_API_KEY")
 if not api_key:
-  kill_app("OPENAI_API_KEY environment variable not set")
+  ErrorHandler.kill_app("OPENAI_API_KEY environment variable not set")
 
 OPENAI_CLIENT = OpenAI()
 
@@ -54,9 +49,9 @@ def read_text_file(file_path: str):
       read_file = f.read()
     return read_file
   except FileNotFoundError:
-    kill_app(f"Error: File '{file_path}' not found.")
+    ErrorHandler.kill_app(f"Error: File '{file_path}' not found.")
   except PermissionError:
-    kill_app(f"Error: Permission denied for {file_path}")
+    ErrorHandler.kill_app(f"Error: Permission denied for {file_path}")
 
 def read_json_file(file_path: str):
   "Opens and reads JSON file"
@@ -66,7 +61,7 @@ def read_json_file(file_path: str):
       read_file = json.load(f)
     return read_file
   except Exception as e:
-    kill_app(e)
+    ErrorHandler.kill_app(e)
 
 def write_to_file(content, file_path):
   "Appends content to text file on new line"
@@ -172,16 +167,16 @@ def error_handle(e: Any, retry_count: int) -> int:
   error_message = error_details.get("message", "Unknown error")
 
   if isinstance(e, tuple(unresolvable_errors)):
-    kill_app(e)
+    ErrorHandler.kill_app(e)
   if error_code == 401:
-    kill_app(e)
+    ErrorHandler.kill_app(e)
   if "exceeded your current quota" in error_message:
-    kill_app(e)
+    ErrorHandler.kill_app(e)
 
   logging.exception(e)
   retry_count += 1
   if retry_count == 5:
-    kill_app("Maximum retry count reached")
+    ErrorHandler.kill_app("Maximum retry count reached")
   else:
     sleep_time = (5 - retry_count)  + (retry_count ** 2)
     logging.warning(f"Retry attempt #{retry_count} in {sleep_time} seconds.")
