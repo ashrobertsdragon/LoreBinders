@@ -58,6 +58,9 @@ def main():
     author, title = extract_metadata(user_folder, book_name)
     metadata = {"title": title, "author": author}
 
+  convert_file(user_folder, book_file, metadata)
+  folder_name, chapters = create_folder(user_folder, book_file)
+
   new_row = {
     "user": user,
     "user_email": user_email,
@@ -72,12 +75,9 @@ def main():
     "book_name": book_name
   }
 
-  convert_file(user_folder, book_file, metadata)
-  folder_name, chapters = create_folder(user_folder, book_file)
   ErrorHandler.set_current_file(folder_name)
   check_db(check_cols, new_row)
 
-  
   analyze_book(folder_name, chapters, narrator)
   create_pdf(folder_name, book_name)
   send_mail(folder_name, book_name, user_email)
