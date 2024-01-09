@@ -8,12 +8,10 @@ from typing import List, Dict, Any
 load_dotenv()
 
 class SupabaseDatabase:
-  def __init__(self, jwt_token: str):
+  def __init__(self):
     url: str = os.environ.get("SUPABASE_URL")
     key: str = os.environ.get("SUPABASE_KEY")
-    self.supabase: Client = create_client(url, key, headers = {
-      "Authentication": f"Bearer: {jwt_token}"
-    })
+    self.supabase: Client = create_client(url, key)
 
   def read_data(self, table: str, fields: List[str]) -> List[Dict[str, Any]]:
     return self.supabase.table(table).select(", ".join(fields)).execute().data
@@ -28,8 +26,8 @@ class SupabaseDatabase:
     self.supabase.table(table).insert(data).execute()
 
   def check_existing(self, table: str, criteria: Dict[str, Any]) -> bool:
-    query = self.supabase.table(table)
+    query = self.supabase.table(table).select("id")
     for key, value in criteria.items():
-      query = query.eq(key, value)
-    result = query.select("id").limit(1).execute().data
+      query = query.filter(key, 'eq', value)
+    result = query.execute().data
     return len(result) > 0

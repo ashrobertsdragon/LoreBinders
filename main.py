@@ -1,11 +1,14 @@
 import os
 
+from supabase_db import SupabaseDatabase
+
+import common_functions as cf
 from character_analysis import analyze_book
 from convert_file import convert_file
 from error_handler import ErrorHandler
 from make_pdf import create_pdf
 from send_email import send_mail
-from supabase_db import SupabaseDatabase
+
 
 if not os.path.exists(".replit"):
   from dotenv import load_dotenv
@@ -23,12 +26,22 @@ def extract_metadata(user_folder, book_name):
   title = book_name
   return author, title
 
-def check_db(new_row, jwt_token):
-  db = SupabaseDatabase(jwt_token)
-  if not db.check_existing("craftbinders", new_row):
+def check_db(check_cols, new_row):
+  db = SupabaseDatabase()
+  if not db.check_existing("craftbinders", check_cols):
     db.insert_data("craftbinders", new_row)
   else:
     print("Already in database")
+
+def create_folder(user_folder, book_file):
+
+  file_path = os.path.join(user_folder, book_file)
+  sub_folder = os.path.basename(book_file).split('.')[0]
+  folder_name = os.path.join(user_folder, sub_folder)
+  os.makedirs(folder_name, exist_ok = True)
+  full_text = cf.read_text_file(file_path)
+  chapters = cf.separate_into_chapters(full_text)
+  return folder_name, chapters
 
 def main():
 
@@ -36,7 +49,6 @@ def main():
   narrator = "Kalia" # placeholder
   user = "ashdragon" # placeholder
   user_email = os.getenv("user_email") # placeholder
-  jwt_token = os.environ.get("goddamned_token") #placeholder
   metadata = {"title": "Dragon Run", "author": "Ash Roberts"} # placeholder
 
   user_folder = os.path.join("ProsePal", "users", user)
@@ -51,15 +63,22 @@ def main():
     "user_email": user_email,
     "book_name": book_name,
     "narrator": narrator,
-    "metadata": metadata
+    "metadata": metadata,
+    "folder_name": folder_name
   }
 
-
-  ErrorHandler.set_current_file(os.path.join(user_folder, book_name))
-  check_db(new_row, jwt_token)
+  check_cols = {
+    "user": user,
+    "book_name": book_name
+  }
 
   convert_file(user_folder, book_file, metadata)
-  folder_name = analyze_book(user_folder, book_file, narrator)
+  folder_name, chapters = create_folder(user_folder, book_file)
+  ErrorHandler.set_current_file(folder_name)
+  check_db(check_cols, new_row)
+
+  
+  analyze_book(folder_name, chapters, narrator)
   create_pdf(folder_name, book_name)
   send_mail(folder_name, book_name, user_email)
 
