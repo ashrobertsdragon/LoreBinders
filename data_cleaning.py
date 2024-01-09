@@ -721,7 +721,7 @@ def destring_json(json_data):
       cleaned_data[key] = merge_values(cleaned_data[key], cleaned_value)
   return cleaned_data
 
-def data_cleaning(folder_name: str, chapter_summary: dict) -> dict:
+def data_cleaning(folder_name: str, chapter_summary: dict, narrator: str) -> dict:
   """
   Cleans the json data and writes it to a new file, reshapes the dictionary to 
   demote chapter numbers inside of attribute names, and merges duplicate keys
@@ -758,7 +758,7 @@ def data_cleaning(folder_name: str, chapter_summary: dict) -> dict:
     dedpulicated_dict = cf.read_json_file(deduplicated_path)
 
   if not os.path.exists(chapter_summaries_path):
-    replaced_narrator_dict = clean_narrator(dedpulicated_dict)
+    replaced_narrator_dict = clean_narrator(dedpulicated_dict, narrator)
     sorted_dictionary = sort_dictionary(replaced_narrator_dict)
     cf.write_json_file(sorted_dictionary, chapter_summaries_path)
   else:

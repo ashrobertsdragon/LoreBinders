@@ -357,18 +357,11 @@ def summarize_attributes(chapter_summaries: dict, folder_name: str, summaries: l
 
   return chapter_summaries
 
-def analyze_book(user_folder: str, book_file: str, narrator: str) -> str:
+def analyze_book(folder_name: str, chapters: list, narrator: str) -> str:
 
   start_time = time.time()
 
   # Prep work before doing the real work
-  file_path = os.path.join(user_folder, book_file)
-  sub_folder = os.path.basename(book_file).split('.')[0]
-  folder_name = os.path.join(user_folder, sub_folder)
-  os.makedirs(folder_name, exist_ok = True)
-  full_text = cf.read_text_file(file_path)
-  chapters = cf.separate_into_chapters(full_text)
-
   num_chapters, character_lists, character_lists_index, chapter_summary, chapter_summary_index, summaries, summaries_index = initialize_names(chapters, folder_name)
 
   # Named Entity Recognition  
@@ -398,7 +391,7 @@ def analyze_book(user_folder: str, book_file: str, narrator: str) -> str:
   # Cleaning data and preparing for presentation
   chapter_summaries_path = os.path.join(folder_name, "chapter_summaries.json")
   if not os.path.exists(chapter_summaries_path):
-    cleaned_summaries = data_cleaning(folder_name, chapter_summary)
+    cleaned_summaries = data_cleaning(folder_name, chapter_summary, narrator)
   else:
     cleaned_summaries = cf.read_json_file(chapter_summaries_path)
 
