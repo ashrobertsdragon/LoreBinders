@@ -716,9 +716,13 @@ def destring_json(json_data):
   cleaned_data = {}
 
   for key in json_data:
+    print(len(json_data))
     cleaned_value = cf.check_json(json_data[key])
     if key in cleaned_data:
       cleaned_data[key] = merge_values(cleaned_data[key], cleaned_value)
+    else:
+      cleaned_data[key] = cleaned_value
+    print(len(cleaned_data))
   return cleaned_data
 
 def data_cleaning(folder_name: str, chapter_summary: dict, narrator: str) -> dict:
@@ -733,31 +737,31 @@ def data_cleaning(folder_name: str, chapter_summary: dict, narrator: str) -> dic
   deduplicated_path = os.path.join(folder_name, "chapter_summaries_deduplicated.json")
   chapter_summaries_path = os.path.join(folder_name, "chapter_summaries.json")
 
-  if not os.path.exists(destrung_path):
+  if not cf.is_valid_json(destrung_path):
     destrung_json = destring_json(chapter_summary)
     cf.write_json_file(destrung_json, destrung_path)
   else:
     destrung_json = cf.read_json_file(destrung_path)
 
-  if not os.path.exists(reshaped_path):
+  if not cf.is_valid_json(reshaped_path):
     reshaped_dict = reshape_dict(destrung_json)
     cf.write_json_file(reshaped_dict, reshaped_path)
   else:
     reshaped_dict = cf.read_json_file(reshaped_path)
 
-  if not os.path.exists(only_found_path):
+  if not cf.is_valid_json(only_found_path):
     only_found = remove_none_found(reshaped_dict)
     cf.write_json_file(only_found, only_found_path)
   else:
     only_found = cf.read_json_file(only_found_path)
 
-  if not os.path.exists(deduplicated_path):
+  if not cf.is_valid_json(deduplicated_path):
     dedpulicated_dict = deduplicate_keys(only_found)
     cf.write_json_file(dedpulicated_dict, deduplicated_path)
   else:
     dedpulicated_dict = cf.read_json_file(deduplicated_path)
 
-  if not os.path.exists(chapter_summaries_path):
+  if not cf.is_valid_json(chapter_summaries_path):
     replaced_narrator_dict = clean_narrator(dedpulicated_dict, narrator)
     sorted_dictionary = sort_dictionary(replaced_narrator_dict)
     cf.write_json_file(sorted_dictionary, chapter_summaries_path)

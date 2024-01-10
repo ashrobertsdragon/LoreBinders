@@ -376,7 +376,7 @@ def analyze_book(folder_name: str, chapters: list, narrator: str) -> str:
     character_lists = cf.read_json_file(os.path.join(folder_name, "character_lists.json"))
 
   attribute_table_path = os.path.join(folder_name, "attribute_table.json")
-  if not os.path.exists(attribute_table_path):
+  if not cf.is_valid_json(attribute_table_path):
     print("Building attribute table")
     attribute_table = sort_names(character_lists, narrator) 
     cf.write_json_file(attribute_table, attribute_table_path)
@@ -393,13 +393,14 @@ def analyze_book(folder_name: str, chapters: list, narrator: str) -> str:
 
   # Cleaning data and preparing for presentation
   chapter_summaries_path = os.path.join(folder_name, "chapter_summaries.json")
-  if not os.path.exists(chapter_summaries_path):
+  if not cf.is_valid_json(chapter_summaries_path):
     cleaned_summaries = data_cleaning(folder_name, chapter_summary, narrator)
   else:
     cleaned_summaries = cf.read_json_file(chapter_summaries_path)
 
   prompt_list = create_summarization_prompts(cleaned_summaries)
   with_summaries_path = os.path.join(folder_name, "chapter_summaries_with.json")
+  print(f"Index: {summaries_index} vs {len(prompt_list)}")
   if summaries_index < len(prompt_list):
     print(f"Generating summaries starting at {summaries_index}")
     with_summaries = summarize_attributes(cleaned_summaries, folder_name, summaries, summaries_index, prompt_list)
@@ -407,10 +408,9 @@ def analyze_book(folder_name: str, chapters: list, narrator: str) -> str:
     with_summaries = cf.read_json_file(with_summaries_path)
 
   lorebinder_path = os.path.join(folder_name, "lorebinder.json")
-  if not os.path.exists(lorebinder_path):
+  if not cf.is_valid_json(lorebinder_path):
     final_reshape(with_summaries, folder_name)
 
   end_time = time.time()
   run_time = end_time - start_time
   cf.write_to_file(str(run_time), "run.txt")
-  return folder_name
