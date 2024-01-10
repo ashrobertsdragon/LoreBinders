@@ -4,9 +4,14 @@ import traceback
 
 from send_email import email_error
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.CRITICAL)
 
-logging.basicConfig(filename="critial_error.log", level=logging.CRITICAL, 
-                    format='%(asctime)s %(levelname)s:%(message)s')
+file_handler = logging.FileHandler('critical_error.log')
+formatter = logging.Formatter('%(asctime)s %(levelname)s:%(message)s')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+logger.propagate = False
 
 class ErrorHandler:
   current_file = None

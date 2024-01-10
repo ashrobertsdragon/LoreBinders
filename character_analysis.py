@@ -353,7 +353,7 @@ def summarize_attributes(chapter_summaries: dict, folder_name: str, summaries: l
       chapter_summaries[attribute][attribute_name]["summary"] = summary
       cf.append_json_file(summary, summaries_path)
       if os.path.exists(with_summaries_path):
-        cf.append_json_file(chapter_summaries[attribute][attribute_name]["summary"], with_summaries_path)
+        cf.append_json_file(chapter_summaries[attribute][attribute_name], with_summaries_path)
       else:
         cf.write_json_file(chapter_summaries, with_summaries_path)
       progress_bar.update(1)

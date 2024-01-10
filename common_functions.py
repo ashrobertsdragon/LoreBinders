@@ -12,8 +12,14 @@ from openai import OpenAI
 from data_cleaning import check_json, merge_json_halves
 from error_handler import ErrorHandler
 
-logging.basicConfig(filename='api_calls.log', level=logging.INFO,
-                    format='%(asctime)s %(levelname)s:%(message)s')
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+file_handler = logging.FileHandler('api_calls.log')
+formatter = logging.Formatter('%(asctime)s %(levelname)s:%(message)s')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+logger.propagate = False
 
 if not os.path.exists(".replit"):
   from dotenv import load_dotenv
