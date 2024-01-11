@@ -763,7 +763,6 @@ def data_cleaning(folder_name: str, chapter_summary: dict, narrator: str) -> dic
     cf.write_json_file(only_found, only_found_path)
   else:
     only_found = cf.read_json_file(only_found_path)
-  exit(0)
 
   if not cf.is_valid_json(deduplicated_path):
     dedpulicated_dict = deduplicate_keys(only_found)
