@@ -158,13 +158,24 @@ def remove_none_found(d):
     new_dict = {}
     for key, value in d.items():
       cleaned_value = remove_none_found(value)
-      if cleaned_value != "None found":
+      if not isinstance(cleaned_value, list) and cleaned_value != "None found":
         new_dict[key] = cleaned_value
+        continue
+      elif isinstance(cleaned_value, list):
+        if len(cleaned_value) > 1:
+          new_dict[key] = cleaned_value
+        elif len(cleaned_value) == 1:
+          new_dict[key] = cleaned_value[0]
     return new_dict
   elif isinstance(d, list):
-    return [remove_none_found(item) for item in d]
+    new_list = []
+    for item in d:
+      cleaned_item = remove_none_found(item)
+      if cleaned_item != "None found":
+        new_list.append(cleaned_item)
+    return new_list
   else:
-    return d
+    return "" if d == "None Found" else d
 
 def final_reshape(chapter_summaries: dict, folder_name: str) -> None:
   """
@@ -716,13 +727,11 @@ def destring_json(json_data):
   cleaned_data = {}
 
   for key in json_data:
-    print(len(json_data))
     cleaned_value = cf.check_json(json_data[key])
     if key in cleaned_data:
       cleaned_data[key] = merge_values(cleaned_data[key], cleaned_value)
     else:
       cleaned_data[key] = cleaned_value
-    print(len(cleaned_data))
   return cleaned_data
 
 def data_cleaning(folder_name: str, chapter_summary: dict, narrator: str) -> dict:
@@ -754,6 +763,7 @@ def data_cleaning(folder_name: str, chapter_summary: dict, narrator: str) -> dic
     cf.write_json_file(only_found, only_found_path)
   else:
     only_found = cf.read_json_file(only_found_path)
+  exit(0)
 
   if not cf.is_valid_json(deduplicated_path):
     dedpulicated_dict = deduplicate_keys(only_found)
