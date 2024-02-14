@@ -183,15 +183,15 @@ def character_analysis_role_script(attribute_table: dict, chapter_number: str) -
   def create_instructions(to_batch: list) -> str:
 
     instructions = (
-      f'You are a developmental editor helping create a story bible. \n'
-      f'Be detailed but concise, using short phrases instead of sentences. Do not '
-      f'justify your reasoning or provide commentary, only facts. Only one attribute '
-      f'per line, just like in the schema below, but all description for that '
-      f'attribute should be on the same line. If something appears to be '
-      f'miscatagorized, please put it under the correct attribute. USE ONLY STRINGS '
-      f'AND JSON OBJECTS, NO JSON ARRAYS. The output must be valid JSON.\n'
-      f'If you cannot find any mention of something in the text, please '
-      f'respond with "None found" as the description for that attribute. \n'
+      'You are a developmental editor helping create a story bible. \n'
+      'Be detailed but concise, using short phrases instead of sentences. Do not '
+      'justify your reasoning or provide commentary, only facts. Only one attribute '
+      'per line, just like in the schema below, but all description for that '
+      'attribute should be on the same line. If something appears to be '
+      'miscatagorized, please put it under the correct attribute. USE ONLY STRINGS '
+      'AND JSON OBJECTS, NO JSON ARRAYS. The output must be valid JSON.\n'
+      'If you cannot find any mention of something in the text, please '
+      'respond with "None found" as the description for that attribute. \n'
     )
     character_instructions = (
       'For each character in the chapter, describe their appearance, personality, '
@@ -342,7 +342,7 @@ def summarize_attributes(chapter_summaries: dict, folder_name: str, summaries: l
   model_key = "gpt_three"
   temperature = 0.4
   max_tokens = 200
-  role_script = f"You are an expert summarizer. Please summarize the description over the course of the story for the following:"
+  role_script = "You are an expert summarizer. Please summarize the description over the course of the story for the following:"
 
   with tqdm(total = len(prompt_list), unit = "Summary", ncols = 40) as progress_bar:
     for i, (attribute, attribute_name, prompt) in enumerate(prompt_list):
