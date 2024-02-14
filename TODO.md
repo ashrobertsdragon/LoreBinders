@@ -1,5 +1,4 @@
 *TODO
 **Improvements
 - create stylesheet for pdf
-- ~~batch summarization step~~
-- ~~GPT-4 on chapters and return paragraphs -> GPT-3.5 sort into JSON~~
+- fix JSON joining
