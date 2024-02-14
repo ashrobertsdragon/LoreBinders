@@ -1,6 +1,6 @@
 import os
 
-from supabase_db import SupabaseDatabase
+#from supabase_db import SupabaseDatabase
 
 import common_functions as cf
 from character_analysis import analyze_book
@@ -51,7 +51,7 @@ def main():
   user_email = os.getenv("user_email") # placeholder
   metadata = {"title": "Dragon Run", "author": "Ash Roberts"} # placeholder
 
-  user_folder = os.path.join("ProsePal", "users", user)
+  user_folder = os.path.join("users", user)
   book_name, _ = os.path.splitext(book_file)
 
   if not metadata:
@@ -76,7 +76,7 @@ def main():
   }
 
   ErrorHandler.set_current_file(folder_name)
-  check_db(check_cols, new_row)
+  #check_db(check_cols, new_row)
 
   analyze_book(folder_name, chapters, narrator)
   create_pdf(folder_name, book_name)
