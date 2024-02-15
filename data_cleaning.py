@@ -572,15 +572,14 @@ def attempt_json_repair(json_str: str, e: json.JSONDecodeError) -> str:
   Returns a string of the split lines rejoined
   """
   error_message = e.msg
-  error_line = e.lineno
-
+  error_line = e.lineno -1 #fix off by one error
   lines = json_str.split("\n")
   for i, line in enumerate(lines):
     if i == error_line:
       line_before = lines[i - 1]
       added_delimiter = False
       for delim in [",",":"]:
-        if error_message == f"Expecting '{delim}' delimeter":
+        if error_message == f"Expecting '{delim}' delimiter":
           lines[i -1] = fix_missing_delimiter(line_before, line, delim)
           added_delimiter = True
           break
@@ -592,6 +591,8 @@ def attempt_json_repair(json_str: str, e: json.JSONDecodeError) -> str:
       if error_message == "Invalid control character":
         lines[i] = fix_invalid_control(line)
         break
+      if "Unterminated string" in error_message:
+        lines[i] += '"'
   return "\n".join(lines)
 
 def gpt_json_repair(json_str: str) -> str:
