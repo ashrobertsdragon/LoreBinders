@@ -295,6 +295,8 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
 
   with tqdm(total = num_chapters, unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|") as progress_bar:
     for i, chapter in enumerate(chapters):
+      if i > 1:
+        exit(1)
       chapter_number = i + 1
       progress_bar.set_description(
         f"\033[92mProcessing Chapter {chapter_number:0{num_digits}d}", refresh = True
@@ -308,7 +310,7 @@ def analyze_attributes(chapters: list, attribute_table: dict, folder_name: str, 
       role_script_info = character_analysis_role_script(attribute_table, str(chapter_number))
       progress_increment = 1 / len(role_script_info) if role_script_info else 1
       for role_script, max_tokens in role_script_info:
-        attribute_summary_part = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens, response_type = "json")
+        attribute_summary_part = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens=100, response_type = "json")
         attribute_summary_whole.append(attribute_summary_part)
       progress_bar.update(progress_increment)
       attribute_summary = "{" + ",".join(part.lstrip("{").rstrip("}") for part in attribute_summary_whole) + "}"
