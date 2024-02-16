@@ -16,7 +16,7 @@ h11==0.14.0
 httpcore==1.0.3
 httpx==0.25.2
 idna==3.6
-json_repair==0.8.1
+json_repair==0.*
 lxml==5.1.0
 openai==1.12.0
 packaging==23.2
