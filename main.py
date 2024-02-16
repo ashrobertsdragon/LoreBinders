@@ -1,6 +1,6 @@
 import os
 
-#from supabase_db import SupabaseDatabase
+from supabase_db import SupabaseDatabase
 
 import common_functions as cf
 from character_analysis import analyze_book
@@ -9,10 +9,8 @@ from error_handler import ErrorHandler
 from make_pdf import create_pdf
 from send_email import send_mail
 
-
-if not os.path.exists(".replit"):
-  from dotenv import load_dotenv
-  load_dotenv()
+from dotenv import load_dotenv
+load_dotenv()
 
 def extract_metadata(user_folder, book_name):
   """
@@ -76,7 +74,7 @@ def main():
   }
 
   ErrorHandler.set_current_file(folder_name)
-  #check_db(check_cols, new_row)
+  check_db(check_cols, new_row)
 
   analyze_book(folder_name, chapters, narrator)
   create_pdf(folder_name, book_name)
