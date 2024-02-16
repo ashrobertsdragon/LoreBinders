@@ -4,6 +4,8 @@ import re
 import time
 from typing import Optional, Tuple
 
+from json_repair import repair_json
+
 import common_functions as cf
 from error_handler import ErrorHandler
 
@@ -703,6 +705,10 @@ def check_json(json_str: str, attempt_count: int = 0) -> str:
         real_tries = attempt_count
         return check_json(json_str, programmatic_tries)
       return check_json(fixed_str, attempt_count + 1)
+    elif attempt_count == programmatic_tries:
+      attempt_count += 1
+      json_str = repair_json(json_str)
+      return check_json(json_str, attempt_count)
     else:
       try_differential = programmatic_tries - real_tries
       real_count = attempt_count - try_differential
