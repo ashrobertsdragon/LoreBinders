@@ -305,7 +305,7 @@ def call_gpt_api(model_key: str, prompt: str, role_script: str, temperature: flo
     print(length_warning)
     stub = f"original:\n{answer}\nLast complete:\n"
     if response_type == "json":
-      last_complete = answer.rfind("}")
+      last_complete = answer.rfind("},")
       assistant_message = answer[:last_complete + 1] if last_complete > 0 else ""
       debugging = stub + str(last_complete) if last_complete > 0 else f"{stub}Not found"
       write_to_file(debugging, "repair_log.txt")
