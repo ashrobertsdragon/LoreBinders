@@ -1,4 +1,10 @@
-*TODO
+# TODO
+
 **Improvements
+
 - create stylesheet for pdf
-- fix JSON joining
+
+**Upcoming Features
+
+- inconsistencies
+- series
