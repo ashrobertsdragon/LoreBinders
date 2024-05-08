@@ -1,35 +1,16 @@
 import os
 
-from supabase_db import SupabaseDatabase
-
 import common_functions as cf
 from character_analysis import analyze_book
 from convert_file import convert_file
 from error_handler import ErrorHandler
 from make_pdf import create_pdf
-from send_email import send_mail
+from user_input import get_book
 
 from dotenv import load_dotenv
 load_dotenv()
+error_handler = ErrorHandler()
 
-def extract_metadata(user_folder, book_name):
-  """
-  Extracts author and title from the given file path.
-  Arguments:
-    file_path: Path of the file.
-  Returns tuple containing author and title.
-  """
-  path_components = user_folder.split(os.sep)
-  author = path_components[-2]
-  title = book_name
-  return author, title
-
-def check_db(check_cols, new_row):
-  db = SupabaseDatabase()
-  if not db.check_existing("craftbinders", check_cols):
-    db.insert_data("craftbinders", new_row)
-  else:
-    print("Already in database")
 
 def create_folder(user_folder, book_file):
 
@@ -41,44 +22,29 @@ def create_folder(user_folder, book_file):
   chapters = cf.separate_into_chapters(full_text)
   return folder_name, chapters
 
-def main():
+def create_user(author: str) -> str:
+  names = author.split(" ")
+  return "_".join(names)
 
-  book_file = "DragonRun.txt" # placeholder
-  narrator = "Kalia" # placeholder
-  user = "ashdragon" # placeholder
-  user_email = os.getenv("user_email") # placeholder
-  metadata = {"title": "Dragon Run", "author": "Ash Roberts"} # placeholder
+def main():
+  book_dict = get_book()
+  book_file = book_dict["book_file"]
+  author = book_dict["author"]
+  user = create_user(author)
 
   user_folder = os.path.join("users", user)
-  book_name, _ = os.path.splitext(book_file)
+  book_name, ext = os.path.splitext(book_file)
 
-  if not metadata:
-    author, title = extract_metadata(user_folder, book_name)
-    metadata = {"title": title, "author": author}
+  if ext != "txt":
+    metadata = {"title": book_dict["title"], "author": author}
+    convert_file(user_folder, book_file, metadata)
 
-  convert_file(user_folder, book_file, metadata)
   folder_name, chapters = create_folder(user_folder, book_file)
+  error_handler.set_current_file(folder_name)
 
-  new_row = {
-    "user": user,
-    "user_email": user_email,
-    "book_name": book_name,
-    "narrator": narrator,
-    "metadata": metadata,
-    "folder_name": folder_name
-  }
-
-  check_cols = {
-    "user": user,
-    "book_name": book_name
-  }
-
-  ErrorHandler.set_current_file(folder_name)
-  check_db(check_cols, new_row)
-
-  analyze_book(folder_name, chapters, narrator)
+  analyze_book(folder_name, chapters, book_dict["narrator"])
   create_pdf(folder_name, book_name)
-  send_mail(folder_name, book_name, user_email)
+
 
 if __name__ == "__main__":
   main()
