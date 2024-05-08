@@ -13,3 +13,7 @@ This is an early alpha version of the software and not ready for consumption. Us
 ### Licence
 
 This softwware is available inder MIT license. No rights reserved.
+
+### Development
+
+This software is under active development. Contributions are welcome but not expencted.
