@@ -1,8 +1,13 @@
+import json
 import os
 import re
-from typing import Tuple
+import time
+from typing import Optional, Tuple
+
+from json_repair import repair_json
 
 import common_functions as cf
+from error_handler import ErrorHandler
 
 
 TITLES = [
@@ -458,6 +463,263 @@ def reshape_dict(chapter_summaries: dict) -> dict:
         elif isinstance(entity_details, str):
           reshaped_data[section].setdefault(entity, {}).setdefault(chapter, []).append(entity_details)
   return reshaped_data
+
+def find_full_object(string: str, forward: bool = True) -> int:
+  "Finds the position of the first full object of a string representation"
+  " of a partial JSON object"
+
+  balanced = 0 if forward else -1
+  count = 0
+  for i, char in enumerate(string):
+    if char == "{":
+      count += 1
+    elif char == "}":
+      count -= 1
+      if i != 0 and count == balanced:
+        return i
+  return 0
+
+def merge_json_halves(first_half: str, second_half: str) -> Optional[str]:
+  """
+  Merges two strings of a partial JSON object
+
+  Args:
+    first_half: str - the first segment of a partial JSON object in string form
+    second_half: str - the second segment of a partial JSON object in string form
+
+  Returns either the combined string of a full JSON object or None
+  """
+
+  repair_log = "repair_log.txt"
+  repair_stub = f"{time.time()}\nFirst response:\n{first_half}\nSecond response:\n{second_half}"
+  first_end = find_full_object(first_half[::-1], forward = False)
+  second_start = find_full_object(second_half)
+  if first_end and second_start:
+    first_end = len(first_half) - first_end - 1
+    combined_str = first_half[:first_end + 1] + ", " + second_half[second_start:]
+    log = f"{repair_stub}\nCombined is:\n{combined_str}"
+    cf.write_to_file(log, repair_log)
+  else:
+    log = f"Could not combine.\n{repair_stub}"
+    cf.write_to_file(log, repair_log)
+    return None
+
+  try:
+    return json.loads(combined_str)
+  except json.JSONDecodeError:
+    log = f"Did not properly repair.\n{repair_stub}\nCombined is:\n{combined_str}"
+    return None
+
+def double_property(line: str, delim: str) -> str:
+  "Regex match to insert missing delimeter into line with two properties on single line"
+
+  fixed = re.sub(r'""', rf'"{delim}"', line)
+  fixed = re.sub(r'"{', rf'"{delim}{{', line)
+  return fixed
+
+def fix_missing_delimiter(line_before: str, line: str, delim: str) -> str:
+  "Inserts missing delimiter in a JSON string."
+
+  before = line_before.strip()
+  line = line.strip()
+  if before.endswith("}"):
+    line_before += ","
+  elif before.startswith("}"):
+    line_before = "},\n" + before[1:]
+  elif before.endswith("{"):
+    line_before = before[:-1] + ",\n{"
+  elif before.endswith(":"):
+    line_before += " {"
+  elif before.endswith('"') and line.startswith('"'):
+    line_before += delim
+  else:
+    return double_property(line, delim)
+  return line_before
+
+def fix_extra_data(line_before: str, line: str) -> str:
+  "Removes first character of line after closing bracket on line before"
+
+  before = line_before.strip()
+  if before.endswith("}"):
+    line = line[1:]
+  return line
+
+def fix_invalid_control(line: str) -> str:
+  "Regex substitution to remove extra characters between colon and start of value"
+
+  pattern = r'"(.?)".*:.?"'
+  replacement = r'"\1": "'
+  return re.sub(pattern, replacement, line)
+
+def fix_expecting_property(line_before: str) -> str:
+  "Removes extra data causing 'Expecting property' JSONDecodeError"
+
+  before = line_before.strip()
+  if before.endswith(","):
+    line_before = before[:-1]
+  elif before.endswith("{}"):
+    line_before = before[:-2]
+  return line_before
+
+def attempt_json_repair(json_str: str, e: json.JSONDecodeError) -> str:
+  """
+  Attempts to repair a malformed JSON object by evaluating the JSONDecodeError
+  and calling a series of specialized functions to handle specific errors on the
+  line with the error and the line before it.
+
+  Args:
+    json_str (str): the string representing the malformed JSON object
+    e (JSONDecodeError): the decode error object
+
+  Returns a string of the split lines rejoined
+  """
+  error_message = e.msg
+  error_line = e.lineno -1 #fix off by one error
+  lines = json_str.split("\n")
+  for i, line in enumerate(lines):
+    if i == error_line:
+      line_before = lines[i - 1]
+      added_delimiter = False
+      for delim in [",",":"]:
+        if error_message == f"Expecting '{delim}' delimiter":
+          lines[i -1] = fix_missing_delimiter(line_before, line, delim)
+          added_delimiter = True
+          break
+      if added_delimiter:
+        break
+      if error_message == "Extra data":
+        lines[i] = fix_extra_data(line_before, line)
+        break
+      if error_message == "Invalid control character":
+        lines[i] = fix_invalid_control(line)
+        break
+      if "Unterminated string" in error_message:
+        lines[i] += '"'
+  return "\n".join(lines)
+
+def gpt_json_repair(json_str: str) -> str:
+  "Call GPT-3.5 to repair broken JSON"
+
+  model_key = "gpt_three"
+  prompt = json_str
+  role_script = (
+    "You are an expert JSON formatter. Please locate and fix any errors in the "
+    "following JSON object and return only the JSON object without any commentary"
+  )
+  temperature = 0.2
+  role_script_tokens = 20
+  head_room = 10
+  max_tokens = cf.count_tokens(prompt) + role_script_tokens + head_room
+  response_type = "json"  
+  return cf.call_gpt_api(
+    model_key, prompt, role_script, temperature, max_tokens, response_type
+  )
+
+def check_json_stub(json_lines: list, start: int, end: int, reverse: bool = False) -> Tuple[int, str]:
+  """
+  Iterates over lines of JSON object to find nested object that is malformed to send to GPT-3.5 for repair
+
+  Args:
+    json_lines (list): json string split into lines
+    start (int): starting position in json_lines, based on line reported with JSONDecodeError
+    end (int): ending position in josn_lines, either beginnng or end of list
+    reverse (bool): determines which direction to iterate over
+
+  Returns:
+    i (int): the locations in json_lines marking the beginning or end of malformed
+      JSON object or 0 (Falsy value) if could not find any good objects
+    partial_str (str): the string of good JSON before/after malformed object or an
+      empty string if no good JSON objects were found
+  """
+  for i in range(start, end, -1 if reverse else 1):
+    partial_str = "".join(json_lines[i:] if reverse else json_lines[:i])
+    try:
+      json.loads(partial_str)
+      return i, partial_str
+    except json.JSONDecodeError:
+      continue
+  return 0, ""
+
+def find_malformed_json(json_str: str, e: json.JSONDecodeError) -> Optional[str]:
+  """
+  Finds malformed JSON object to send to GPT-3.5 using check_json_stub function
+  to find position of the beginning and ending of the malformed object as well as
+  collecting the good portions before and after the malformed object.
+
+  Args:
+    json_str (string): The string representation of the overall JSON object that
+      has an error in it.
+    e (JSONDecodeError): The decode error from attempting json.loads() on json_str
+      in the calling function
+
+  Returns one of two options:
+    good_json (str): The repaired JSON string after calling gpt_json_repair on the
+      malformed object and concatating the good portions before and after
+    None: If check_json_stub could not identify the boundaries of the malformed
+      object, the function returns None to report to calling function of failure
+  """
+  
+  json_lines = json_str.split("\n")
+  error_line = e.lineno
+
+  start_bad, start_stub = check_json_stub(json_lines, error_line - 1, 1, reverse = True)
+  end_bad, end_stub = check_json_stub(json_lines, error_line + 1, len(json_lines))
+
+  if start_bad and end_bad:
+    bad_json = "\n".join(json_lines[start_bad:end_bad])
+    good_json = start_stub + gpt_json_repair(bad_json) + end_stub
+    return good_json
+  else:
+    return None
+
+def check_json(json_str: str, attempt_count: int = 0) -> str:
+  """
+  Check if a JSON string is valid and attempt to repair it if necessary. First a 
+  series of preprogrammed fixes are attempted allowing for 5 programmatic_tries in
+  case of multiple errors. If attempt_json_repair returns the original string back,
+  attempt_count is set to programmatic_tries to skip directly to using GPT 3.5, which
+  gets two 
+
+  Args:
+    json_str (str): The JSON string to be checked.
+    attempt_count (int, optional): Indicates the number of times repair has been 
+      attempted. Initially set to 0.
+
+  Returns:
+    str: The repaired JSON string.
+  """
+  repair_log = "repair_log.txt"
+  log_stub = f"Before:\n{json_str}\nAfter:\n"
+  programmatic_tries = 5
+  gpt_tries = 2
+  real_tries = 0
+  try:
+    return json.loads(json_str)
+  except json.JSONDecodeError as e:
+    print(e)
+    error_stub = f"Error:{e}\nAttempt #{attempt_count + 1}\n{log_stub}"
+    if attempt_count < programmatic_tries:
+      fixed_str = attempt_json_repair(json_str, e)
+      cf.write_to_file(f"{error_stub}{fixed_str}", repair_log)
+      if fixed_str == json_str: # no programmatic fixes were found, skip to gpt repair
+        real_tries = attempt_count
+        return check_json(json_str, programmatic_tries)
+      return check_json(fixed_str, attempt_count + 1)
+    elif attempt_count == programmatic_tries:
+      attempt_count += 1
+      json_str = repair_json(json_str)
+      return check_json(json_str, attempt_count)
+    else:
+      try_differential = programmatic_tries - real_tries
+      real_count = attempt_count - try_differential
+      if attempt_count > programmatic_tries + gpt_tries:
+        ErrorHandler.kill_app(f"Unable to repair error {e} in {real_count} tries")
+      cleaned_json = find_malformed_json(json_str, e)
+      if cleaned_json:
+        cf.write_to_file(f"{log_stub}{cleaned_json}", repair_log)
+        return check_json(cleaned_json, attempt_count + 1)
+      else:
+        ErrorHandler.kill_app(f"Unable to repair error {e} in {real_count} tries")
 
 def destring_json(json_data):
   """
