@@ -5,10 +5,7 @@ import os
 import time
 from typing import Optional, Tuple
 
-from error_handler import ErrorHandler
-from file_handling import FileHandler
-
-errors = ErrorHandler()
+from ai_classes import ErrorHandler, FileHandler
 
 class AIInterface():
     """
@@ -16,7 +13,7 @@ class AIInterface():
     the future.
     """
 
-    def __init__(self, model_key: str, files: FileHandler) -> None:
+    def __init__(self, model_key: str, files: FileHandler, errors: ErrorHandler) -> None:
         """
         Reads the rate limit data and initialies model information for future use.
         """
@@ -25,6 +22,7 @@ class AIInterface():
         self.rate_limit_data["tokens_used"] = self.rate_limit_data.get("tokens_used", 0)
         self.rate_limit_data["minute"] = self.rate_limit_data.get("minute", time.time())
         self.files = files
+        self.errors = errors
         for key, value in self.get_model_details(model_key):
             setattr(self, key, value)
         
@@ -245,11 +243,11 @@ class AIInterface():
         error_message = error_details.get("message", "Unknown error")
 
         if isinstance(e, tuple(self.unresolvable_errors)):
-            errors.kill_app(e)
+            self.errors.kill_app(e)
         if error_code == 401:
-            errors.kill_app(e)
+            self.errors.kill_app(e)
         if "exceeded your current quota" in error_message:
-            errors.kill_app(e)
+            self.errors.kill_app(e)
 
         logging.error(f"An error occurred: {e}", exc_info=True)
 
@@ -257,7 +255,7 @@ class AIInterface():
 
         retry_count += 1
         if retry_count == MAX_RETRY_COUNT:
-            errors.kill_app("Maximum retry count reached")
+            self.errors.kill_app("Maximum retry count reached")
         else:
             sleep_time = (MAX_RETRY_COUNT - retry_count) + (retry_count ** 2)
             logging.warning(f"Retry attempt #{retry_count} in {sleep_time} seconds.")

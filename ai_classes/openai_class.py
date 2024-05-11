@@ -4,16 +4,12 @@ from typing import Optional, Tuple
 
 from openai import OpenAI
 
-from ai_classes import FinishReason, ChatCompletion
+from ai_classes import FinishReason, ChatCompletion, NoMessageError
 from ai_interface import AIInterface
-from exceptions import NoMessageError
-from error_handler import ErrorHandler
-from file_handling import FileHandler
 from json_repair import JSONRepair
 
-errors = ErrorHandler()
-files = FileHandler()
-repair = JSONRepair()
+
+
 
 class OpenAIAPI(AIInterface):
     """
@@ -26,7 +22,7 @@ class OpenAIAPI(AIInterface):
         super().__init__()
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
-            errors.kill_app("OPENAI_API_KEY environment variable not set")
+            self.errors.kill_app("OPENAI_API_KEY environment variable not set")
         self.openai_client = OpenAI()
 
     def call_api(self, api_payload: dict, retry_count: Optional[int] = 0, assistant_message: Optional[str] = None, json_response: Optional[bool] = False) -> str:
@@ -138,6 +134,7 @@ class OpenAIAPI(AIInterface):
         """
         if assistant_message:
             if json_response:
+                repair = JSONRepair()
                 new_part = content[1:]
                 combined = repair.merge(assistant_message, new_part)
                 if combined:
