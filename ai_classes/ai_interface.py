@@ -13,7 +13,7 @@ class AIInterface():
     the future.
     """
 
-    def __init__(self, model_key: str, files: FileHandler, errors: ErrorHandler) -> None:
+    def __init__(self, files: FileHandler, errors: ErrorHandler, model_key: str,) -> None:
         """
         Reads the rate limit data and initialies model information for future use.
         """
