@@ -1,4 +1,3 @@
-import backoff
 from pydantic import BaseModel
 import logging
 import json
@@ -18,6 +17,9 @@ class AIInterface():
     """
 
     def __init__(self, model_key: str, files: FileHandler) -> None:
+        """
+        Reads the rate limit data and initialies model information for future use.
+        """
         self.rate_limit_data = files.read_json_file("rate_limit.json") if os.path.exists(
             "rate_limit.json") else {}
         self.rate_limit_data["tokens_used"] = self.rate_limit_data.get("tokens_used", 0)
@@ -88,7 +90,7 @@ class AIInterface():
     
         return rate_limit
 
-    def count_tokens(self, text):
+    def count_tokens(self, text: str) -> int:
         """
         Counts tokens using the tokenizer for the AI model.
         """
@@ -147,8 +149,27 @@ class AIInterface():
             max_tokens=max_tokens
         )
 
-        return payload.dict()
+        return payload.model_dump()
     
+    def update_rate_limit_data(self, tokens: int) -> None:
+        """
+        Updates the rate limit data by adding the number of tokens used.
+
+        Args:
+            tokens (int): The number of tokens used in the API call.
+
+        Returns:
+            None
+
+        Notes:
+            The rate limit data dictionary is updated by adding the number of
+            tokens used to the 'tokens_used' key.
+            The updated rate limit data is then written to a JSON file named
+                'rate_limit_data.json'.
+        """
+        self.rate_limit_data["tokens_used"] += tokens
+        self.files.write_json_file(self.rate_limit_data, "rate_limit_data.json")
+
     def create_message_payload(self, role_script: str, prompt: str, assistant_message: Optional[str] = None) -> Tuple[list, int]:
         """
         Creates a payload for making API calls to the AI engine.
@@ -156,10 +177,12 @@ class AIInterface():
         Args:
             role_script (str): The role script text for the AI model.
             prompt (str): The prompt text for the AI model.
-            assistant_message (Optional[str], optional): The assistant message text. Defaults to None.
+            assistant_message (Optional[str], optional): The assistant message
+                text. Defaults to None.
 
         Returns:
-            Tuple[list, int]: A tuple containing a list of messages and the number of input tokens.
+            Tuple[list, int]: A tuple containing a list of messages and the
+                number of input tokens.
 
         Raises:
             ValueError: If the role_script input is not a string.
@@ -187,7 +210,8 @@ class AIInterface():
     
     def modify_payload(self, api_payload: dict, **kwargs) -> dict:
         """
-        Modifies the given api_payload dictionary with the provided key-value pairs in kwargs.
+        Modifies the given api_payload dictionary with the provided key-value
+            pairs in kwargs.
     
         Args:
             api_payload (dict): The original api_payload dictionary.
@@ -201,9 +225,9 @@ class AIInterface():
     
     def error_handle(self, e: Exception, retry_count: int) -> int:
         """
-        Determines whether error is unresolvable or should be retried. If unresolvable,
-        error is logged and administrator is emailed before exit. Otherwise, exponential
-        backoff is used for up to 5 retries.
+        Determines whether error is unresolvable or should be retried. If
+        unresolvable, error is logged and administrator is emailed before
+        exit. Otherwise, exponential backoff is used for up to 5 retries.
 
         Args:
             e: an Exception body
@@ -238,17 +262,30 @@ class AIInterface():
             sleep_time = (MAX_RETRY_COUNT - retry_count) + (retry_count ** 2)
             logging.warning(f"Retry attempt #{retry_count} in {sleep_time} seconds.")
 
-            @backoff.on_exception(backoff.expo, Exception, max_tries=MAX_RETRY_COUNT)
-            def retry_call():
-                logging.warning(f"Retry attempt #{retry_count} in {sleep_time} seconds.")
-                raise Exception()
-
-            retry_call()
-
         return retry_count
 
-
     def handle_rate_limiting(self, input_tokens: int, max_tokens: int) -> None:
+        """
+        Handles rate limiting for API calls to the AI engine.
+
+        This method checks the rate limit for the API calls and handles the
+        rate limiting logic. It ensures that the number of tokens used in the
+        API call, along with the maximum tokens allowed, does not exceed the
+        rate limit set for the model. If the rate limit is exceeded, the
+        method will log a warning and sleep for a certain period of time
+        before retrying the API call.
+
+        Args:
+            input_tokens (int): The number of tokens used in the API call.
+            max_tokens (int): The maximum number of tokens allowed for the API
+                call.
+
+        Returns:
+            None
+
+        Raises:
+            None
+        """
         minute = self.get_rate_limit_minute()
         tokens_used = self.get_rate_limit_tokens_used()
 
@@ -278,5 +315,3 @@ class AIInterface():
         max_tokens = int(api_payload["max_tokens"])
 
         self.handle_rate_limiting(input_tokens, max_tokens)
-
-        raise NotImplementedError("This method should be implemented in the child class.")
