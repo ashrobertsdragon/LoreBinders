@@ -53,99 +53,6 @@ def initialize_names(chapters: list, folder_name: str) -> Tuple[int, list, int, 
     summaries, summaries_index
   )
 
-def get_attributes(folder_name: str) -> Tuple[str, str]:
-
-  attribute_strings = []
-  dictionary_attributes_list = []
-
-  attributes_path = os.path.join(folder_name, "attributes.json")
-  if os.path.exists(attributes_path):
-    role_attributes, custom_attributes = cf.read_json_file(attributes_path)
-    return role_attributes, custom_attributes
-
-  ask_attributes = input(
-    "Besides characters and setting, what other attributes would you like ProsePal to "
-    "search for (e.g. fantasy races, factions, religions, etc)? Please be as specific "
-    "as possible. Attributes must be separated by commas for the program to work. "
-    "Type N if you only want to search for characters and settings\n> "
-  )
-
-  if ask_attributes.strip().lower() in ["n", ""]:
-    custom_attributes = ""
-    role_attributes = ""
-  else:
-    custom_attributes = f" and the following additional attributes: {ask_attributes}"
-    dictionary_attributes_list = ask_attributes.split(",")
-
-  for attribute in dictionary_attributes_list:
-    attribute = attribute.strip()
-    attribute_string = f"{attribute}:\n{attribute}1\n{attribute}2\n{attribute}3"
-    attribute_strings.append(attribute_string)
-    role_attributes = "\n".join(attribute_strings)
-  cf.write_json_file((role_attributes, custom_attributes), attributes_path)
-  cf.clear_screen()
-  return role_attributes, custom_attributes
-
-def ner_role_script(folder_name: str) -> str:
-
-  role_attributes, custom_attributes = get_attributes(folder_name)
-  role_script = (
-    f"You are a script supervisor compiling a list of characters in each scene. "
-    f"For the following selection, determine who are the characters, giving only "
-    f"their name and no other information. Please also determine the settings, "
-    f"both interior (e.g. ship's bridge, classroom, bar) and exterior (e.g. moon, "
-    f"Kastea, Hell's Kitchen).{custom_attributes}.\n"
-    f"If the scene is written in the first person, try to identify the narrator by "
-    f"their name. If you can't determine the narrator's identity. List 'Narrator' as "
-    f"a character. Use characters' names instead of their relationship to the "
-    f"narrator (e.g. 'Uncle Joe' should be 'Joe'. If the character is only identified "
-    f"by their relationship to the narrator (e.g. 'Mom' or 'Grandfather'), list the "
-    f"character by that identifier instead of the relationship (e.g. 'Mom' instead of "
-    f"'Narrator's mom' or 'Grandfather' instead of 'Kalia's Grandfather'\n"
-    f"Be as brief as possible, using one or two words for each entry, and avoid "
-    f"descriptions. For example, 'On board the Resolve' should be 'Resolve'. 'Debris "
-    f"field of leftover asteroid pieces' should be 'Asteroid debris field'. 'Unmarked "
-    f"section of wall (potentially a hidden door)' should be 'unmarked wall section' "
-    f"Do not use these examples unless they actually appear in the text.\n"
-    f"If you cannot find any mention of a specific attribute in the text, please "
-    f"respond with 'None found' on the same line as the attribute name. If you are "
-    f"unsure of a setting or no setting is shown in the text, please respond with "
-    f"'None found' on the same line as the word 'Setting'\n"
-    f"Please format the output exactly like this:\n"
-    f"Characters:\n"
-    f"character1\n"
-    f"character2\n"
-    f"character3\n"
-    f"Settings:\n"
-    f"Setting1 (interior)\n"
-    f"Setting2 (exterior)\n"
-    f"{role_attributes}"
-)
-  return role_script
-
-def search_names(chapters: list, folder_name: str, num_chapters: int, character_lists: list, character_lists_index: int) -> list:
-
-  character_lists_path = os.path.join(folder_name, "character_lists.json")
-  role_script = ner_role_script(folder_name)
-  model = "gpt_three"
-  max_tokens = 1000
-  temperature = 0.2
-
-  with tqdm(total = num_chapters, unit = "Chapter", ncols = 40, bar_format = "|{l_bar}{bar}|", position = 0, leave = True) as progress_bar:
-    for chapter_index, chapter in enumerate(chapters):
-      progress_bar.set_description(f"\033[92mProcessing chapter {chapter_index + 1} of {num_chapters}", refresh = True)
-      if chapter_index < character_lists_index:
-        progress_bar.update(1)
-        continue
-      chapter_number = chapter_index + 1
-      prompt = f"Text: {chapter}"
-      character_list = cf.call_gpt_api(model, prompt, role_script, temperature, max_tokens)
-      chapter_tuple = (chapter_number, character_list)
-      character_lists.append(chapter_tuple)
-      cf.append_json_file(chapter_tuple, character_lists_path)
-      progress_bar.update(1)
-  cf.clear_screen()
-  return character_lists
 
 def character_analysis_role_script(attribute_table: dict, chapter_number: str) -> list:
 
@@ -367,14 +274,6 @@ def analyze_book(folder_name: str, chapters: list, narrator: str) -> str:
 
   # Prep work before doing the real work
   num_chapters, character_lists, character_lists_index, chapter_summary, chapter_summary_index, summaries, summaries_index = initialize_names(chapters, folder_name)
-
-  # Named Entity Recognition  
-  if character_lists_index < num_chapters:
-    print(f"Starting character lists at chapter {character_lists_index + 1}")
-    character_lists = search_names(chapters, folder_name, num_chapters, character_lists, character_lists_index)
-  else:
-    print("Character lists complete")
-    character_lists = cf.read_json_file(os.path.join(folder_name, "character_lists.json"))
 
   attribute_table_path = os.path.join(folder_name, "attribute_table.json")
   if not cf.is_valid_json(attribute_table_path):
