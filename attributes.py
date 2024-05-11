@@ -1,9 +1,12 @@
 import re
+from collections import defaultdict
 
 from _types import Book, Chapter
 from _titles import TITLES
 from ai_classes.openai_class import OpenAIAPI
+from data_cleaner import DataCleaner
 
+data_cleaning = DataCleaner()
 
 class AttributeExtractor():
     """
@@ -64,8 +67,6 @@ class AttributeExtractor():
             f"{role_attributes}"
         )
 
-
-
     def extract_attributes(self, book: Book):
         """
         Takes a Chapter object and extracts the attributes using the OpenAI
@@ -95,8 +96,7 @@ class AttributeExtractor():
         missing_newline_before_pattern = re.compile(r"(?<=\w)(?=[A-Z][a-z]*:)")
         missing_newline_between_pattern = re.compile(r"(\w+ \(\w+\))\s+(\w+)")
         missing_newline_after_pattern = re.compile(r"(?<=\w):\s*(?=\w)")
-        junk_lines: set = {"additional", "note", "none"}
-        junk_words: set = {"mentioned", "unknown", "he", "they", "she", "we", "it", "boy", "girl", "main", "him", "her", "I", "</s>", "a"}
+        junk: set = {"additional", "note", "none", "mentioned", "unknown", "he", "they", "she", "we", "it", "boy", "girl", "main", "him", "her", "I", "</s>", "a"}
 
 
         lines = attribute_list.split("\n")
@@ -137,17 +137,14 @@ class AttributeExtractor():
             if line == "":
                 i += 1
                 continue
-            if line.lower() in [word.lower() for word in junk_words]:
-                i += 1
-                continue
-            if any(junk in line.lower() for junk in junk_lines):
+            if any(line.lower().split() in junk):
                 i += 1
                 continue
             if line.count("(") != line.count(")"):
                 line.replace("(", "").replace(")", "")
             if line.lower() == "setting:":
                 line = "Settings:"
-            if line.lower() in {"narrator", "protagonist", "main characater"}:
+            if any(line.lower().split()) in {"narrator", "protagonist", "main characater"}:
                 line = narrator
             line = character_info_pattern.sub("", line)
 
@@ -173,37 +170,41 @@ class AttributeExtractor():
                 attribute_table[attribute_name] = inner_values
             inner_values = []
         # Remove empty attribute_name keys
-        for chapter_index in list(attribute_table.keys()):
-            for attribute_name, inner_values in list(attribute_table[chapter_index].items()):
-                if not inner_values:
-                    del attribute_table[chapter_index][attribute_name]
+        for attribute_name, inner_values in list(attribute_table.items()):
+            if not inner_values:
+                del attribute_table[attribute_name]
             return attribute_table
 
     def _compare_names(self, inner_values: list, name_map: dict) -> list:
 
+        cleaned_values = {value: self._remove_titles(value) for value in inner_values}
         for i, value_i in enumerate(inner_values):
-            value_i_split = value_i.split()
-            if value_i_split[0] in TITLES and value_i not in TITLES:
-                value_i = ' '.join(value_i_split[1:])
+            clean_i = cleaned_values[value_i]
 
-                for j, value_j in enumerate(inner_values):
-                    if i != j and value_i != value_j and not value_i.endswith(")") and not value_j.endswith(")") and (value_i.startswith(value_j) or value_i.endswith(value_j)):
-                        value_j_split = value_j.split()
-                        if value_j_split[0] in TITLES and value_j not in TITLES:
-                            value_j = ' '.join(value_j_split[1:])
-                            if value_i in value_j or value_j in value_i:
-                                if value_i.endswith('s') and not value_j.endswith('s'):
-                                    value_i = value_i[:-1]
-                                elif value_j.endswith('s') and not value_i.endswith('s'):
-                                    value_j = value_j[:-1]
-                                    shorter_value, longer_value = sorted([value_i, value_j], key = len)
-                                    name_map.setdefault(shorter_value, longer_value)
-                                    name_map.setdefault(longer_value, longer_value)
-        standardized_names = [name_map.get(name, name) for name in inner_values]
-        return list(dict.fromkeys(standardized_names))
+            for j, value_j in enumerate(inner_values):
+                if i != j and value_i != value_j and not value_i.endswith(")") and not value_j.endswith(")") and (value_i.startswith(value_j) or value_i.endswith(value_j)):
+                    clean_j = cleaned_values[value_j]
+                    plural = None
+                    singular = None
+                    if clean_i == data_cleaning.to_singular(clean_j):
+                        plural, singular = clean_j, clean_i
+                    elif clean_j == data_cleaning.to_singular(clean_i):
+                        plural, singular = clean_i, clean_j
+                    if singular and plural:
+                        shorter_value, longer_value = sorted([clean_i, clean_j], key = lambda x: plural if x == singular else x)
+                    else:
+                        shorter_value, longer_value = sorted([clean_i, clean_j], key = len)
+                    name_map = defaultdict(lambda: longer_value)
+                    name_map[shorter_value] = longer_value
+        standardized_names = {name_map.get(name, name) for name in inner_values}
+        return list(standardized_names)
 
+    def _remove_titles(self, value: str) -> str:
+        value_split: str = value.split()
+        if value_split[0] in TITLES and value not in TITLES:
+            return " ".join(value_split[1:])
 
-class AttributeAnalyzer:
+class AttributeAnalyzer():
     """
     Responsible for analyzing the extracted attributes to gather detailed
     information, such as descriptions, relationships, and locations.
@@ -216,7 +217,7 @@ class AttributeAnalyzer:
         """
 
 
-class AttributeSummarizer:
+class AttributeSummarizer():
     """
     Responsible for generating summaries for each attribute across all
     chapters.
