@@ -1,8 +1,13 @@
 import json
 import logging
+import os
 from typing import Optional
 
 from json_repair import repair_json
+
+from file_handling import FileHandler
+
+file_handler = FileHandler()
 
 class JSONRepair():
 
@@ -22,6 +27,13 @@ class JSONRepair():
         if i != 0 and count == balanced:
             return i
         return 0
+
+    def is_valid_json(file_path: str) -> bool:
+        "Checks to see if JSON file exists and is non-empty"
+
+        if os.path.exists(file_path):
+            return bool(file_handler.read_json_file(file_path))
+        return False
 
     def merge(self, first_half: str, second_half: str) -> Optional[str]:
         """
