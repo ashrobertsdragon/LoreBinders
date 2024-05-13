@@ -15,9 +15,4 @@ def clear_screen():
   else:
     os.system('clear')
 
-def is_valid_json(file_path: str) -> bool:
-  "Checks to see if JSON file exists and is non-empty"
 
-  if os.path.exists(file_path):
-    return bool(read_json_file(file_path))
-  return False
