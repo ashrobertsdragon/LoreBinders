@@ -12,14 +12,14 @@ from json_repair import JSONRepair
 data_cleaning = DataCleaner()
 json_repairer = JSONRepair()
 
-class Names(ABC):
+class NameTools(ABC):
     """
     Abstract class for name classes
     """
 
     def __init__(self, book: Book) -> None:
         """
-        Initialize the Names class with a Book object and an instance of the
+        Initialize the NameTools class with a Book object and an instance of the
         OpenAIAPI class.
 
         Args:
@@ -40,19 +40,20 @@ class Names(ABC):
         text as prompts to the AI model, and fetch the response. For use with
         simpler prompts.
         """
-        for Chapter.number, Chapter.text in self.book.get_chapters():
-            prompt = f"Text: {Chapter.text}"
+        for chapter in self.book.get_chapters():
+            prompt = f"Text: {chapter.text}"
             api_payload: dict = self.ai.create_payload(prompt, self._build_role_script(), self.temperature, self.max_tokens)
             response: str = self.ai.call_api(api_payload)
-            self._parse_response(response)
+            self._parse_response(response, chapter)
 
     @abstractmethod
-    def _parse_response(self, response: str) -> None:
+    def _parse_response(self, response: str, chapter: Chapter) -> None:
         """
         Abstract method to parse the AI response.
 
         Args:
             response (str): The AI response.
+            chapter (Chapter): The Chapter object being iterated over.
 
         Raises:
             NotImplementedError: If the method is not implemented in the child
@@ -74,7 +75,7 @@ class Names(ABC):
         """
         raise NotImplementedError("Method _build_role_script must be implemented in child class.")
 
-class NameExtractor(Names):
+class NameExtractor(NameTools):
     """
     Responsible for extracting characters, settings, and other categories from
     the chapter text using Named Entity Recognition (NER).
@@ -170,7 +171,7 @@ class NameExtractor(Names):
         self.role_script: str = self._build_role_script
         self._call_ai()
     
-    def _parse_response(self, response: str) -> None:
+    def _parse_response(self, response: str, chapter: Chapter) -> None:
         """
         Parses the response from the AI model to extract names and add them to
         the Chapter object.
@@ -188,7 +189,7 @@ class NameExtractor(Names):
         """
         narrator = self.book.narrator
         names = self._sort_names(response, narrator)
-        Chapter.add_names(names)
+        chapter.add_names(names)
 
     def _sort_names(self, name_list: str, narrator: str) -> dict:
         """
@@ -342,7 +343,7 @@ class NameExtractor(Names):
         standardized_names = {name_map.get(name, name) for name in inner_values}
         return list(standardized_names)
 
-class NameAnalyzer(Names):
+class NameAnalyzer(NameTools):
     """
     Responsible for analyzing the extracted names to gather detailed
     information, such as descriptions, relationships, and locations.
@@ -646,8 +647,8 @@ class NameAnalyzer(Names):
         list. Finally, it parses the response and adds the analyzed
         information to the Chapter object.
         """
-        for Chapter.number, Chapter.text in self.book.get_chapters():
-            prompt = f"Text: {Chapter.text}"
+        for chapter in self.book.get_chapters():
+            prompt = f"Text: {chapter.text}"
             role_script_info = self._build_role_script()
             
             response_whole: list = []
@@ -657,9 +658,9 @@ class NameAnalyzer(Names):
                 response_whole.append(response_part)
             response = "{" + ",".join(part.lstrip("{").rstrip("}") for part in response_whole) + "}"
 
-            self._parse_response(response)
+            self._parse_response(response, chapter)
 
-    def _parse_response(self, response: str) -> None:
+    def _parse_response(self, response: str, chapter: Chapter) -> None:
         """
         Parses the AI response and adds it to the Chapter.
 
@@ -674,16 +675,16 @@ class NameAnalyzer(Names):
             None
         """
         parsed_response = json_repairer.repair(response)
-        Chapter.add_analysis(parsed_response)
+        chapter.add_analysis(parsed_response)
 
     def build_lorebinder(self) -> None:
         lorebinder: dict = {}
-        for Chapter.number, Chapter.summary in something:
-            lorebinder[Chapter.number] = Chapter.summary
+        for chapter in self.book.get_chapters():
+            lorebinder[chapter.number] = chapter.analysis
         self.book.add_lorebinder(lorebinder)
 
 
-class NameSummarizer(Names):
+class NameSummarizer(NameTools):
     """
     Responsible for generating summaries for each name across all
     chapters.
