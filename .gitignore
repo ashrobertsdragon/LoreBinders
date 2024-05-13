@@ -23,3 +23,4 @@ replit.nix
 poetry.lock
 
 users/*
+work/*

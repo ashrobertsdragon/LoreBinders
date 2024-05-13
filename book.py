@@ -1,6 +1,6 @@
 from file_handling import FileHandler
 from error_handler import ErrorHandler
-
+from make_pdf import create_pdf
 
 
 class Book():
@@ -20,13 +20,15 @@ class Book():
         self.error_handler = ErrorHandler(__name__)
         self.file_handler = FileHandler()
 
+        self.lorebinder_temp = f"{__name__}-lorebinder.json"
+
         self.file = self.file_handler.read_text_file(self.file_path)
-        self.chapters = self.get_chapters()
+        self.chapters = self._build_chapters()
 
     def __name__(self):
         self.name = self.title
 
-    def get_chapters(self):
+    def _build_chapters(self):
         """
         Returns a list of Chapter objects
         """
@@ -35,6 +37,31 @@ class Book():
             chapters.append(Chapter(number, text))
         self.chapters = chapters
         return chapters
+    
+    def add_lorebinder(self, lorebinder: dict) -> None:
+        if not isinstance(lorebinder, dict):
+            raise TypeError("LoreBinder must be a dictionary")
+        self.lorebinder = lorebinder
+        self.file_handler.write_json_file(lorebinder, self.lorebinder_temp)
+
+    def update_lorebinder(self, lorebinder: dict) -> None:
+        if not isinstance(lorebinder, dict):
+            raise TypeError("LoreBinder must be a dictionary")
+        if self.lorebinder != lorebinder:
+            self.file_handler.write_json_file(lorebinder, self.lorebinder_temp)
+        self.lorebinder = lorebinder
+
+    def create_pdf(self) -> None:
+        create_pdf(self.folder_name, __name__)
+
+    @property
+    def get_chapters(self) -> list:
+        return self.chapters
+
+    @property
+    def get_lorebinder(self) -> dict:
+        return self.lorebinder
+
 
 class Chapter():
     """

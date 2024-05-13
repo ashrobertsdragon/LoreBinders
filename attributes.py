@@ -5,7 +5,6 @@ from collections import defaultdict
 from typing import List, Tuple
 
 from _types import Book, Chapter
-from _titles import TITLES
 from ai_classes.openai_class import OpenAIAPI
 from data_cleaner import DataCleaner
 from json_repair import JSONRepair
@@ -40,7 +39,7 @@ class Names(ABC):
         text as prompts to the AI model, and fetch the response. For use with
         simpler prompts.
         """
-        for Chapter.number, Chapter.text in self.book.chapters:
+        for Chapter.number, Chapter.text in self.book.get_chapters():
             prompt = f"Text: {Chapter.text}"
             api_payload: dict = self.ai.create_payload(prompt, self._build_role_script(), self.temperature, self.max_tokens)
             response: str = self.ai.call_api(api_payload)
@@ -185,7 +184,7 @@ class NameExtractor(Names):
         Returns:
             None
         """
-        narrator = self.book.get("narrator")
+        narrator = self.book.narrator
         names = self._sort_names(response, narrator)
         Chapter.add_names(names)
 
@@ -319,7 +318,7 @@ class NameExtractor(Names):
             list: A list of standardized names.
 
         """
-        cleaned_values = {value: self._remove_titles(value) for value in inner_values}
+        cleaned_values = {value: data_cleaning.remove_titles(value) for value in inner_values}
         for i, value_i in enumerate(inner_values):
             clean_i = cleaned_values[value_i]
 
@@ -340,27 +339,6 @@ class NameExtractor(Names):
                     name_map[shorter_value] = longer_value
         standardized_names = {name_map.get(name, name) for name in inner_values}
         return list(standardized_names)
-
-    def _remove_titles(self, value: str) -> str:
-        """
-        Removes titles from a given name.
-
-        This method takes a name as input and removes any titles from the
-        beginning of the name. It checks if the first word of the name is a
-        title, based on a predefined list of titles. If the first word is a
-        title, it returns the name without the title. Otherwise, it returns
-        the original name.
-
-        Args:
-            value (str): The name from which titles need to be removed.
-
-        Returns:
-            str: The name without any titles.
-
-        """
-        value_split: str = value.split()
-        if value_split[0] in TITLES and value not in TITLES:
-            return " ".join(value_split[1:])
 
 class NameAnalyzer(Names):
     """
@@ -667,7 +645,7 @@ class NameAnalyzer(Names):
         list. Finally, it parses the response and adds the analyzed
         information to the Chapter object.
         """
-        for Chapter.number, Chapter.text in self.book.chapters:
+        for Chapter.number, Chapter.text in self.book.get_chapters():
             prompt = f"Text: {Chapter.text}"
             role_script_info = self._build_role_script()
             
@@ -679,7 +657,7 @@ class NameAnalyzer(Names):
             response = "{" + ",".join(part.lstrip("{").rstrip("}") for part in response_whole) + "}"
 
             self._parse_response(response)
-            
+
     def _parse_response(self, response: str) -> None:
         """
         Parses the AI response and adds it to the Chapter.
@@ -697,9 +675,14 @@ class NameAnalyzer(Names):
         parsed_response = json_repairer.repair(response)
         Chapter.add_analysis(parsed_response)
 
+    def build_lorebinder(self) -> None:
+        lorebinder: dict = {}
+        for Chapter.number, Chapter.summary in something:
+            lorebinder[Chapter.number] = Chapter.summary
+        self.book.add_lorebinder(lorebinder)
 
 
-class NameSummarizer():
+class NameSummarizer(Names):
     """
     Responsible for generating summaries for each name across all
     chapters.
