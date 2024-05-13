@@ -11,7 +11,7 @@ from data_cleaner import DataCleaner
 from json_repair import JSONRepair
 
 data_cleaning = DataCleaner()
-json_repair = JSONRepair()
+json_repairer = JSONRepair()
 
 class Names(ABC):
     """
@@ -366,9 +366,48 @@ class NameAnalyzer(Names):
     """
     Responsible for analyzing the extracted names to gather detailed
     information, such as descriptions, relationships, and locations.
+
+    Attributes:
+        model (str): The AI model to be used for analysis.
+        temperature (float): The temperature parameter for the AI model.
+        custom_categories (list): A list of custom categories for analysis.
+        character_attributes (list): A list of character attributes for
+            analysis.
+    
+    Methods:
+        _generate_schema: Generates a string representation of the JSON
+            schema for the AI to follow.
+        _create_instructions: Creates instructions for the AI based on the 
+            categories to be analyzed.
+        _form_schema: Forms the JSON schema for the categories to be analyzed.
+        _reset_variables: Resets the variables for a new batch of categories.
+        _append_attributes_batch: Appends the attributes batch to the list.
+        analyze_names: Analyzes the names in the chapters and returns
+            information about them.
+        _parse_response(: Parses the AI response and adds it to the Chapter.
     """
     def __init__(self, book: Book) -> None:
+        """
+        Initializes a NameAnalyzer object.
 
+        Args:
+            book (Book): The Book object representing the book.
+
+        Raises:
+            TypeError: If book is not an instance of the Book class.
+
+        Attributes:
+            model (str): The AI model to be used for analysis.
+            temperature (float): The temperature parameter for the AI model.
+            custom_categories (list): A list of custom categories for
+                analysis.
+            character_attributes (list): A list of character attributes for
+                analysis.
+            categories_base (list): The base list of categories for analysis.
+
+        Returns:
+            None
+        """
         super().__init__()
         
         self.model: str = "gpt_four"        
@@ -376,12 +415,22 @@ class NameAnalyzer(Names):
         
         self.custom_categories: list = book.custom_categories
         self.character_attributes: list = book.character_attributes
-        
-    def _generate_schema(self) -> str:
-        """Generates a string representation of the JSON schema for the AI to follow"""
-        
         self.categories_base = ["Characters", "Settings"]
-        categories = self.categories_base + self.custom_categories
+        
+    def _generate_schema(self, category: str) -> str:
+        """
+        Generates a string representation of the JSON schema for the AI to
+        follow.
+
+        This method is used to generate a JSON schema string that defines the
+        structure and format of the data that the AI model will analyze for a
+        given category.
+
+        Args:
+            cateogry (str): The category to form the JSON schema for.
+        Returns:
+            str: The JSON schema string.
+        """
         
         character_attributes = ["Appearance", "Personality", "Mood", "Relationships with other characters"]
         character_attributes.extend(self.character_attributes)
@@ -394,18 +443,32 @@ class NameAnalyzer(Names):
             }
             
         schema: dict = {}
-        
-        for category in categories:
-            if category in self.categories_base:
-                schema_stub: dict = {category: "Description" for category in cat_attr_map[category]}
-            else:
-                schema_stub: str = "Description"
-            schema[category] = schema_stub
+
+        if category in self.categories_base:
+            schema_stub: dict = {category: "Description" for category in cat_attr_map[category]}
+        else:
+            schema_stub: str = "Description"
+        schema[category] = schema_stub
             
         return json.dumps(schema)
 
     def _create_instructions(self, to_batch: list) -> str:
+        """
+        Creates instructions for the AI based on the categories to be
+        analyzed.
 
+        This method generates instructions for the AI model based on the
+        categories that are going to be analyzed. The instructions provide
+        guidance on how to describe characters and settings in the chapter. It
+        also specifies the format in which the information should be provided,
+        which is a JSON object.
+
+        Args:
+            to_batch (list): A list of categories to be analyzed.
+
+        Returns:
+            str: The instructions for the AI.
+        """
         instructions = (
             'You are a developmental editor helping create a story bible. \n'
             'Be detailed but concise, using short phrases instead of sentences. Do not '
@@ -459,7 +522,23 @@ class NameAnalyzer(Names):
         return instructions
 
     def _form_schema(self, to_batch: list) -> str:
+        """
+        Forms the JSON schema for the categories to be analyzed.
 
+        This method takes a list of categories to be analyzed and generates a
+        JSON schema string that defines the structure and format of the data
+        that the AI model will analyze. It iterates over each category in the
+        list and calls the `_generate_schema` method to generate the schema
+        for that category. The generated schema strings are then concatenated
+        together to form the final JSON schema.
+
+        Args:
+            to_batch (list): A list of categories to be analyzed.
+
+        Returns:
+            str: The JSON schema string.
+
+        """
         attributes_json = ""
 
         for category in to_batch:
@@ -469,20 +548,64 @@ class NameAnalyzer(Names):
         return attributes_json
 
     def _reset_variables(self, category: str, token_count: int) -> Tuple[list, int]:
+        """
+        Resets the variables for a new batch of categories.
 
+        This method takes in a category and a token count as input and resets
+        the variables for a new batch of categories. It initializes the
+        'to_batch' list with the given category and sets the 'max_tokens'
+        variable to the token count.
+
+        Args:
+            category (str): The category for the new batch.
+            token_count (int): The token count for the new batch.
+
+        Returns:
+            Tuple[list, int]: A tuple containing the updated 'to_batch' list
+                and 'max_tokens' variable.
+
+        """
         to_batch = [category]
         max_tokens = token_count
         return to_batch, max_tokens
 
     def _append_attributes_batch(self, attributes_batch: list, to_batch: list, max_tokens: int, instructions: str) -> list:
+        """
+        Appends the attributes batch to the list.
 
+        This method takes in an attributes batch, a list of categories to be
+        analyzed, the maximum number of tokens, and the instructions for the
+        AI. It generates the JSON schema for the categories using the 
+        _form_schema method. Then, it appends the attributes batch, consisting
+        of the attributes JSON, the maximum tokens, and the instructions, to
+        the list.
+
+        Args:
+            attributes_batch (list): The list of attributes batches.
+            to_batch (list): A list of categories to be analyzed.
+            max_tokens (int): The maximum number of tokens.
+            instructions (str): The instructions for the AI.
+
+        Returns:
+            list: The updated attributes batch list.
+        """
         attributes_json: str = self._form_schema(to_batch)
         attributes_batch.append((attributes_json, max_tokens, instructions))
         return attributes_batch
 
     def _build_role_script(self) -> List[Tuple[str, int]]:
         """
-        Build a list of tuples containing the role script and max_tokens to be used for each pass of the Chapter
+        Builds a list of tuples containing the role script and max_tokens to
+        be used for each pass of the Chapter.
+
+        Args:
+            attributes_batch (list): The list of attributes batches.
+            to_batch (list): A list of categories to be analyzed.
+            max_tokens (int): The maximum number of tokens.
+            instructions (str): The instructions for the AI.
+
+        Returns:
+            list: The updated attributes batch list.
         """
         ABSOLUTE_MAX_TOKENS: int = 4096
 
@@ -532,7 +655,17 @@ class NameAnalyzer(Names):
     
     def analyze_names(self) -> None:
         """
-        Takes a chapter object and returns information about the names in its names list.
+        Takes a chapter object and returns information about the names in its
+        names list.
+
+        This method iterates over each chapter in the book and analyzes the 
+        names present in the chapter's text. It generates a prompt using the 
+        chapter's text and builds a role script using the _build_role_script
+        method. The role script contains instructions and JSON schema for the
+        AI model to follow. The method then calls the AI API for each role
+        script in the role script info list and appends the responses to a
+        list. Finally, it parses the response and adds the analyzed
+        information to the Chapter object.
         """
         for Chapter.number, Chapter.text in self.book.chapters:
             prompt = f"Text: {Chapter.text}"
@@ -549,16 +682,19 @@ class NameAnalyzer(Names):
             
     def _parse_response(self, response: str) -> None:
         """
-        Loads the response as JSON, repairing it if necessary and adds it to
-        the Chapter.
-        
+        Parses the AI response and adds it to the Chapter.
+
+        This method takes in the AI response as a string and parses it using
+        the JSONRepair class. The parsed response is then added to the Chapter
+        object using the add_analysis method.
+
         Args:
-            response (str): The response from the AI.
-        
+            response (str): The AI response as a string.
+
         Returns:
             None
         """
-        parsed_response = json_repair.repair(response)
+        parsed_response = json_repairer.repair(response)
         Chapter.add_analysis(parsed_response)
 
 
