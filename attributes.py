@@ -1,12 +1,16 @@
+import json
 import re
 from collections import defaultdict
+from typing import List, Tuple
 
 from _types import Book, Chapter
 from _titles import TITLES
 from ai_classes.openai_class import OpenAIAPI
 from data_cleaner import DataCleaner
+from json_repair import JSONRepair
 
 data_cleaning = DataCleaner()
+json_repair = JSONRepair()
 
 class Names():
     """Abstract class for name classes"""
@@ -14,26 +18,19 @@ class Names():
         self.book = book
         self.ai = OpenAIAPI(files=book.file_handler, errors=book.error_handler, model_key=self.model)
     
-    def _call_ai(self, json_response):
+    def _call_ai(self):
+        """
+        Iterate over the Chapter objects to send to build the API pyaload and
+        fetch a response for simpler prompts
+        """
         for Chapter["number"], Chapter["text"] in self.book.chapters:
             prompt = f"Text: {Chapter["text"]}"
-            if isinstance(self.role_script, str):
-                api_payload = self.ai.create_payload(prompt, self.role_script, self.temperature, self.max_tokens)
-                response = self.ai.call_api(api_payload, json_response)
-                
-            else:
-                response_whole: list = []
-                for script, max_tokens in self.role_script:
-                    api_payload = self.ai.create_payload(prompt, script, self.temperature, max_tokens)
-                    response_part = self.ai.call_api(api_payload, json_response)
-                    response_whole.append(response_part)
-                if json_response:
-                    response = "{" + ",".join(part.lstrip("{").rstrip("}") for part in response_whole) + "}"
-                else:
-                    response = " ".join(response_whole)
+            api_payload = self.ai.create_payload(prompt, self.role_script, self.temperature, self.max_tokens)
+            response = self.ai.call_api(api_payload)
             self._clean_names(response)
 
-    def _clean_names(self, response: str) -> None:
+    def _parse_response(self, response: str) -> None:
+        """Parse the AI response"""
         """Implement in child class"""
         raise NotImplementedError
     
@@ -52,6 +49,8 @@ class NameExtractor():
         self.model: str = "gpt_three"
         self.max_tokens: int = 1000
         self.temperature: float = 0.2
+
+        self.custom_categories = book.getattr("custom_categories")
 
     def _build_custom_role(self) -> str:
         if len(self.custom_categories) > 0:
@@ -103,9 +102,9 @@ class NameExtractor():
         Takes a Chapter object and extracts the names using an AI API.
         """
         self.role_script: str = self._build_role_script
-        self.call_ai()
+        self._call_ai()
     
-    def _clean_names(self, response: str) -> None:
+    def _parse_response(self, response: str) -> None:
         narrator = self.book.get("narrator")
         names = self._sort_names(response, narrator)
         Chapter.add_names(names)
@@ -232,15 +231,203 @@ class NameExtractor():
         if value_split[0] in TITLES and value not in TITLES:
             return " ".join(value_split[1:])
 
-class NameAnalyzer():
+class NameAnalyzer(Names):
     """
     Responsible for analyzing the extracted names to gather detailed
     information, such as descriptions, relationships, and locations.
     """
-    def analyze_names(self):
+    def __init__(self, book: Book) -> None:
+        super().__init__()
+        
+        self.model: str = "gpt_four"        
+        self.temperature: float = 0.4
+        
+        self.custom_categories: list = book.getattr("custom_categories")
+        self.character_attributes: list = book.getattr("character_attributes")
+        
+    def _generate_schema(self) -> str:
+        """Generates a string representation of the JSON schema for the AI to follow"""
+        
+        self.categories_base = ["Characters", "Settings"]
+        categories = self.categories_base + self.custom_categories
+        
+        character_attributes = ["Appearance", "Personality", "Mood", "Relationships with other characters"]
+        character_attributes.extend(self.character_attributes)
+        
+        settings_attributes = ["Appearance", "Relative location", "Familiarity for main character"]
+        
+        cat_attr_map = {
+            "Characters": character_attributes,
+            "Settings": settings_attributes
+            }
+            
+        schema: dict = {}
+        
+        for category in categories:
+            if category in self.categories_base:
+                schema_stub: dict = {category: "Description" for category in cat_attr_map[category]}
+            else:
+                schema_stub: str = "Description"
+            schema[category] = schema_stub
+            
+        return json.dumps(schema)
+
+    def _create_instructions(self, to_batch: list) -> str:
+
+        instructions = (
+            'You are a developmental editor helping create a story bible. \n'
+            'Be detailed but concise, using short phrases instead of sentences. Do not '
+            'justify your reasoning or provide commentary, only facts. Only one category '
+            'per line, just like in the schema below, but all description for that '
+            'category should be on the same line. If something appears to be '
+            'miscatagorized, please put it under the correct category. USE ONLY STRINGS '
+            'AND JSON OBJECTS, NO JSON ARRAYS. The output must be valid JSON.\n'
+            'If you cannot find any mention of something in the text, please '
+            'respond with "None found" as the description for that category. \n'
+        )
+        character_instructions = (
+            'For each character in the chapter, describe their appearance, personality, '
+            'mood, relationships to other characters, known or apparent sexuality.\n'
+            'An example from an early chapter of Jane Eyre:\n'
+            '"Jane Eyre": {"Appearance": "Average height, slender build, fair skin, '
+            'dark brown hair, hazel eyes, plain apearance", "Personality": "Reserved, '
+            'self-reliant, modest", "Mood": "Angry at her aunt about her treatment while '
+            'at Gateshead"}'
+        )
+        setting_instructions = (
+            'For each setting in the chapter, note how the setting is described, where '
+            'it is in relation to other locations and whether the characters appear to be '
+            'familiar or unfamiliar with the location. Be detailed but concise.\n'
+            'If you are unsure of a setting or no setting is shown in the text, please '
+            'respond with "None found" as the description for that setting.\n'
+            'Here is an example from Wuthering Heights:\n'
+            '"Moors": {"Appearance": Expansive, desolate, rugged, with high winds and '
+            'cragy rocks", "Relative location": "Surrounds Wuthering Heights estate", '
+            '"Main character\'s familiarity": "Very familiar, Catherine spent significant '
+            'time roaming here as a child and represents freedom to her"}'
+        )
+
+        for category in to_batch:
+            if category == "Characters":
+                instructions += character_instructions
+            if category == "Settings":
+                instructions += setting_instructions
+            else:
+                other_category_list = [cat for cat in to_batch if cat not in self.categories_base]
+                instructions += (
+                    'Provide descriptons of ' +
+                    ', '.join(other_category_list) +
+                    ' without referencing specific characters or plot points\n'
+                )
+
+        instructions += (
+            'You will format this information as a JSON object using the folllowing schema '
+            'where "description" is replaced with the actual information.\n'
+        )
+        return instructions
+
+    def _form_schema(self, to_batch: list) -> str:
+
+        attributes_json = ""
+
+        for category in to_batch:
+            schema_json = self._generate_schema(category)
+            attributes_json += schema_json
+
+        return attributes_json
+
+    def _reset_variables(self, category: str, token_count: int) -> Tuple[list, int]:
+
+        to_batch = [category]
+        max_tokens = token_count
+        return to_batch, max_tokens
+
+    def _append_attributes_batch(self, attributes_batch: list, to_batch: list, max_tokens: int, instructions: str) -> list:
+
+        attributes_json: str = self._form_schema(to_batch)
+        attributes_batch.append((attributes_json, max_tokens, instructions))
+        return attributes_batch
+
+    def _build_role_script(self) -> List[Tuple[str, int]]:
+        """
+        Build a list of tuples containing the role script and max_tokens to be used for each pass of the Chapter"
+        """
+        ABSOLUTE_MAX_TOKENS: int = 4096
+
+        max_tokens: int = 0
+        attributes_batch: list = []
+        to_batch: list = []
+        role_script_info: list = []
+
+        tokens_per: dict = {
+            "Characters": 200,
+            "Settings": 150,
+            "Other": 100
+        }
+
+        chapter_data: dict = Chapter.getattr("names")
+        
+        for category, names in chapter_data.items():
+            token_value = tokens_per.get(category, tokens_per["Other"])
+            token_count = min(len(names) * token_value, ABSOLUTE_MAX_TOKENS)
+            instructions = self._create_instructions(to_batch)
+            if max_tokens + token_count > ABSOLUTE_MAX_TOKENS:
+                instructions = self._create_instructions(to_batch)
+                attributes_batch = self._append_attributes_batch(
+                    attributes_batch,
+                    to_batch,
+                    max_tokens,
+                    instructions
+                )
+                to_batch, max_tokens = self._reset_variables(category, token_count)
+            else:
+                to_batch.append(category)
+                max_tokens += token_count
+
+        if to_batch:
+            instructions = self._create_instructions(to_batch)
+            attributes_batch = self._append_attributes_batch(
+                    attributes_batch, to_batch, max_tokens, instructions
+                )
+
+        for attributes_json, max_tokens, instructions in attributes_batch:
+            role_script = (
+                f'{instructions}'
+                f'{attributes_json}'
+            )
+            role_script_info.append((role_script, max_tokens))
+        return role_script_info
+    
+    def analyze_names(self) -> None:
         """
         Takes a chapter object and returns information about the names in its names list.
         """
+        for Chapter["number"], Chapter["text"] in self.book.chapters:
+            prompt = f"Text: {Chapter["text"]}"
+            role_script_info = self._build_role_script()
+            
+            response_whole: list = []
+            for role_script, max_tokens in role_script_info:
+                api_payload = self.ai.create_payload(prompt, role_script, self.temperature, max_tokens)
+                response_part = self.ai.call_api(api_payload, json_response=True)
+                response_whole.append(response_part)
+            response = "{" + ",".join(part.lstrip("{").rstrip("}") for part in response_whole) + "}"
+
+            self._parse_response(response)
+            
+    def _parse_response(self, response: str) -> None:
+        """
+        Loads the response as JSON, repairing it if necessary and adds it to
+        the Chapter.
+        
+        Args:
+            response (str): The response from the AI.
+        
+        Returns:
+            None
+        """
+        parsed_response = json_repair.repair(response)
+        Chapter.add_analysis(parsed_response)
 
 
 
