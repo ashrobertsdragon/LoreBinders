@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import json
 import re
 from collections import defaultdict
@@ -12,31 +13,66 @@ from json_repair import JSONRepair
 data_cleaning = DataCleaner()
 json_repair = JSONRepair()
 
-class Names():
-    """Abstract class for name classes"""
+class Names(ABC):
+    """
+    Abstract class for name classes
+    """
+
     def __init__(self, book: Book) -> None:
+        """
+        Initialize the Names class with a Book object and an instance of the
+        OpenAIAPI class.
+
+        Args:
+            book (Book): The Book object representing the book.
+
+        Raises:
+            TypeError: If book is not an instance of the Book class.
+        """
+        if not isinstance(book, Book):
+            raise TypeError("book must be an instance of the Book class")
         self.book = book
         self.ai = OpenAIAPI(files=book.file_handler, errors=book.error_handler, model_key=self.model)
-    
-    def _call_ai(self):
+
+    def _call_ai(self) -> None:
         """
-        Iterate over the Chapter objects to send to build the API pyaload and
-        fetch a response for simpler prompts
+        Iterate over the Chapter objects stored in the Book object, send the
+        text as prompts to the AI model, and fetch the response. For use with
+        simpler prompts.
         """
-        for Chapter["number"], Chapter["text"] in self.book.chapters:
-            prompt = f"Text: {Chapter["text"]}"
-            api_payload = self.ai.create_payload(prompt, self.role_script, self.temperature, self.max_tokens)
+        for Chapter.number, Chapter.text in self.book.chapters:
+            prompt = f"Text: {Chapter.text}"
+            api_payload = self.ai.create_payload(prompt, self._build_role_script(), self.temperature, self.max_tokens)
             response = self.ai.call_api(api_payload)
             self._clean_names(response)
 
+    @abstractmethod
     def _parse_response(self, response: str) -> None:
-        """Parse the AI response"""
-        """Implement in child class"""
-        raise NotImplementedError
-    
-    def _build_role_script(self) -> None:
-        """Implement in child class"""
-        raise NotImplementedError
+        """
+        Abstract method to parse the AI response.
+
+        Args:
+            response (str): The AI response.
+
+        Raises:
+            NotImplementedError: If the method is not implemented in the child
+                class.
+        """
+        raise NotImplementedError("Method _parse_response must be implemented in child class.")
+
+    @abstractmethod
+    def _build_role_script(self) -> str:
+        """
+        Abstract method to build the role script.
+
+        Returns:
+            str: The role script.
+
+        Raises:
+            NotImplementedError: If the method is not implemented in the child
+                class.
+        """
+        raise NotImplementedError("Method _build_role_script must be implemented in child class.")
 
 class NameExtractor():
     """
@@ -50,7 +86,7 @@ class NameExtractor():
         self.max_tokens: int = 1000
         self.temperature: float = 0.2
 
-        self.custom_categories = book.getattr("custom_categories")
+        self.custom_categories = book.custom_categories
 
     def _build_custom_role(self) -> str:
         if len(self.custom_categories) > 0:
@@ -242,8 +278,8 @@ class NameAnalyzer(Names):
         self.model: str = "gpt_four"        
         self.temperature: float = 0.4
         
-        self.custom_categories: list = book.getattr("custom_categories")
-        self.character_attributes: list = book.getattr("character_attributes")
+        self.custom_categories: list = book.custom_categories
+        self.character_attributes: list = book.character_attributes
         
     def _generate_schema(self) -> str:
         """Generates a string representation of the JSON schema for the AI to follow"""
@@ -365,7 +401,7 @@ class NameAnalyzer(Names):
             "Other": 100
         }
 
-        chapter_data: dict = Chapter.getattr("names")
+        chapter_data: dict = Chapter.names
         
         for category, names in chapter_data.items():
             token_value = tokens_per.get(category, tokens_per["Other"])
@@ -402,8 +438,8 @@ class NameAnalyzer(Names):
         """
         Takes a chapter object and returns information about the names in its names list.
         """
-        for Chapter["number"], Chapter["text"] in self.book.chapters:
-            prompt = f"Text: {Chapter["text"]}"
+        for Chapter.number, Chapter.text in self.book.chapters:
+            prompt = f"Text: {Chapter.text}"
             role_script_info = self._build_role_script()
             
             response_whole: list = []
