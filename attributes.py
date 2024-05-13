@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 import json
 import re
 from collections import defaultdict
-from typing import List, Tuple
+from typing import List, Tuple, Generator
 
 from _types import Book, Chapter
 from ai_classes.openai_class import OpenAIAPI
@@ -32,6 +32,7 @@ class Names(ABC):
             raise TypeError("book must be an instance of the Book class")
         self.book = book
         self.ai = OpenAIAPI(files=book.file_handler, errors=book.error_handler, model_key=self.model)
+        self.categories_base = ["Characters", "Settings"]
 
     def _call_ai(self) -> None:
         """
@@ -43,7 +44,7 @@ class Names(ABC):
             prompt = f"Text: {Chapter.text}"
             api_payload: dict = self.ai.create_payload(prompt, self._build_role_script(), self.temperature, self.max_tokens)
             response: str = self.ai.call_api(api_payload)
-            self._clean_names(response)
+            self._parse_response(response)
 
     @abstractmethod
     def _parse_response(self, response: str) -> None:
@@ -79,9 +80,10 @@ class NameExtractor(Names):
     the chapter text using Named Entity Recognition (NER).
     """
     def __init__(self, book: Book) -> None:
-        super().__init__()
 
         self.model: str = "gpt_three"
+        super().__init__(book)
+
         self.max_tokens: int = 1000
         self.temperature: float = 0.2
 
@@ -386,14 +388,13 @@ class NameAnalyzer(Names):
         Returns:
             None
         """
-        super().__init__()
-        
-        self.model: str = "gpt_four"        
+        self.model: str = "gpt_four"
+        super().__init__(book)
+
         self.temperature: float = 0.4
         
         self.custom_categories: list = book.custom_categories
         self.character_attributes: list = book.character_attributes
-        self.categories_base = ["Characters", "Settings"]
         
     def _generate_schema(self, category: str) -> str:
         """
@@ -686,10 +687,97 @@ class NameSummarizer(Names):
     """
     Responsible for generating summaries for each name across all
     chapters.
+
+
+    Attributes:
+        book (Book): The Book object representing the book.
+        model_key (str): The key for the AI model to be used.
+        temperature (float): The temperature parameter for AI response
+            generation.
+        max_tokens (int): The maximum number of tokens for AI response
+            generation.
+        role_script (str): The role script to be used for AI response
+            generation.
+        lorebinder (dict): The lorebinder dictionary containing the names,
+            categories, and summaries.
+
+    Methods:
+        __init__: Initialize the NameSummarizer class with a Book object.
+
+        _create_prompts: Generate prompts for each name in the lorebinder.
+
+        summarize_names: Generate summaries for each name in the lorebinder.
+
+        _parse_response: Parse the AI response and update the lorebinder with
+            the generated summary.
     """
-    def summarize_names(self, reshaped_data):
+
+    def __init__(self, book: Book) -> None:
         """
-        Takes the reshaped nested dictionary from DataReshaper and generates
-        summaries for names using an AI API.
-        Updates the nested dictionary with the summaries.
+        Initialize the NameSummarizer class with a Book object.
+
+        Args:
+            book (Book): The Book object representing the book.
+
+        Raises:
+            TypeError: If book is not an instance of the Book class.
+
+        Returns:
+            None
         """
+        self.model_key: str = "gpt_three"
+        super().__init__(book)
+        self.temperature: float = 0.4
+        self.max_tokens: int = 200
+        self.role_script: str = "You are an expert summarizer. Please summarize the description over the course of the story for the following:"
+
+    def _create_prompts(self) -> Generator:
+        """
+        Generate prompts for each name in the lorebinder.
+
+        Yields:
+            Tuple[str, str, str]: A tuple containing the category, name, and
+                prompt for each name in the lorebinder.
+        """
+        self.lorebinder: dict = self.book.get_lorebinder()
+        for category, category_names in self.lorebinder.items():
+            for name, chapters in category_names.items():
+                for _, details in chapters.items():
+                    if category in self.categories_base:
+                        description = ", ".join(f"{attribute}: {','.join(detail)}" for attribute, detail in details.items())
+                    else:
+                        description = ", ".join(details)
+                    yield (category, name, f"{name}: {description}")
+
+    def sumarize_names(self) -> None:
+        """
+        Generate summaries for each name in the lorebinder.
+
+        This method iterates over each name in the lorebinder and generates a
+        summary using the OpenAI API. The generated summary is then parsed and
+        updated in the lorebinder dictionary. Finally, the updated lorebinder
+        is saved in the Book object.
+        """
+        for category, name, prompt in self._create_prompts():
+            api_payload = self.ai.create_payload(prompt, self.role_script, self.temperature, self.max_tokens)
+            response = self.ai.call_api(api_payload)
+            self._parse_response(category, name, response)
+        self.book.update_lorebinder(self.lorebinder)
+
+    def _parse_response(self, category: str, name: str, response: str) -> None:
+        """
+        Parse the AI response and update the lorebinder with the generated
+        summary.
+
+        This method takes the AI response as input and updates the lorebinder
+        dictionary with the generated summary for a specific category and
+        name. If the response is not empty, the summary is assigned to the
+        corresponding category and name in the lorebinder.
+
+        Args:
+            category (str): The category of the name.
+            name (str): The name for which the summary is generated.
+            response (str): The AI response containing the generated summary.
+        """
+        if response:
+            self.lorebinder[category][name]["summary"] = response
