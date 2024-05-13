@@ -42,8 +42,8 @@ class Names(ABC):
         """
         for Chapter.number, Chapter.text in self.book.chapters:
             prompt = f"Text: {Chapter.text}"
-            api_payload = self.ai.create_payload(prompt, self._build_role_script(), self.temperature, self.max_tokens)
-            response = self.ai.call_api(api_payload)
+            api_payload: dict = self.ai.create_payload(prompt, self._build_role_script(), self.temperature, self.max_tokens)
+            response: str = self.ai.call_api(api_payload)
             self._clean_names(response)
 
     @abstractmethod
@@ -74,7 +74,7 @@ class Names(ABC):
         """
         raise NotImplementedError("Method _build_role_script must be implemented in child class.")
 
-class NameExtractor():
+class NameExtractor(Names):
     """
     Responsible for extracting characters, settings, and other categories from
     the chapter text using Named Entity Recognition (NER).
@@ -89,6 +89,13 @@ class NameExtractor():
         self.custom_categories = book.custom_categories
 
     def _build_custom_role(self) -> str:
+        """
+        Builds a custom role script based on the custom categories provided.
+
+        Returns:
+            str: The custom role script.
+
+        """
         if len(self.custom_categories) > 0:
             name_strings: list = []
             for name in self.custom_categories:
@@ -99,6 +106,18 @@ class NameExtractor():
         return role_categories or ""
     
     def _build_role_script(self) -> None:
+        """
+        Builds the role script for the NameExtractor class.
+
+        This method constructs the role script that will be used by the
+        NameExtractor class to extract characters and settings from the
+        chapter text. The role script includes instructions for the AI, such
+        as identifying characters and settings, handling first-person scenes,
+        and formatting the output.
+
+        Returns:
+            None
+        """
         role_categories: str = self._build_custom_role()
         self.role_script: str = (
             f"You are a script supervisor compiling a list of characters in each scene. "
@@ -136,17 +155,58 @@ class NameExtractor():
     def extract_names(self) -> None:
         """
         Takes a Chapter object and extracts the names using an AI API.
+
+        This method is responsible for extracting the names from the chapter
+        text using an AI API. It takes a Chapter object as input and uses the
+        _build_role_script method to construct the role script. Then, it calls
+        the _call_ai method to send the text as prompts to the AI model and
+        fetch the response. The response is then parsed using the
+        _parse_response method.
+
+        Returns:
+            None
         """
         self.role_script: str = self._build_role_script
         self._call_ai()
     
     def _parse_response(self, response: str) -> None:
+        """
+        Parses the response from the AI model to extract names and add them to
+        the Chapter object.
+
+        This method takes the response from the AI model as input and extracts
+        the names using the _sort_names method. It also retrieves the narrator
+        from the Book object. The extracted names are then added to the
+        Chapter object using the add_names method.
+
+        Argss:
+            response (str): The response from the AI model.
+
+        Returns:
+            None
+        """
         narrator = self.book.get("narrator")
         names = self._sort_names(response, narrator)
         Chapter.add_names(names)
 
     def _sort_names(self, name_list: str, narrator: str) -> dict:
+        """
+        Parses the response from the AI model to extract names and add them to
+        the Chapter object.
 
+        This method takes the response from the AI model as input and extracts
+        the names using the _sort_names method. It also retrieves the narrator
+        from the Book object. The extracted names are then added to the
+        Chapter object using the add_names method.
+
+        Argss:
+            name_list (str): The response from the AI model.
+            narrator (str): The narrator from the Book object.
+
+        Returns:
+            dict: A dictionary containing the sorted names categorized by
+                their respective categories.
+        """
         name_map: dict = {}
         name_table: dict = {}
         inner_dict: dict = {}
@@ -239,7 +299,26 @@ class NameExtractor():
             return name_table
 
     def _compare_names(self, inner_values: list, name_map: dict) -> list:
+        """
+        Compares and standardizes names in the inner_values list.
 
+        This method compares the names in the inner_values list and
+        standardizes them based on certain conditions. It removes titles from
+        the names using the _remove_titles method. Then, it iterates through
+        each pair of names and checks if they are similar. If a pair of names
+        is similar, it determines the singular and plural forms of the names
+        and selects the shorter and longer values. It creates a name_map
+        dictionary to map the shorter value to the longer value. Finally, it
+        creates a set of standardized names by applying the name_map to each
+        name in the inner_values list.
+
+        Argss:
+            inner_values (list): A list of names to be compared and standardized.
+
+        Returns:
+            list: A list of standardized names.
+
+        """
         cleaned_values = {value: self._remove_titles(value) for value in inner_values}
         for i, value_i in enumerate(inner_values):
             clean_i = cleaned_values[value_i]
@@ -263,6 +342,22 @@ class NameExtractor():
         return list(standardized_names)
 
     def _remove_titles(self, value: str) -> str:
+        """
+        Removes titles from a given name.
+
+        This method takes a name as input and removes any titles from the
+        beginning of the name. It checks if the first word of the name is a
+        title, based on a predefined list of titles. If the first word is a
+        title, it returns the name without the title. Otherwise, it returns
+        the original name.
+
+        Args:
+            value (str): The name from which titles need to be removed.
+
+        Returns:
+            str: The name without any titles.
+
+        """
         value_split: str = value.split()
         if value_split[0] in TITLES and value not in TITLES:
             return " ".join(value_split[1:])
@@ -273,6 +368,7 @@ class NameAnalyzer(Names):
     information, such as descriptions, relationships, and locations.
     """
     def __init__(self, book: Book) -> None:
+
         super().__init__()
         
         self.model: str = "gpt_four"        
@@ -386,7 +482,7 @@ class NameAnalyzer(Names):
 
     def _build_role_script(self) -> List[Tuple[str, int]]:
         """
-        Build a list of tuples containing the role script and max_tokens to be used for each pass of the Chapter"
+        Build a list of tuples containing the role script and max_tokens to be used for each pass of the Chapter
         """
         ABSOLUTE_MAX_TOKENS: int = 4096
 
