@@ -1,14 +1,75 @@
 import re
 from typing import Union, Tuple
 
+from abc import ABC
+
 from _titles import TITLES
 
+class Data(ABC):
+    pass
 
-class DataCleaner:
-    """
-    Responsible for cleaning the extracted and analyzed data.
-    """
-    def _remove_none_entries(self, d: Union[dict|list|str]) -> Union[dict|list|str]:
+class ManipulateData(Data):
+    def remove_titles(self, name: str) -> str:
+        """
+        Removes titles from a given name.
+
+        This method takes a name as input and removes any titles from the
+        beginning of the name. It checks if the first word of the name is a
+        title, based on a predefined list of titles. If the first word is a
+        title, it returns the name without the title. Otherwise, it returns
+        the original name.
+
+        Args:
+            value (str): The name from which titles need to be removed.
+
+        Returns:
+            str: The name without any titles.
+
+        """
+        name_split: str = name.split()
+        if name_split[0] in TITLES and name not in TITLES:
+            return " ".join(name_split[1:])
+
+    def to_singular(self, plural: str) -> str:
+        """
+        Converts a plural word to its singular form based on common English
+        pluralization rules.
+            
+        Args:
+            plural: A string representing the plural form of a word.
+            
+        Returns:
+            (str) The singular form of the given word if a pattern matches,
+                otherwise the original word.
+        """
+        patterns = {
+            r'(\w+)(ves)$': r'\1f',
+            r'(\w+)(ies)$': r'\1y',
+            r'(\w+)(i)$': r'\1us',
+            r'(\w+)(a)$': r'\1um',
+            r'(\w+)(en)$': r'\1an',
+            r'(\w+)(oes)$': r'\1o',
+            r'(\w+)(ses)$': r'\1s',
+            r'(\w+)(hes)$': r'\1h',
+            r'(\w+)(xes)$': r'\1x',
+            r'(\w+)(zes)$': r'\1z'
+        }
+
+        for pattern, repl in patterns.items():
+            singular = re.sub(pattern, repl, plural)
+            if plural != singular:
+                return singular
+        return plural[:-1]
+
+class CleanData(Data):
+    def __init__(self):
+        self.lorebinder = self.book.get_lorebinder()
+class RemoveNoneFound(CleanData):
+
+    def __call__(self, d: Union[dict|list|str]) -> Union[dict|list|str]:
+        return self._remove_none(d)
+
+    def _remove_none(self, d: Union[dict|list|str]) -> Union[dict|list|str]:
         """
         Takes the nested dictionary from AttributeAnalyzer and removes "None found" entries.
         Returns the cleaned nested dictionary.
@@ -16,7 +77,7 @@ class DataCleaner:
         if isinstance(d, dict):
             new_dict = {}
             for key, value in d.items():
-                cleaned_value = self.remove_none_found(value)
+                cleaned_value = self._remove_none(value)
                 if not isinstance(cleaned_value, list) and cleaned_value != "None found":
                     new_dict[key] = cleaned_value
                     continue
@@ -36,7 +97,10 @@ class DataCleaner:
         else:
             return "" if d == "None Found" else d
 
-    def _deduplicate_keys(self, dictionary: dict) -> dict:
+class DeduplicateKeys(CleanData):
+    def __call__(self, d: dict) -> dict:
+        return self._deduplicate_keys(d)
+    def _deduplicate_keys(self, d: dict) -> dict:
         """
         Removes duplicate keys in a dictionary by merging singular and plural forms of keys.
 
@@ -48,7 +112,7 @@ class DataCleaner:
 
         cleaned_dict = {}
 
-        for outer_key, nested_dict in dictionary.items():
+        for outer_key, nested_dict in d.items():
             if not isinstance(nested_dict, dict):
                 continue
             duplicate_keys = []
@@ -71,14 +135,30 @@ class DataCleaner:
                 inner_dict[key] = value
             cleaned_dict[outer_key] = inner_dict
         return self._deduplicate_across_dictionaries(cleaned_dict)
+    
+    def _prioritize_keys(self, key1: str, key2: str) -> Tuple[str, str]:
+        "Determines priority of keys, based on whether one is standalone title or length"
+        "Order is lower priority, higher priority"
+
+        key1_is_title = self.is_title(key1)
+        key2_is_title = self.is_title(key2)
+        lower_key1 = key1.lower()
+        lower_key2 = key2.lower()
+
+        if (lower_key1 in lower_key2 or lower_key2 in lower_key1) and lower_key1 != lower_key2:
+            if key1_is_title:
+                return key2, key1
+            if key2_is_title:
+                return key1, key2
+        return sorted([key1, key2], key = len)
 
     def _is_similar_key(self, key1: str, key2: str) -> bool:
         "Determines if two keys are similar"
-
-        detitled_key1 = self._remove_titles(key1)
-        detitled_key2 = self._remove_titles(key2)
-        singular_key1 = self.to_singular(key1)
-        singular_key2 = self.to_singular(key2)
+        manipulate_data = ManipulateData()
+        detitled_key1 = manipulate_data.remove_titles(key1)
+        detitled_key2 = manipulate_data.remove_titles(key2)
+        singular_key1 = manipulate_data.to_singular(key1)
+        singular_key2 = manipulate_data.to_singular(key2)
 
         if (
                 key1 + " " in key2
@@ -107,47 +187,9 @@ class DataCleaner:
                 or key2 + " " in detitled_key1
             )
 
-    def _prioritize_keys(self, key1: str, key2: str) -> Tuple[str, str]:
-        "Determines priority of keys, based on whether one is standalone title or length"
-        "Order is lower priority, higher priority"
-
-        key1_is_title = self.is_title(key1)
-        key2_is_title = self.is_title(key2)
-        lower_key1 = key1.lower()
-        lower_key2 = key2.lower()
-
-        if (lower_key1 in lower_key2 or lower_key2 in lower_key1) and lower_key1 != lower_key2:
-            if key1_is_title:
-                return key2, key1
-            if key2_is_title:
-                return key1, key2
-        return sorted([key1, key2], key = len)
-    
-
-    def remove_titles(self, name: str) -> str:
-        """
-        Removes titles from a given name.
-
-        This method takes a name as input and removes any titles from the
-        beginning of the name. It checks if the first word of the name is a
-        title, based on a predefined list of titles. If the first word is a
-        title, it returns the name without the title. Otherwise, it returns
-        the original name.
-
-        Args:
-            value (str): The name from which titles need to be removed.
-
-        Returns:
-            str: The name without any titles.
-
-        """
-        name_split: str = name.split()
-        if name_split[0] in TITLES and name not in TITLES:
-            return " ".join(name_split[1:])
-
     def _is_title(self, key: str) -> bool:
         return key.lower() in TITLES
-    
+
     def _deduplicate_across_dictionaries(self, attribute_summaries: dict) -> dict:
         "Finds dupicates across dictionaries"
 
@@ -170,7 +212,7 @@ class DataCleaner:
                 del names[name]
 
         return attribute_summaries
-    
+
     def _merge_values(self, value1: Union[dict|list|str], value2: Union[dict|list|str]) -> Union[dict|list|str]:
         """
         Merges two dictionary key values of unknown datatypes into one
@@ -212,7 +254,38 @@ class DataCleaner:
             return [value1, value2]
         return value1
 
-    def _final_reshape(self) -> None:
+class ReshapeDict(CleanData): 
+    def __call__(self) -> None:
+        self._reshape()
+
+    def _reshape(self) -> dict:
+        """
+        Reshapes a dictionary of chapter summaries to demote chapter numbers inside attribute names.
+
+        Args:
+            chapter_summaries: Dictionary containing chapter summaries.
+        
+        Returns a reshaped dictionary.
+        """
+
+        reshaped_data = {}
+
+        for chapter, chapter_data in self.lorebinder.items():
+            for cateogory, cateogory_data in chapter_data.items():
+                cateogory = cateogory.title()
+                if cateogory not in reshaped_data:
+                    reshaped_data[cateogory] = {}
+                for name, name_details in cateogory_data.items():
+                    if isinstance(name_details, dict):
+                        for key, value in name_details.items():
+                            reshaped_data[cateogory].setdefault(name, {}).setdefault(chapter, {}).setdefault(key, []).append(value)
+                    elif isinstance(name_details, str):
+                        reshaped_data[cateogory].setdefault(name, {}).setdefault(chapter, []).append(name_details)
+        self.book.update_lorebinder(reshaped_data)
+
+class FinalReshape(ReshapeDict):
+
+    def _reshape(self) -> None:
         """
         Demotes chapter numbers to lowest dictionary in Characters and Settings dictionaries.
         
@@ -221,8 +294,7 @@ class DataCleaner:
         """
 
         reshaped_data = {}
-        lorebinder = self.book.get_lorebinder()
-        for attribute, names in lorebinder.items():
+        for attribute, names in self.lorebinder.items():
             if attribute not in ["Characters", "Settings"]:
                 reshaped_data[attribute] = names
                 continue
@@ -239,12 +311,15 @@ class DataCleaner:
                         reshaped_data[attribute][name][trait][chapter] = detail
         self.book.update_lorebinder(reshaped_data)
 
-    def _sort_dictionary(self) -> dict:
+class SortDictionary(CleanData):
+    def __call__(self) -> None:
+        self._sort()
+    
+    def _sort(self) -> None:
         "Sorts dictionary keys"
 
         sorted_dict = {}
-        lorebinder = self.book.get_lorebinder()
-        for outer_key, nested_dict in lorebinder.items():
+        for outer_key, nested_dict in self.lorebinder.items():
             middle_dict = {key: nested_dict[key] for key in sorted(nested_dict)}
             for key, inner_dict in middle_dict.items():
                 if isinstance(inner_dict, dict):
@@ -255,91 +330,40 @@ class DataCleaner:
 
         self.book.update_lorebinder(sorted_dict)
 
-    def _clean_narrator(self,  narrator_name: str) -> None:
+class ReplaceNarrator(CleanData):
+    def __init__(self, narrator_name: str) -> None:
+        super().__init__()
+        self._narrator_list: list = ["narrator", "protagonist", "the main character", "main character"]
+        self._narrator_name: str = narrator_name
+    
+    def __call__(self, narrator_name: str) -> None:
+        self._replace(narrator_name)
+
+    def _iterate_narrator_list(self, value: str) -> str:
+        for narrator in self._narrator_list:
+            new_value: str = value.replace(narrator, self._narrator_name)
+        return new_value
+    
+    def _replace(self, narrator_name: str) -> None:
         "Replaces the word narrator, protagonist and synonyms with the chracter's name"
 
-        narrator_list = ["narrator", "protagonist", "the main character", "main character"]
-
-        def _iterate_narrator_list(value):
-            for narrator in narrator_list:
-                new_value = value.replace(narrator, narrator_name)
-            return new_value
-        lorebinder = self.book.get_lorebinder()
-
         new_dict = {}
-        for key, value in lorebinder.items():
-            if key in narrator_list:
+        for key, value in self._lorebinder.items():
+            if key in self._narrator_list:
                 new_dict[narrator_name] = value
             if isinstance(value, dict):
-                new_dict[key] = self._clean_narrator(value, narrator_name)
+                new_dict[key] = self._clean(value, narrator_name)
             elif isinstance(value, str):
-                new_dict[key] = _iterate_narrator_list(value)
+                new_dict[key] = self._iterate_narrator_list(value)
             elif isinstance(value, list):
-                new_dict[key] = [_iterate_narrator_list(val) for val in value]
+                new_dict[key] = [self._iterate_narrator_list(val) for val in value]
             else:
                 new_dict[key] = value # any other data type will not match a string
         self.book.update_lorebinder(new_dict)
 
-    def _reshape_dict(self) -> dict:
-        """
-        Reshapes a dictionary of chapter summaries to demote chapter numbers inside attribute names.
-
-        Arguments:
-            chapter_summaries: Dictionary containing chapter summaries.
-        
-        Returns a reshaped dictionary.
-        """
-
-        self.lorebinder = self.book.get_lorebinder()
-        reshaped_data = {}
-
-        for chapter, chapter_data in self.lorebinder.items():
-            for cateogory, cateogory_data in chapter_data.items():
-                cateogory = cateogory.title()
-                if cateogory not in reshaped_data:
-                    reshaped_data[cateogory] = {}
-                for name, name_details in cateogory_data.items():
-                    if isinstance(name_details, dict):
-                        for key, value in name_details.items():
-                            reshaped_data[cateogory].setdefault(name, {}).setdefault(chapter, {}).setdefault(key, []).append(value)
-                    elif isinstance(name_details, str):
-                        reshaped_data[cateogory].setdefault(name, {}).setdefault(chapter, []).append(name_details)
-        self.book.update_lorebinder(reshaped_data)
-
-    def to_singular(self, plural: str) -> str:
-        """
-        Converts a plural word to its singular form based on common English
-        pluralization rules.
-            
-        Args:
-            plural: A string representing the plural form of a word.
-            
-        Returns:
-            (str) The singular form of the given word if a pattern matches,
-                otherwise the original word.
-        """
-        patterns = {
-            r'(\w+)(ves)$': r'\1f',
-            r'(\w+)(ies)$': r'\1y',
-            r'(\w+)(i)$': r'\1us',
-            r'(\w+)(a)$': r'\1um',
-            r'(\w+)(en)$': r'\1an',
-            r'(\w+)(oes)$': r'\1o',
-            r'(\w+)(ses)$': r'\1s',
-            r'(\w+)(hes)$': r'\1h',
-            r'(\w+)(xes)$': r'\1x',
-            r'(\w+)(zes)$': r'\1z'
-        }
-
-        for pattern, repl in patterns.items():
-            singular = re.sub(pattern, repl, plural)
-            if plural != singular:
-                return singular
-        return plural[:-1]
-    
-    def clean_lorebinder(self):
-        self._reshape_dict()
-        self._remove_none_entries()
-        self._deduplicate_keys()
-        self._clean_narrator()
-        self._sort_dictionary()
+def clean_lorebinders(narrator: str):
+    ReshapeDict()
+    RemoveNoneFound()
+    DeduplicateKeys()
+    ReplaceNarrator(narrator)
+    SortDictionary()
