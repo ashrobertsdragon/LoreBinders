@@ -6,10 +6,10 @@ from typing import List, Tuple, Generator
 
 from _types import Book, Chapter
 from ai_classes.openai_class import OpenAIAPI
-from data_cleaner import DataCleaner
+from data_cleaner import ManipulateData
 from json_repair import JSONRepair
 
-data_cleaning = DataCleaner()
+data = ManipulateData()
 json_repairer = JSONRepair()
 
 class NameTools(ABC):
@@ -51,10 +51,6 @@ class NameTools(ABC):
         """
         Abstract method to parse the AI response.
 
-        Args:
-            response (str): The AI response.
-            chapter (Chapter): The Chapter object being iterated over.
-
         Raises:
             NotImplementedError: If the method is not implemented in the child
                 class.
@@ -64,10 +60,7 @@ class NameTools(ABC):
     @abstractmethod
     def _build_role_script(self) -> str:
         """
-        Abstract method to build the role script.
-
-        Returns:
-            str: The role script.
+        Abstract method to build the role script
 
         Raises:
             NotImplementedError: If the method is not implemented in the child
@@ -321,7 +314,7 @@ class NameExtractor(NameTools):
             list: A list of standardized names.
 
         """
-        cleaned_values = {value: data_cleaning.remove_titles(value) for value in inner_values}
+        cleaned_values = {value: data.remove_titles(value) for value in inner_values}
         for i, value_i in enumerate(inner_values):
             clean_i = cleaned_values[value_i]
 
@@ -330,9 +323,9 @@ class NameExtractor(NameTools):
                     clean_j = cleaned_values[value_j]
                     plural = None
                     singular = None
-                    if clean_i == data_cleaning.to_singular(clean_j):
+                    if clean_i == data.to_singular(clean_j):
                         plural, singular = clean_j, clean_i
-                    elif clean_j == data_cleaning.to_singular(clean_i):
+                    elif clean_j == data.to_singular(clean_i):
                         plural, singular = clean_i, clean_j
                     if singular and plural:
                         shorter_value, longer_value = sorted([clean_i, clean_j], key = lambda x: plural if x == singular else x)
