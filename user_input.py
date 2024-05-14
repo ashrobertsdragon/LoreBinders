@@ -57,7 +57,7 @@ def get_inputs() -> dict:
     book_path = input_book_path()
     narrator: str = get_narrator()
     character_attributes: list = get_attributes("character")
-    other_attributes: list = get_attributes()
+    other_categories: list = get_attributes()
 
     return {
         "title": title,
@@ -65,7 +65,7 @@ def get_inputs() -> dict:
         "book_file": book_path,
         "narrator": narrator,
         "character_attributes_list": character_attributes,
-        "other_attributes_list": other_attributes
+        "other_categories_list": other_categories
     }
     
 def get_book() -> dict:
