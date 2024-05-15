@@ -1,27 +1,9 @@
 import json
 import os
 import re
-from abc import ABC, abstractmethod
+from _managers import FileManager
 
-class FileManager(ABC):
-    @abstractmethod
-    def read_text_file(self, file_path: str) -> str:
-        pass
-    @abstractmethod
-    def read_json_file(self, file_path: str) -> str:
-        pass
-    @abstractmethod
-    def write_to_file(self, content: any, file_path: str) -> None:
-        pass
-    @abstractmethod
-    def separate_into_chapters(self, text: str) -> list:
-        pass
-    @abstractmethod
-    def write_json_file(self, content: any, file_path: str) -> None:
-        pass
-    @abstractmethod
-    def append_json_file(self, content: any, file_path: str) -> None:
-        pass
+
 
 class FileHandler(FileManager):
     """
