@@ -1,11 +1,9 @@
 import re
 from typing import Union, Tuple
 
-from abc import ABC
-
 from _titles import TITLES
 
-class Data(ABC):
+class Data():
     pass
 
 class ManipulateData(Data):
