@@ -100,22 +100,26 @@ class RemoveNoneFound(CleanData):
             new_dict = {}
             for key, value in d.items():
                 cleaned_value = self._remove_none(value)
-                if not isinstance(cleaned_value, list) and cleaned_value != "None found":
+                if isinstance(cleaned_value, list):
+                    new_dict[key] = (
+                        cleaned_value 
+                        if len(cleaned_value) > 1 
+                        else cleaned_value[0]
+                    )
+                elif cleaned_value.lower() != "none found":
                     new_dict[key] = cleaned_value
-                    continue
-                elif isinstance(cleaned_value, list):
-                    if len(cleaned_value) > 1:
-                        new_dict[key] = cleaned_value
-                    elif len(cleaned_value) == 1:
-                        new_dict[key] = cleaned_value[0]
             return new_dict
         elif isinstance(d, list):
-            new_list = []
-            for item in d:
-                cleaned_item = self._remove_none(item)
-                if cleaned_item != "None found":
-                    new_list.append(cleaned_item)
-            return new_list
+            cleaned_list = [
+                self._remove_none(item) for item
+                in d if item.lower() != "none found"
+            ]
+            if len(cleaned_list) > 1:
+                return cleaned_list
+            elif len(cleaned_list) == 1:
+                return cleaned_list[0]
+            else:
+                return ""
         else:
             return "" if d.lower() == "none found" else d
 
@@ -179,9 +183,8 @@ class DeduplicateKeys(CleanData):
                     duplicate_keys.add(key_to_merge)
 
             for key, value in nested_dict.items():
-                if key in duplicate_keys:
-                    continue
-                inner_dict[key] = value
+                if key not in duplicate_keys:
+                    inner_dict[key] = value
             cleaned_dict[outer_key] = inner_dict
         return self._deduplicate_across_dictionaries(cleaned_dict)
     
@@ -190,17 +193,20 @@ class DeduplicateKeys(CleanData):
         Determines priority of keys, based on whether one is standalone title
         or length. Order is lower priority, higher priority.
         """
-        key1_is_title = self.is_title(key1)
-        key2_is_title = self.is_title(key2)
-        lower_key1 = key1.lower()
-        lower_key2 = key2.lower()
+        key1_is_title: bool = self.is_title(key1)
+        key2_is_title: bool = self.is_title(key2)
+        lower_key1: str = key1.lower()
+        lower_key2: str = key2.lower()
 
-        if (lower_key1 in lower_key2 or lower_key2 in lower_key1) and lower_key1 != lower_key2:
+        if (
+            lower_key1 in lower_key2
+            or lower_key2 in lower_key1
+        ) and lower_key1 != lower_key2:
             if key1_is_title:
                 return key2, key1
             if key2_is_title:
                 return key1, key2
-        return sorted([key1, key2], key = len)
+        return tuple(sorted([key1, key2], key = len))
 
     def _is_similar_key(self, key_1: str, key_2: str) -> bool:
         """
@@ -278,8 +284,8 @@ class DeduplicateKeys(CleanData):
         characters_dict = summaries.setdefault("Characters", {})
 
         keys_to_delete = []
-        for attribute, names in summaries.items():
-            if attribute == "Characters":
+        for category, names in summaries.items():
+            if category == "Characters":
                 continue
             for name in names:
                 if characters_dict.get(name) is None:
