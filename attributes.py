@@ -723,8 +723,9 @@ class NameSummarizer(NameTools):
         super().__init__(book)
         self.temperature: float = 0.4
         self.max_tokens: int = 200
-        self.role_script: str = "You are an expert summarizer. Please summarize the description over the course of the story for the following:"
 
+    def _build_role_script(self) -> str:
+        return "You are an expert summarizer. Please summarize the description over the course of the story for the following:"
     def _create_prompts(self) -> Generator:
         """
         Generate prompts for each name in the lorebinder.
@@ -752,8 +753,9 @@ class NameSummarizer(NameTools):
         updated in the lorebinder dictionary. Finally, the updated lorebinder
         is saved in the Book object.
         """
+        role_script: str = self._build_role_script()
         for category, name, prompt in self._create_prompts():
-            api_payload = self.ai.create_payload(prompt, self.role_script, self.temperature, self.max_tokens)
+            api_payload = self.ai.create_payload(prompt, role_script, self.temperature, self.max_tokens)
             response = self.ai.call_api(api_payload)
             self._parse_response(category, name, response)
         self.book.update_lorebinder(self.lorebinder)
