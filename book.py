@@ -1,4 +1,4 @@
-from file_handling import FileManager
+from _managers import ErrorManager, FileManager
 from binders import Binder
 
 class Book():
@@ -33,7 +33,7 @@ class Book():
         get_binder: Returns the Binder dictionary.
     """
 
-    def __init__(self, book_dict: dict, file_manager: FileManager, binder: Binder):
+    def __init__(self, book_dict: dict, *, binder: Binder, error_manager: ErrorManager, file_manager: FileManager):
         """
         Initializes the Book object by reading the input file and splitting it
         into chapters.
@@ -43,6 +43,7 @@ class Book():
             setattr(self, key, value)
 
         self.name = self.title
+        self.error_manager = error_manager
         self.file_manager = file_manager
         self.binder = binder
 
