@@ -1,12 +1,14 @@
+import re
 from collections import ChainMap, defaultdict
 from itertools import combinations
-import re
-from typing import Union, Tuple, List
+from typing import Callable, Dict, List, Tuple, Union, cast
 
 from _titles import TITLES
 
-class Data():
+
+class Data:
     pass
+
 
 class ManipulateData(Data):
     def remove_titles(self, name: str) -> str:
@@ -28,7 +30,7 @@ class ManipulateData(Data):
         """
         if not isinstance(name, str):
             raise TypeError("name must be a string")
-        
+
         name_split: List[str] = name.split(" ")
         if name_split[0] in TITLES and name not in TITLES:
             return " ".join(name_split[1:])
@@ -38,10 +40,10 @@ class ManipulateData(Data):
         """
         Converts a plural word to its singular form based on common English
         pluralization rules.
-            
+
         Args:
             plural: A string representing the plural form of a word.
-            
+
         Returns:
             (str) The singular form of the given word if a pattern matches,
                 otherwise the original word.
@@ -52,30 +54,33 @@ class ManipulateData(Data):
             raise ValueError("plural must not be empty")
         lower_plural = plural.lower()
         patterns = {
-            r'(\w+)(ves)$': r'\1f',
-            r'(\w+)(ies)$': r'\1y',
-            r'(\w+)(i)$': r'\1us',
-            r'(\w+)(a)$': r'\1um',
-            r'(\w+)(en)$': r'\1an',
-            r'(\w+)(oes)$': r'\1o',
-            r'(\w+)(ses)$': r'\1s',
-            r'(\w+)(hes)$': r'\1h',
-            r'(\w+)(xes)$': r'\1x',
-            r'(\w+)(zes)$': r'\1z'
+            r"(\w+)(ves)$": r"\1f",
+            r"(\w+)(ies)$": r"\1y",
+            r"(\w+)(i)$": r"\1us",
+            r"(\w+)(a)$": r"\1um",
+            r"(\w+)(en)$": r"\1an",
+            r"(\w+)(oes)$": r"\1o",
+            r"(\w+)(ses)$": r"\1s",
+            r"(\w+)(hes)$": r"\1h",
+            r"(\w+)(xes)$": r"\1x",
+            r"(\w+)(zes)$": r"\1z",
         }
 
-        singular = (re.sub(pattern, repl, lower_plural)
-                    for pattern, repl in patterns.items())
+        singular = (
+            re.sub(pattern, repl, lower_plural)
+            for pattern, repl in patterns.items()
+        )
         return next(singular, plural[:-1])
 
 
 class CleanData(Data):
     def __init__(self, binder: dict):
         self.binder = binder
+
+
 class RemoveNoneFound(CleanData):
     """
-    This class  removes "None found" entries from a nested dictionary. Uses
-    the __call__ method to be called directly.
+    This class removes "None found" entries from a nested dictionary.
 
     Args:
         binder (dict): The nested dictionary to be cleaned.
@@ -86,42 +91,54 @@ class RemoveNoneFound(CleanData):
     Methods:
         _remove_none: Recursively removes "None found" entries from the nested
             dictionary.
-"""
-    def __call__(self) -> dict:
+        clean_none_found: Calls `_remove_none`.
+    """
+
+    def clean_none_found(self) -> dict:
+        """
+        Calls the _remove_none method to recursively remove "None found"
+        entries from the binder dictionary the class was initialized with.
+        """
         return self._remove_none(self.binder)
 
-    def _remove_none(self, d: Union[dict|list|str]) -> Union[dict|list|str]:
+    def _remove_none(self, d: Union[dict | list | str]) -> dict:
         """
         Takes the nested dictionary from AttributeAnalyzer and removes "None
         found" entries.
         Returns the cleaned nested dictionary.
         """
         if isinstance(d, dict):
-            new_dict = {}
+            new_dict: dict = {}
             for key, value in d.items():
                 cleaned_value = self._remove_none(value)
                 if isinstance(cleaned_value, list):
                     new_dict[key] = (
-                        cleaned_value 
-                        if len(cleaned_value) > 1 
+                        cleaned_value
+                        if len(cleaned_value) > 1
                         else cleaned_value[0]
                     )
-                elif cleaned_value.lower() != "none found":
+                elif (
+                    isinstance(cleaned_value, str)
+                    and cleaned_value.lower() != "none found"
+                ):
                     new_dict[key] = cleaned_value
             return new_dict
+        # Use cast pretend to convert lists and strings to dicts for MyPy
         elif isinstance(d, list):
             cleaned_list = [
-                self._remove_none(item) for item
-                in d if item.lower() != "none found"
+                self._remove_none(item)
+                for item in d
+                if item.lower() != "none found"
             ]
             if len(cleaned_list) > 1:
-                return cleaned_list
+                return cast(dict, cleaned_list)
             elif len(cleaned_list) == 1:
-                return cleaned_list[0]
+                return cast(dict, cleaned_list[0])
             else:
-                return ""
+                return {}
         else:
-            return "" if d.lower() == "none found" else d
+            return {} if d.lower() == "none found" else cast(dict, {d: None})
+
 
 class DeduplicateKeys(CleanData):
     """
@@ -148,12 +165,14 @@ class DeduplicateKeys(CleanData):
         _merge_values: Merges two dictionary key values of unknown datatypes
             into one.
     """
-    def __init__(self) -> None:
-        self.manipulate_data = ManipulateData()
-        super().__init__()
 
-    def __call__(self) -> dict:
-        return self._deduplicate_keys(self.binder)
+    def __init__(self, binder: dict) -> None:
+        self.manipulate_data = ManipulateData()
+        super().__init__(binder)
+
+    def __call__(self) -> None:
+        self.deuplicated = self._deduplicate_keys(self.binder)
+
     def _deduplicate_keys(self, d: dict) -> dict:
         """
         Removes duplicate keys in a dictionary by merging singular and plural
@@ -161,7 +180,7 @@ class DeduplicateKeys(CleanData):
 
         Args:
             dictionary: The dictionary to deduplicate.
-    
+
         Returns the deduplicated dictionary.
         """
 
@@ -173,13 +192,16 @@ class DeduplicateKeys(CleanData):
             duplicate_keys = set()
             inner_dict = {}
 
-
             for key1, key2 in combinations(nested_dict.keys(), 2):
                 if key1 in duplicate_keys or key2 in duplicate_keys:
                     continue
                 if self._is_similar_key(key1, key2):
-                    key_to_merge, key_to_keep = self._prioritize_keys(key1, key2)
-                    nested_dict[key_to_keep] = self._merge_values(nested_dict[key_to_keep], nested_dict[key_to_merge])
+                    key_to_merge, key_to_keep = self._prioritize_keys(
+                        key1, key2
+                    )
+                    nested_dict[key_to_keep] = self._merge_values(
+                        nested_dict[key_to_keep], nested_dict[key_to_merge]
+                    )
                     duplicate_keys.add(key_to_merge)
 
             for key, value in nested_dict.items():
@@ -187,26 +209,26 @@ class DeduplicateKeys(CleanData):
                     inner_dict[key] = value
             cleaned_dict[outer_key] = inner_dict
         return self._deduplicate_across_dictionaries(cleaned_dict)
-    
+
     def _prioritize_keys(self, key1: str, key2: str) -> Tuple[str, str]:
         """
         Determines priority of keys, based on whether one is standalone title
         or length. Order is lower priority, higher priority.
         """
-        key1_is_title: bool = self.is_title(key1)
-        key2_is_title: bool = self.is_title(key2)
+        key1_is_title: bool = self._is_title(key1)
+        key2_is_title: bool = self._is_title(key2)
         lower_key1: str = key1.lower()
         lower_key2: str = key2.lower()
 
         if (
-            lower_key1 in lower_key2
-            or lower_key2 in lower_key1
+            lower_key1 in lower_key2 or lower_key2 in lower_key1
         ) and lower_key1 != lower_key2:
             if key1_is_title:
                 return key2, key1
             if key2_is_title:
                 return key1, key2
-        return tuple(sorted([key1, key2], key = len))
+        lower_p, higher_p = sorted([key1, key2], key=len)
+        return lower_p, higher_p
 
     def _is_similar_key(self, key_1: str, key_2: str) -> bool:
         """
@@ -243,12 +265,11 @@ class DeduplicateKeys(CleanData):
 
         key1_is_title = self._is_title(key1)
         key2_is_title = self._is_title(key2)
-        if (
-            (key1_is_title and key1.lower() in key2.lower())
-            or (key2_is_title and key2.lower() in key1.lower())
+        if (key1_is_title and key1.lower() in key2.lower()) or (
+            key2_is_title and key2.lower() in key1.lower()
         ):
             return True
-        
+
         if detitled_key1 and detitled_key2:
             return (
                 detitled_key1 == key2
@@ -260,6 +281,7 @@ class DeduplicateKeys(CleanData):
                 or key1 + " " in detitled_key2
                 or key2 + " " in detitled_key1
             )
+        return False
 
     def _is_title(self, key: str) -> bool:
         """Checks if key is a title in TITLES list. Returns Boolean"""
@@ -281,7 +303,7 @@ class DeduplicateKeys(CleanData):
 
         """
 
-        characters_dict = summaries.setdefault("Characters", {})
+        characters_dict: dict = summaries.setdefault("Characters", {})
 
         keys_to_delete = []
         for category, names in summaries.items():
@@ -291,14 +313,20 @@ class DeduplicateKeys(CleanData):
                 if characters_dict.get(name) is None:
                     continue
                 for chapter, details in names[name].items():
-                    summaries.get("Characters").setdefault(name, {}).setdefault(chapter, details)
+                    summaries["Characters"].setdefault(name, {}).setdefault(
+                        chapter, details
+                    )
                     if chapter in characters_dict[name]:
-                        merged_values = self._merge_values(characters_dict[name][chapter], details)
+                        merged_values = self._merge_values(
+                            characters_dict[name][chapter], details
+                        )
                         summaries["Characters"][name][chapter] = merged_values
                     elif isinstance(details, dict):
                         summaries["Characters"][name][chapter] = details
                     else:
-                        summaries["Characters"][name][chapter] = {"Also": details}
+                        summaries["Characters"][name][chapter] = {
+                            "Also": details
+                        }
                 keys_to_delete.append(name)
 
         for name in keys_to_delete:
@@ -306,7 +334,11 @@ class DeduplicateKeys(CleanData):
 
         return summaries
 
-    def _merge_values(self, value1: Union[dict|list|str], value2: Union[dict|list|str]) -> Union[dict|list|str]:
+    def _merge_values(
+        self,
+        value1: Union[dict | list | str],
+        value2: Union[dict | list | str],
+    ) -> Union[dict | list | str]:
         """
         Merges two dictionary key values of unknown datatypes into one
         Args:
@@ -320,35 +352,41 @@ class DeduplicateKeys(CleanData):
             or isinstance(value1, list)
             or isinstance(value1, str)
         ):
-            raise TypeError("Value1 must be either a dictionary, list, or string")
+            raise TypeError(
+                "Value1 must be either a dictionary, list, or string"
+            )
         if not (
             isinstance(value2, dict)
             or isinstance(value2, list)
-            or isinstance(value1-2, str)
+            or isinstance(value1, str)
         ):
-            raise TypeError("Value2 must be either a dictionary, list, or string")
-        
+            raise TypeError(
+                "Value2 must be either a dictionary, list, or string"
+            )
+
         ALSO_KEY = "Also"
         if isinstance(value1, dict) and isinstance(value2, dict):
-            return dict(ChainMap(value1, value2))    
+            return dict(ChainMap(value1, value2))
         elif isinstance(value1, list) and isinstance(value2, list):
             return value1 + value2
         elif isinstance(value1, list) and isinstance(value2, dict):
-            merged: list = []
+            merged_list: list = []
             for item in value1:
                 if isinstance(item, dict):
                     merged_item = dict(ChainMap(item, value2))
-                    merged.append(merged_item)
+                    merged_list.append(merged_item)
                 else:
-                    merged.append(item)
+                    merged_list.append(item)
             for key, value in value2.items():
-                if not any(key in d for d in merged):
-                    merged.append({key: value})
-            return merged
+                if not any(key in d for d in merged_list):
+                    merged_list.append({key: value})
+            return merged_list
         elif isinstance(value1, dict) and isinstance(value2, list):
-            merged = value1.copy()
+            merged_dict: dict = value1.copy()
             if value1.get(ALSO_KEY) is not None:
-                merged[ALSO_KEY] = self._merge_values(merged[ALSO_KEY], value2)
+                merged_dict[ALSO_KEY] = self._merge_values(
+                    merged_dict[ALSO_KEY], value2
+                )
             else:
                 value1[ALSO_KEY] = value2
         elif isinstance(value1, dict):
@@ -363,7 +401,8 @@ class DeduplicateKeys(CleanData):
             return [value1, value2]
         return value1
 
-class ReshapeDict(CleanData): 
+
+class ReshapeDict(CleanData):
     """
     A class to reshape a dictionary of chapter summaries by demoting chapter
     numbers inside attribute names.
@@ -373,12 +412,12 @@ class ReshapeDict(CleanData):
 
     Methods:
         __init__(): Sets the _reshaped_data attribute to an empty defaultdict
-            and calls the __init__() method of the parent class CleanData to 
+            and calls the __init__() method of the parent class CleanData to
             set the binder attribute to from the binder parameter.
-        
+
         __call__(): Calls the _reshape() method to perform the reshaping of
             the data.
-        
+
         _reshape(): Reshapes the dictionary of chapter summaries by demoting
             chapter numbers inside attribute names. It iterates over the
             chapters, categories, and names in the original data and stores
@@ -387,12 +426,13 @@ class ReshapeDict(CleanData):
     Returns:
         dict: The reshaped dictionary of chapter summaries.
     """
-    def __init__(self) -> None:
-        self._reshaped_data = defaultdict(dict)
-        super().__init__()
+
+    def __init__(self, binder: dict) -> None:
+        self._reshaped_data: dict = defaultdict(dict)
+        super().__init__(binder)
 
     def __call__(self) -> None:
-        return self._reshape(self.binder)
+        self.reshaped = self._reshape(self.binder)
 
     def _reshape(self, binder: dict) -> dict:
         """
@@ -404,8 +444,11 @@ class ReshapeDict(CleanData):
             for category, category_data in chapter_data.items():
                 capitalized_category = category.title()
                 for name, name_details in category_data.items():
-                    self._reshaped_data[capitalized_category][name][chapter] = name_details
+                    self._reshaped_data[capitalized_category][name][
+                        chapter
+                    ] = name_details
         return self._reshaped_data
+
 
 class FinalReshape(ReshapeDict):
     """
@@ -424,6 +467,7 @@ class FinalReshape(ReshapeDict):
         dict: The reshaped dictionary with demoted chapter numbers.
 
     """
+
     def _reshape(self, binder: dict) -> dict:
         """
         Demotes chapter numbers to lowest dictionary in Characters and
@@ -438,8 +482,11 @@ class FinalReshape(ReshapeDict):
                     if not isinstance(traits, dict):
                         self._reshaped_data[attribute][name][chapter] = traits
                     for trait, detail in traits.items():
-                        self._reshaped_data[attribute][name][trait][chapter] = detail
+                        self._reshaped_data[attribute][name][trait][
+                            chapter
+                        ] = detail
         return self._reshaped_data
+
 
 class SortDictionary(CleanData):
     """
@@ -447,7 +494,7 @@ class SortDictionary(CleanData):
 
     Args:
         binder (dict): The dictionary to be sorted.
-    
+
     Methods:
     - __call__: Calls the _sort method and returns the sorted dictionary.
     - _sort: Sorts the keys of a nested dictionary in ascending order.
@@ -456,9 +503,10 @@ class SortDictionary(CleanData):
         dict: A dictionary with the same structure as self.binder, but
         with the keys sorted in ascending order.
     """
+
     def __call__(self) -> dict:
         return self._sort(self.binder)
-    
+
     def _sort(self, binder: dict) -> dict:
         """
         Sorts the keys of a nested dictionary.
@@ -470,16 +518,25 @@ class SortDictionary(CleanData):
 
         sorted_dict = {}
         for outer_key, nested_dict in binder.items():
-            middle_dict = {key: nested_dict[key] for key in sorted(nested_dict)}
+            middle_dict = {
+                key: nested_dict[key] for key in sorted(nested_dict)
+            }
             for key, inner_dict in middle_dict.items():
-                if isinstance(inner_dict, dict) and all(isinstance(key, int) for key in inner_dict.keys()):
-                    sorted_inner_dict = {str(inner_key): inner_dict[str(inner_key)] for inner_key in sorted(map(int, inner_dict.keys()))}
+                if isinstance(inner_dict, dict) and all(
+                    isinstance(key, int) for key in inner_dict.keys()
+                ):
+                    sorted_inner_dict = {
+                        str(inner_key): inner_dict[str(inner_key)]
+                        for inner_key in sorted(map(int, inner_dict.keys()))
+                    }
                     middle_dict[key] = sorted_inner_dict
                 else:
-                    raise KeyError(f"Dictionary level should be chapter numbers but was {inner_dict.keys()}")
+                    raise KeyError(
+                        "Dictionary level should be chapter numbers"
+                        f"but was {inner_dict.keys()}"
+                    )
             sorted_dict[outer_key] = middle_dict
         return sorted_dict
-                
 
 
 class ReplaceNarrator(CleanData):
@@ -490,10 +547,6 @@ class ReplaceNarrator(CleanData):
 
     Args:
         binder (dict): The dictionary to be cleaned.
-        narrator_name (str): The name of the narrator to replace the
-            occurrences with.
-    
-    Returns a dictionary.
 
     Attributes:
         _binder (dict): The dictionary to be cleaned.
@@ -501,10 +554,6 @@ class ReplaceNarrator(CleanData):
             occurrences with.
 
     Methods:
-        __call__(self, narrator_name: str) -> None:
-            Calls the _replace method when ReplaceNarrator is initialized and
-                returns the cleaned dictionary.
-
         _replace_str(self, value: str) -> str:
             Replaces the occurrences of the words in a string with the
                 narrator name.
@@ -517,15 +566,15 @@ class ReplaceNarrator(CleanData):
             Recursively replaces the occurrences of the words in a list with
                 the narrator name.
 
-        _replace(self, narrator_name: str) -> dict:
+        replace(self, narrator_name: str) -> dict:
             Replaces the occurrences of the words in the specified dictionary
                 with the narrator name.
     """
-    def __call__(self, narrator_name: str) -> dict:
-        return self._replace(self.binder, narrator_name)
 
     def _replace_str(self, value: str) -> str:
-        narrator_list: str = r"\b(narrator|protagonist|the main character|main characterr)\b"
+        narrator_list: str = (
+            r"\b(narrator|protagonist|the main character|main characterr)\b"
+        )
         return re.sub(narrator_list, self._narrator_name, value)
 
     def _clean_dict(self, value: dict) -> dict:
@@ -536,29 +585,39 @@ class ReplaceNarrator(CleanData):
         return new_dict
 
     def _clean_list(self, value: list) -> list:
-        return [self._replace_value(val) for val in value]
-    
-    def _replace(self, binder, narrator_name: str) -> dict:
-        """Replaces the word narrator, protagonist and synonyms with the character's name"""
-        type_handlers = {
-            dict: self._clean_dict,
-            str: self._clean_str,
-            list: self._clean_list
-        }
+        return [self._replace_str(val) for val in value]
 
-        new_dict: dict = {}
-        for key, value in binder.items():
-            cleaned_key = self._replace_str(key)
-            value_type = type(value)
-            if value_type in type_handlers:
-                new_dict[cleaned_key] = type_handlers[value_type](value)
-            else:
-                new_dict[cleaned_key] = value
-        return new_dict
+    def _handle_value(self, value: Union[dict, list, str]):
+        type_handlers: Dict[type, Callable] = {
+            dict: self._clean_dict,
+            list: self._clean_list,
+            str: self._replace_str,
+        }
+        value_type = type(value)
+        if value_type in type_handlers:
+            return type_handlers[value_type](value)
+        else:
+            return value
+
+    def replace(self, narrator_name: str) -> dict:
+        """
+        Replaces the word narrator, protagonist and synonyms with the
+        character's name
+        """
+        self._narrator_name = narrator_name
+        return self._clean_dict(self.binder)
+
 
 def clean_lorebinders(lorebinder: dict, narrator: str):
-    reshaped: dict = ReshapeDict(lorebinder)
-    only_found: dict = RemoveNoneFound(reshaped)
-    deduped: dict = DeduplicateKeys(only_found)
-    narrator_replaced: dict = ReplaceNarrator(deduped, narrator)
+    reshaper = ReshapeDict(lorebinder)
+    reshaped: dict = reshaper.reshaped
+
+    remove_none = RemoveNoneFound(reshaped)
+    only_found: dict = remove_none.clean_none_found()
+
+    deduplicator = DeduplicateKeys(only_found)
+    deduped: dict = deduplicator.deuplicated
+
+    replace_narrator = ReplaceNarrator(deduped)
+    narrator_replaced: dict = replace_narrator.replace(narrator)
     return SortDictionary(narrator_replaced)
