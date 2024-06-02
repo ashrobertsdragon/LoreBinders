@@ -1,12 +1,14 @@
-from _managers import ErrorManager, FileManager
-from binders import Binder
+from typing import List
 
-class Book():
+from _managers import FileManager
+
+
+class Book:
     """
     A book or collection of chapters
 
     Attributes:
-        book_dict (dict): A dictionary containing the book data.
+        _book_dict (dict): A dictionary containing the book data.
             contains:
                 title (str): The book's title.
                 author (str): The book's author.
@@ -26,58 +28,62 @@ class Book():
             in the book.
 
     Methods:
-        _build_chapters: Builds the list of Chapter objects from the input file.
+        _build_chapters: Builds list of Chapter objects from the input file.
         add_binder: Adds a Binder dictionary to the Book object.
         update_binder: Updates the Binder dictionary in the Book object.
         get_chapters: Returns the list of Chapter objects.
         get_binder: Returns the Binder dictionary.
     """
 
-    def __init__(self, book_dict: dict, *, binder: Binder, error_manager: ErrorManager, file_manager: FileManager):
+    def __init__(
+        self,
+        _book_dict: dict,
+        *,
+        file_manager: FileManager,
+    ):
         """
         Initializes the Book object by reading the input file and splitting it
         into chapters.
         """
-        self.book_dict = book_dict
-        for key, value in book_dict.items():
-            setattr(self, key, value)
+        self._book_dict = _book_dict
+        self.title: str = self._book_dict["title"]
+        self.author: str = self._book_dict["author"]
+        self._book_file: str = self._book_dict["book_file"]
+        self.narrator: str = self._book_dict.get("narrator", "")
+        self.character_attributes: List[str] = self._book_dict.get(
+            "character_attributes", []
+        )
+        self.other_attributes: List[str] = self._book_dict.get(
+            "other_attributes", []
+        )
 
         self.name = self.title
-        self.error_manager = error_manager
         self.file_manager = file_manager
-        self.binder = binder
 
-        self.file: str = self.file_handler.read_text_file(self.file_path)
-        self.chapters: list = self._build_chapters()
+        self.file = self.file_manager.read_text_file(self._book_file)
+        self.chapters = self._build_chapters()
 
-    def _build_chapters(self) -> None:
+    def _build_chapters(self) -> list:
         """
         Returns a list of Chapter objects
         """
         chapters: list = []
-        for number, text in enumerate(self.file_manager.split_into_chapters(self.file), start=1):
+        for number, text in enumerate(
+            self.file_manager.separate_into_chapters(self.file), start=1
+        ):
             chapters.append(Chapter(number, text))
         self._chapters = chapters
-    
-    def set_binder_type(self, binder_class: Binder) -> None:
-        """
-        Allows changing the binder dynamically.
+        return self._chapters
 
-        This method expects a Binder subclass.
-        """
-        if not issubclass(binder_class, Binder):
-            raise TypeError("Binder must be a subclass of the Binder class")
-        self.binder = binder_class(self, __name__)
-    
     def add_binder(self, binder: dict) -> None:
         if not isinstance(binder, dict):
             raise TypeError("Binder must be a dictionary")
-        self.binder.add_binder(binder)
-    
+        self._binder = binder
+
     def update_binder(self, binder: dict) -> None:
         if not isinstance(binder, dict):
-            raise TypeError("Binder must be a dictionary")
-        if self.get_binder() != binder:
+            raise TypeError("binder data must be a dictionary")
+        if self.get_binder != binder:
             self.add_binder(binder)
 
     @property
@@ -86,10 +92,10 @@ class Book():
 
     @property
     def get_binder(self) -> dict:
-        return self.binder
+        return self._binder
 
 
-class Chapter():
+class Chapter:
     """
     Represents a single chapter.
 
@@ -103,6 +109,7 @@ class Chapter():
         add_names: Adds a dictionary of names to the Chapter object.
         add_analysis: Adds an analysis dictionary to the Chapter object.
     """
+
     def __init__(self, number: int, text: str) -> None:
         """
         Initializes the Chapter object with the chapter text and number.
@@ -110,18 +117,6 @@ class Chapter():
         self.number: int = number
         self.text: str = text
 
-    def add_names(self, names: dict) -> None:
-        """
-        Adds a dictionary of names to the Chapter object.
-
-        Args:
-            names (dict): A dictionary of names for each category in the
-                Chapter.
-        """
-        if not isinstance(names, list):
-            raise TypeError("Names must be a dictionary")
-        self.names: list = names
-    
     def add_analysis(self, analysis: dict) -> None:
         """
         Adds an analysis dictionary to the Chapter object.
@@ -133,3 +128,14 @@ class Chapter():
         if not isinstance(analysis, dict):
             raise TypeError("Analysis must be a dictionary")
         self.analysis: dict = analysis
+
+    def add_names(self, names: dict) -> None:
+        """
+        Adds an analysis dictionary to the Chapter object.
+
+        Args:
+            Names (dict): The dictionary of names found in the chapter.
+        """
+        if not isinstance(names, dict):
+            raise TypeError("Names must be a dictionary")
+        self.names: dict = names

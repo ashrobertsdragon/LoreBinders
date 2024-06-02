@@ -88,7 +88,7 @@ class EmailHandler(EmailManager):
             print(f"Failed to send email. Reason: {e}")
         return
 
-    def email_error(self, error_msg: str) -> None:
+    def error_email(self, error_msg: str) -> None:
         """
         Send the administrator an error message.
 

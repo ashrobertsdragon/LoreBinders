@@ -9,7 +9,7 @@ from _types import Book, Logger
 class ErrorHandler(ErrorManager):
     def __init__(cls, book: Book, email_manager: EmailManager) -> None:
         cls.book_name = book.title
-        cls.file_path = book.book_file
+        cls.file_path = book._book_file
         cls.email: EmailManager = email_manager
         logger: Logger = logging.getLogger(cls.book_name)
         logger.setLevel(logging.CRITICAL)
