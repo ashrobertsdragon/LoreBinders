@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from json_repair import repair_json
 
@@ -9,8 +9,8 @@ from file_handling import FileHandler
 
 file_handler = FileHandler()
 
-class JSONRepair():
 
+class JSONRepair:
     def _find_full_object(self, string: str, forward: bool = True) -> int:
         """
         Finds the position of the first full object of a string representation
@@ -24,11 +24,11 @@ class JSONRepair():
                 count += 1
             elif char == "}":
                 count -= 1
-        if i != 0 and count == balanced:
-            return i
+            if i != 0 and count == balanced:
+                return i
         return 0
 
-    def is_valid_json(file_path: str) -> bool:
+    def is_valid_json(self, file_path: str) -> bool:
         "Checks to see if JSON file exists and is non-empty"
 
         if os.path.exists(file_path):
@@ -40,19 +40,25 @@ class JSONRepair():
         Merges two strings of a partial JSON object
 
         Args:
-            first_half: str - the first segment of a partial JSON object in string form
-            second_half: str - the second segment of a partial JSON object in string form
+            first_half: str - the first segment of a partial JSON object in
+                string form
+            second_half: str - the second segment of a partial JSON object in
+                string form
 
         Returns either the combined string of a full JSON object or None
         """
 
-        repair_stub = f"First response:\n{first_half}\nSecond response:\n{second_half}"
+        repair_stub = (
+            f"First response:\n{first_half}\nSecond response:\n{second_half}"
+        )
 
-        first_end = self._find_full_object(first_half[::-1], forward = False)
+        first_end = self._find_full_object(first_half[::-1], forward=False)
         second_start = self._find_full_object(second_half)
         if first_end and second_start:
             first_end = len(first_half) - first_end - 1
-            combined_str = first_half[:first_end + 1] + ", " + second_half[second_start:]
+            combined_str = (
+                first_half[: first_end + 1] + ", " + second_half[second_start:]
+            )
 
         else:
             log = f"Could not combine.\n{repair_stub}"
@@ -62,8 +68,13 @@ class JSONRepair():
         try:
             return json.loads(combined_str)
         except json.JSONDecodeError:
-            logging.error(f"Did not properly repair.\n{repair_stub}\nCombined is:\n{combined_str}")
+            logging.error(
+                f"Did not properly repair.\n{repair_stub}\n"
+                f"Combined is:\n{combined_str}"
+            )
             return None
 
-    def repair(self, bad_string: str) -> str:
+    def repair(
+        self, bad_string: str
+    ) -> Dict[str, Any] | List[Any] | str | float | int | bool | None:
         return repair_json(bad_string)

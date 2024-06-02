@@ -1,5 +1,6 @@
-from _types import FinishReason, ChatCompletion
 from exceptions import NoMessageError
+
+from _types import ChatCompletion, FinishReason
 from error_handler import ErrorHandler
 from file_handling import FileHandler
 
@@ -8,5 +9,5 @@ __all__ = [
     FileHandler,
     FinishReason,
     ChatCompletion,
-    NoMessageError
-    ]
+    NoMessageError,
+]
