@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lorebinders"
+version = "0.2.0"
+description = "Create a story bible with AI from a finished manuscript"
+readme = "README.md"
+authors = [{name = "Ashlynn Antrobus", email = "ashlynn@prosepal.io"}]
+license = {text = "MIT"}
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Other Audience",
+    "Environment :: Console",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing"
+]
+requires-python = ">= 3.8"
+dependencies = [
+    "ebook2text>=1.1.2",
+    "python-dotenv>=1.0.1",
+    "openai>=1.30.1",
+    "tiktoken>=0.6.0",
+    "json-repair>=0.22.0",
+    "reportlab>=4.10"
+]
+
+[project.optional-dependencies]
+production = ["supabase>=2.3.4"]
+
+[project.urls]
+"Homepage" = "https://prosepal.io"
+"Source" = "https://github.com/ashrobertsdragon/LoreBinders"
+"Issues" = "https://github.com/ashrobertsdragon/LoreBinders/issues"
+"Pull Requests" = "https://github.com/ashrobertsdragon/LoreBinders/pulls"
+
+[tool.ruff]
+line-length = 79
+force-exclude = true
+exclude = [".git", "__pycache__", ".venv", "to_refactor", "temp.py", "*cache", "work"]
+
+[tool.isort]
+line_length = 79
+
+[tool.mypy]
+disable_error_code = "import-untyped"
