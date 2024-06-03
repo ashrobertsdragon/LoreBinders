@@ -4,6 +4,7 @@ import re
 from typing import Union
 
 from _managers import FileManager
+from _types import T
 
 
 class FileHandler(FileManager):
@@ -17,7 +18,7 @@ class FileHandler(FileManager):
             read_file = f.read()
         return read_file
 
-    def read_json_file(self, file_path: str) -> Union[dict, list, str]:
+    def read_json_file(self, file_path: str) -> T:
         "Opens and reads JSON file"
         with open(file_path) as f:
             read_file = json.load(f)
@@ -34,9 +35,7 @@ class FileHandler(FileManager):
 
         return re.split(r"\s*\*\*\s*", text)
 
-    def write_json_file(
-        self, content: Union[dict, list, str], file_path: str
-    ) -> None:
+    def write_json_file(self, content: T, file_path: str) -> None:
         "Writes JSON file"
 
         with open(file_path, "w") as f:

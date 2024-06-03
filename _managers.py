@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple, Union
 
+from _types import T
+
 
 class EmailManager(ABC):
     @abstractmethod
@@ -29,7 +31,7 @@ class FileManager(ABC):
         raise NotImplementedError("subclass must implement read_text_file")
 
     @abstractmethod
-    def read_json_file(self, file_path: str) -> Union[dict, list, str]:
+    def read_json_file(self, file_path: str) -> T:
         raise NotImplementedError("subclass must implement read_json_file")
 
     @abstractmethod
@@ -43,9 +45,7 @@ class FileManager(ABC):
         )
 
     @abstractmethod
-    def write_json_file(
-        self, content: Union[dict, list, str], file_path: str
-    ) -> None:
+    def write_json_file(self, content: T, file_path: str) -> None:
         raise NotImplementedError("subclass must implement write_json_file")
 
     @abstractmethod
