@@ -2,7 +2,13 @@ from logging import Logger
 from typing import Literal, TypeVar
 
 from ai_classes.ai_factory import AIFactory
-from openai.types.chat.chat_completion import ChatCompletion
+from openai.types.chat import (
+    ChatCompletion,
+    ChatCompletionAssistantMessageParam,
+    ChatCompletionSystemMessageParam,
+    ChatCompletionUserMessageParam,
+)
+from openai.types.chat.completion_create_params import ResponseFormat
 
 from _managers import EmailManager, ErrorManager, FileManager
 from book import Book, Chapter
@@ -13,12 +19,14 @@ FinishReason = Literal[
     "stop", "length", "tool_calls", "content_filter", "function_call"
 ]
 
-Completion = TypeVar("Completion", ChatCompletion)
-
 __all__ = [
     "AIFactory",
     "FinishReason",
-    "Completion",
+    "ChatCompletion",
+    "ChatCompletionAssistantMessageParam",
+    "ChatCompletionSystemMessageParam",
+    "ChatCompletionUserMessageParam",
+    "ResponseFormat",
     "Book",
     "Chapter",
     "Logger",

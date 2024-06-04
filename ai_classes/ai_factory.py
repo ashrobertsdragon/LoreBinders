@@ -11,20 +11,12 @@ from pydantic import BaseModel
 from _types import ChatCompletion, ErrorManager, FileManager, FinishReason
 
 
-class AIFactory(ABC):
-    def __init__(
-        self,
-        file_manager: FileManager,
-        error_manager: ErrorManager,
-        model_key: str,
-    ) -> None:
-        self._file_handler = file_manager
-        self._error_handler = error_manager
+class RateLimit:
+    def __init__(self, model_key: str, file_handler: FileManager) -> None:
         self._model_key = model_key
-
-        self.unresolvable_error_handler = self._set_unresolvable_errors()
-        self._set_rate_limit_data()
+        self._file_handler = file_handler
         self.model_details()
+        self._set_rate_limit_data()
 
     def _set_rate_limit_data(self) -> None:
         self._rate_limit_data: dict = (
@@ -134,6 +126,20 @@ class AIFactory(ABC):
 
         return rate_limit
 
+
+class AIFactory(ABC, RateLimit):
+    def __init__(
+        self,
+        file_manager: FileManager,
+        error_manager: ErrorManager,
+        model_key: str,
+    ) -> None:
+        self._file_handler = file_manager
+        self._error_handler = error_manager
+
+        RateLimit.__init__(self, model_key, self._file_handler)
+        self.unresolvable_error_handler = self._set_unresolvable_errors()
+
     def count_tokens(self, text: str) -> int:
         """
         Counts tokens using the tokenizer for the AI model.
@@ -223,49 +229,14 @@ class AIFactory(ABC):
             self._rate_limit_data, "rate_limit_data.json"
         )
 
+    @abstractmethod
     def create_message_payload(
         self,
         role_script: str,
         prompt: str,
         assistant_message: Optional[str] = None,
     ) -> Tuple[list, int]:
-        """
-        Creates a payload for making API calls to the AI engine.
-
-        Args:
-            role_script (str): The role script text for the AI model.
-            prompt (str): The prompt text for the AI model.
-            assistant_message (Optional[str], optional): The assistant message
-                text. Defaults to None.
-
-        Returns:
-            Tuple[list, int]: A tuple containing a list of messages and the
-                number of input tokens.
-
-        Raises:
-            ValueError: If the role_script input is not a string.
-            ValueError: If the prompt input is not a string.
-
-        """
-        combined_text = "".join([prompt, role_script])
-        messages = [
-            {"role": "system", "content": role_script},
-            {"role": "user", "content": prompt},
-        ]
-        added_prompt = ""
-        if assistant_message is not None:
-            added_prompt = (
-                "Please continue from the exact point you left off without "
-                "any commentary"
-            )
-            messages.append(
-                {"role": "assistant", "content": assistant_message}
-            )
-            messages.append({"role": "user", "content": added_prompt})
-        input_tokens = self.count_tokens(
-            f"{combined_text}{assistant_message}{added_prompt}"
-        )
-        return messages, input_tokens
+        raise NotImplementedError("Must be implemented in child class")
 
     def modify_payload(self, api_payload: dict, **kwargs) -> dict:
         """
