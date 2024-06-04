@@ -77,4 +77,7 @@ class JSONRepair:
     def repair(
         self, bad_string: str
     ) -> Dict[str, Any] | List[Any] | str | float | int | bool | None:
+        return repair_json(bad_string, return_objects=True)
+
+    def repair_str(self, bad_string: str) -> str:
         return repair_json(bad_string)
