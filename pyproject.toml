@@ -55,3 +55,4 @@ line_length = 79
 
 [tool.mypy]
 disable_error_code = "import-untyped"
+mypy_path = "stubs"

@@ -1,0 +1,13 @@
+from typing import Any
+
+from _typeshed import Incomplete
+
+file_handler: Incomplete
+
+class JSONRepair:
+    def is_valid_json(self, file_path: str) -> bool: ...
+    def merge(self, first_half: str, second_half: str) -> str | None: ...
+    def repair(
+        self, bad_string: str
+    ) -> dict[str, Any] | list[Any] | str | float | int | bool | None: ...
+    def repair_str(self, bad_string: str) -> str: ...
