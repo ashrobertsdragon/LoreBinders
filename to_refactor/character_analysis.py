@@ -1,9 +1,8 @@
 import os
 import time
-
-from tqdm import tqdm
 from typing import Tuple
 
+from tqdm import tqdm
 
 ABSOLUTE_MAX_TOKENS = 4096
 DEFAULT_ATTRIBUTES = ["Characters", "Settings"]
@@ -57,7 +56,7 @@ def analyze_book(folder_name: str, chapters: list, narrator: str) -> str:
   # Prep work before doing the real work
   num_chapters, character_lists, character_lists_index, chapter_summary, chapter_summary_index, summaries, summaries_index = initialize_names(chapters, folder_name)
 
-  # Named Entity Recognition  
+  # Named Entity Recognition
   if character_lists_index < num_chapters:
     print(f"Starting character lists at chapter {character_lists_index + 1}")
     character_lists = search_names(chapters, folder_name, num_chapters, character_lists, character_lists_index)
@@ -68,7 +67,7 @@ def analyze_book(folder_name: str, chapters: list, narrator: str) -> str:
   attribute_table_path = os.path.join(folder_name, "attribute_table.json")
   if not cf.is_valid_json(attribute_table_path):
     print("Building attribute table")
-    attribute_table = sort_names(character_lists, narrator) 
+    attribute_table = sort_names(character_lists, narrator)
     cf.write_json_file(attribute_table, attribute_table_path)
   else:
     print("Attribute table complete")
