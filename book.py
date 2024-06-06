@@ -53,7 +53,7 @@ class Book:
         self.character_attributes: List[str] = self._book_dict.get(
             "character_attributes", []
         )
-        self.other_attributes: List[str] = self._book_dict.get(
+        self.custom_categories: List[str] = self._book_dict.get(
             "other_attributes", []
         )
 

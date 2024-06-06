@@ -1,8 +1,9 @@
 import importlib
 import logging
-from typing import Optional
+from typing import Dict, Optional
 
-from _types import AIFactory, ErrorManager, FileManager
+from _types import ErrorManager, FileManager
+from ai_classes.ai_factory import AIType
 
 
 class AIInterface:
@@ -30,23 +31,25 @@ class AIInterface:
         self.file_handler = file_handler
         self.error_handler = error_handler
         self.model_key = model_key
-        self._cached_modules: dict = {}
+        self._cached_classes: Dict[str, AIType] = {}
 
-        self.ai_implementation = self._load_ai_implementation(provider)
+        self.ai_implementation: AIType = self._load_ai_implementation(provider)
 
-    def _load_ai_implementation(self, provider: str) -> "AIFactory":
+    def _load_ai_implementation(self, provider: str) -> AIType:
         try:
-            if provider not in self._cached_modules:
-                self._cached_modules[provider] = importlib.import_module(
-                    f"ai_classes.{provider}"
+            if provider not in self._cached_classes:
+                module = importlib.import_module(
+                    provider, package="ai_classes"
                 )
-            module = self._cached_modules[provider]
-            implementation_class = getattr(
-                module, f"{provider.capitalize()}API"
-            )
-            return implementation_class(
-                self.file_handler, self.error_handler, self.model_key
-            )
+                provider_class = f"{provider.capitalize()}API"
+                implementation_class: AIType = getattr(module, provider_class)
+                ai_class = implementation_class(
+                    self.file_handler, self.error_handler, self.model_key
+                )
+                self._cached_classes[provider] = ai_class
+            else:
+                ai_class = self._cached_classes[provider]
+            return ai_class
         except (ImportError, AttributeError):
             logging.error(f"Invalid AI provider: {provider}")
             raise ValueError(f"Invalid AI provider: {provider}")

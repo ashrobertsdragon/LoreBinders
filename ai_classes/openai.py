@@ -7,18 +7,20 @@ from exceptions import KeyNotFoundError
 from openai import OpenAI
 
 from _types import (
+    ChatCompletion,
     ChatCompletionAssistantMessageParam,
     ChatCompletionSystemMessageParam,
     ChatCompletionUserMessageParam,
     ErrorManager,
     FileManager,
+    FinishReason,
+    NoMessageError,
     ResponseFormat,
 )
-from ai_classes import ChatCompletion, FinishReason, NoMessageError
 from json_repairer import JSONRepair
 
 
-class OpenAIAPI(AIFactory):
+class OpenaiAPI(AIFactory):
     """
     Child class of AIInterface.
     """
