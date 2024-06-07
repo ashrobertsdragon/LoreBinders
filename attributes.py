@@ -125,7 +125,7 @@ class NameExtractor(NameTools):
         self.max_tokens: int = 1000
         self.temperature: float = 0.2
 
-        self.custom_categories = book.custom_categories
+        self.custom_categories = self.book.custom_categories
 
     def _build_custom_role(self) -> str:
         """
@@ -311,29 +311,29 @@ class NameExtractor(NameTools):
                 split_lines = [
                     f"{place.strip()} {setting}" for place in places.split(",")
                 ]
-                lines[i : i + 1] = split_lines
+                lines[i: i + 1] = split_lines
                 continue
             line = inverted_setting_pattern.sub(r"\2 (\1)", line)
             if ", " in line:
                 comma_split = line.split(", ")
-                lines[i : i + 1] = comma_split
+                lines[i: i + 1] = comma_split
                 continue
             added_newline = missing_newline_before_pattern.sub("\n", line)
             if added_newline != line:
                 added_newlines = added_newline.split("\n")
-                lines[i : i + 1] = added_newlines
+                lines[i: i + 1] = added_newlines
                 continue
             added_newline = missing_newline_between_pattern.sub(
                 r"\1\n\2", line
             )
             if added_newline != line:
                 added_newlines = added_newline.split("\n")
-                lines[i : i + 1] = added_newlines
+                lines[i: i + 1] = added_newlines
                 continue
             added_newline = missing_newline_after_pattern.sub(":\n", line)
             if added_newline != line:
                 added_newlines = added_newline.split("\n")
-                lines[i : i + 1] = added_newlines
+                lines[i: i + 1] = added_newlines
                 continue
             line = leading_colon_pattern.sub("", line)
             line = line.strip()
@@ -507,8 +507,8 @@ class NameAnalyzer(NameTools):
 
         self.temperature: float = 0.4
 
-        self.custom_categories: list = book.custom_categories
-        self.character_attributes: list = book.character_attributes
+        self.custom_categories: list = self.book.custom_categories
+        self.character_attributes: list = self.book.character_attributes
 
     def _generate_schema(self, category: str) -> str:
         """
