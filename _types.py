@@ -9,13 +9,14 @@ from openai.types.chat import (
 )
 from openai.types.chat.completion_create_params import ResponseFormat
 
-from _managers import EmailManager, ErrorManager, FileManager
+from _managers import EmailManager, ErrorManager
 from ai_classes.ai_factory import AIFactory
 from ai_classes.exceptions import (
     KeyNotFoundError,
     MaxRetryError,
     NoMessageError,
 )
+from attributes import NameTools
 from binders import Binder
 from book import Book, Chapter
 
@@ -35,11 +36,11 @@ __all__ = [
     "ResponseFormat",
     "Book",
     "Chapter",
+    "NameTools",
     "Binder",
     "Logger",
     "EmailManager",
     "ErrorManager",
-    "FileManager",
     "T",
     "MaxRetryError",
     "NoMessageError",

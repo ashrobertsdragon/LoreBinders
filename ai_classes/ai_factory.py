@@ -8,19 +8,19 @@ from typing import Optional, Tuple
 from exceptions import MaxRetryError
 from pydantic import BaseModel
 
-from _types import ChatCompletion, ErrorManager, FileManager, FinishReason
+from _types import ChatCompletion, ErrorManager, FinishReason
+from file_handling import read_json_file, write_json_file
 
 
 class RateLimit:
-    def __init__(self, model_key: str, file_handler: FileManager) -> None:
+    def __init__(self, model_key: str) -> None:
         self._model_key = model_key
-        self._file_handler = file_handler
         self.model_details()
         self._set_rate_limit_data()
 
     def _set_rate_limit_data(self) -> None:
         self._rate_limit_data: dict = (
-            self._file_handler.read_json_file("rate_limit.json")
+            read_json_file("rate_limit.json")
             if os.path.exists("rate_limit.json")
             else {}
         )
@@ -80,7 +80,7 @@ class RateLimit:
         }
         try:
             model_dict = (
-                self._file_handler.read_json_file("model_dict.json")
+                read_json_file("model_dict.json")
                 if os.path.exists("model_dict.json")
                 else {}
             )
@@ -134,11 +134,9 @@ class AIType:
 
     def __init__(
         self,
-        file_manager: FileManager,
         error_manager: ErrorManager,
         model_key: str,
     ) -> None:
-        self._file_handler = file_manager
         self._error_handler = error_manager
         self.model_key = model_key
 
@@ -182,14 +180,12 @@ class AIType:
 class AIFactory(AIType, ABC, RateLimit):
     def __init__(
         self,
-        file_manager: FileManager,
         error_manager: ErrorManager,
         model_key: str,
     ) -> None:
-        self._file_handler = file_manager
         self._error_handler = error_manager
 
-        RateLimit.__init__(self, model_key, self._file_handler)
+        RateLimit.__init__(self, model_key)
         self.unresolvable_error_handler = self._set_unresolvable_errors()
 
     def count_tokens(self, text: str) -> int:
@@ -381,9 +377,7 @@ class AIFactory(AIType, ABC, RateLimit):
         if time.time() > minute + 60:
             self._reset_rate_limit_minute()
             self._reset_rate_limit_tokens_used()
-            self._file_handler.write_json_file(
-                self._rate_limit_data, "rate_limit_data.json"
-            )
+            write_json_file(self._rate_limit_data, "rate_limit_data.json")
 
         if tokens_used + input_tokens + max_tokens > self._rate_limit:
             logging.warning("Rate limit exceeded")
@@ -392,9 +386,7 @@ class AIFactory(AIType, ABC, RateLimit):
             time.sleep(sleep_time)
             self._reset_rate_limit_tokens_used()
             self._reset_rate_limit_minute()
-            self._file_handler.write_json_file(
-                self._rate_limit_data, "rate_limit_data.json"
-            )
+            write_json_file(self._rate_limit_data, "rate_limit_data.json")
 
     @abstractmethod
     def call_api(

@@ -2,7 +2,7 @@ import importlib
 import logging
 from typing import Dict, Optional
 
-from _types import ErrorManager, FileManager
+from _types import ErrorManager
 from ai_classes.ai_factory import AIType
 
 
@@ -24,11 +24,9 @@ class AIInterface:
     def __init__(
         self,
         provider: str,
-        file_handler: FileManager,
         error_handler: ErrorManager,
         model_key: str,
     ) -> None:
-        self.file_handler = file_handler
         self.error_handler = error_handler
         self.model_key = model_key
         self._cached_classes: Dict[str, AIType] = {}
@@ -44,7 +42,7 @@ class AIInterface:
                 provider_class = f"{provider.capitalize()}API"
                 implementation_class: AIType = getattr(module, provider_class)
                 ai_class = implementation_class(
-                    self.file_handler, self.error_handler, self.model_key
+                    self.error_handler, self.model_key
                 )
                 self._cached_classes[provider] = ai_class
             else:
