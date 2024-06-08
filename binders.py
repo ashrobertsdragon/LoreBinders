@@ -1,7 +1,6 @@
 from typing import Optional, Union
 
-from _managers import FileManager
-from _types import Book
+from _types import Book, NameTools
 
 
 class Binder:
@@ -13,7 +12,6 @@ class Binder:
         self.book = book
         self.binder_type = __name__.lower()
         self._book_name: Optional[str] = None
-        self._file_manager: Optional[FileManager] = None
         self._temp_file: Optional[str] = None
 
     @property
@@ -21,12 +19,6 @@ class Binder:
         if self._book_name is None:
             self._book_name = self.book.name
         return self._book_name
-
-    @property
-    def file_manager(self):
-        if self._file_manager is None:
-            self._file_manager = self.book.file_manager
-        return self._file_manager
 
     @property
     def get_binder_tempfile(self) -> str:
@@ -53,10 +45,14 @@ class Binder:
     def get_binder(self) -> dict:
         return self._binder
 
+    def perform_ner(self, ner: NameTools) -> None:
+        self._ner = ner
 
-class LoreBinder(Binder):
-    """
-    LoreBinder handles lore analysis for the book.
-    """
+    def analyze_names(self, analyzer: NameTools) -> None:
+        self._analyzer = analyzer
 
-    pass
+    def summarize(self, summarizer: NameTools) -> None:
+        self._summarizer = summarizer
+
+    def build_binder(self) -> None:
+        pass
