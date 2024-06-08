@@ -10,7 +10,7 @@ from openai.types.chat import (
 from openai.types.chat.completion_create_params import ResponseFormat
 
 from _managers import EmailManager, ErrorManager
-from ai_classes.ai_factory import AIFactory
+from ai_classes.ai_factory import AIType
 from ai_classes.exceptions import (
     KeyNotFoundError,
     MaxRetryError,
@@ -27,7 +27,7 @@ FinishReason = Literal[
 ]
 
 __all__ = [
-    "AIFactory",
+    "AIType",
     "FinishReason",
     "ChatCompletion",
     "ChatCompletionAssistantMessageParam",
