@@ -2,15 +2,43 @@ import json
 import re
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import Generator, List, Tuple, Union
+from typing import Dict, Generator, List, Tuple, Union
 
-from _types import Binder, Book, Chapter, ErrorManager
+from _types import Chapter, AIType, Book
 from ai_classes.ai_interface import AIInterface
 from data_cleaner import ManipulateData
 from json_repairer import JSONRepair
 
 data = ManipulateData()
 json_repairer = JSONRepair()
+
+
+class RoleScript:
+    """
+    Holds the AI system role script and max tokens for an API call
+    """
+    def __init__(self, script: str, max_tokens: int) -> None:
+        self.script = script
+        self.max_tokens = max_tokens
+
+
+class AIModelConfig:
+    def __init__(
+        self, provider: str, models: Dict[str, str], quality_flag: bool
+    ) -> None:
+        self.provider = provider
+        self._models = models
+        self.quality_flag = quality_flag
+
+    def _model_key(self) -> None:
+        self._key = (
+            self._models["upper"]
+            if self.quality_flag
+            else self._models["lower"]
+        )
+
+    def initialize_api(self) -> AIType:
+        return AIInterface(self.provider, self._model_key)
 
 
 class NameTools(ABC):
@@ -21,10 +49,10 @@ class NameTools(ABC):
     def __init__(
         self,
         book: Book,
-        binder: Binder,
-        error_handler: ErrorManager,
-        ai_model: dict,
-        ai_quality: bool = False,
+        chapter: Chapter,
+        provider: str,
+        ai_models: dict,
+        ai_quality: bool = False
     ) -> None:
         """
         Initialize the NameTools class with a Book object and an instance of
@@ -32,54 +60,38 @@ class NameTools(ABC):
         OpenAIAPI class.
 
         Args:
-            book (Book): The Book object representing the book.
+            chapter (Chapter): The Chapter object representing the chapter.
 
         Raises:
             TypeError: If book is not an instance of the Book class.
         """
-        if not isinstance(book, Book):
-            raise TypeError("book must be an instance of the Book class")
         self.book = book
-        self.binder = binder
+        self.chapter = chapter
+        self._prompt = f"Text: {self.chapter.text}"
 
-        self.api_class = ai_model["api_class"]
-        self._model_dict = ai_model["models"]
-        self.model = (
-            self._model_dict["upper"]
-            if ai_quality
-            else self._model_dict["lower"]
-        )
+        self._ai_config = AIModelConfig(provider, ai_models, ai_quality)
+        self._ai = self._ai_config.initialize_api()
 
-        self.temperature: float = 0.7
-        self.max_tokens: int = 500
+        self._categories_base = ["Characters", "Settings"]
+        self._role_scripts: List[RoleScript] = []
 
-        self.ai = AIInterface(
-            provider=self.api_class,
-            file_handler=book.file_manager,
-            error_handler=error_handler,
-            model_key=self.model,
-        )
-        self.categories_base = ["Characters", "Settings"]
-
-    def _call_ai(self) -> None:
+    def get_info(self) -> str:
         """
         Iterate over the Chapter objects stored in the Book object, send the
         text as prompts to the AI model, and fetch the response. For use with
         simpler prompts.
         """
-        for chapter in self.book.get_chapters:
-            prompt = f"Text: {chapter.text}"
-            api_payload = self.ai.create_payload(
-                prompt,
-                self._build_role_script,
-                self.temperature,
-                self.max_tokens,
-            )
-            response = self.ai.call_api(api_payload)
-            self._parse_response(response, chapter)
+
+        responses = []
+        for script in self._role_scripts:
+            payload = self._ai.create_payload(script.script, script.max_tokens)
+            response = self._ai.call_api(payload)
+        if response:
+            responses.append(response)
+        return "".join(response)
 
     @abstractmethod
-    def _parse_response(self, response: str, chapter: Chapter) -> None:
+    def parse_response(self, response: str) -> Union[list, dict]:
         """
         Abstract method to parse the AI response.
 
@@ -92,7 +104,7 @@ class NameTools(ABC):
         )
 
     @abstractmethod
-    def _build_role_script(self) -> None:
+    def build_role_script(self) -> None:
         """
         Abstract method to build the role script
 
@@ -114,12 +126,12 @@ class NameExtractor(NameTools):
     def __init__(
         self,
         book: Book,
-        binder: Binder,
-        error_handler: ErrorManager,
-        ai_model: dict,
+        chapter: Chapter,
+        provider: str,
+        ai_models: dict
     ) -> None:
         super().__init__(
-            book, binder, error_handler, ai_model, ai_quality=False
+            book, chapter, provider, ai_models, ai_quality=False
         )
 
         self.max_tokens: int = 1000
@@ -195,23 +207,6 @@ class NameExtractor(NameTools):
             "Setting2 (exterior)\n"
             f"{role_categories}"
         )
-
-    def extract_names(self) -> None:
-        """
-        Takes a Chapter object and extracts the names using an AI API.
-
-        This method is responsible for extracting the names from the chapter
-        text using an AI API. It takes a Chapter object as input and uses the
-        _build_role_script method to construct the role script. Then, it calls
-        the _call_ai method to send the text as prompts to the AI model and
-        fetch the response. The response is then parsed using the
-        _parse_response method.
-
-        Returns:
-            None
-        """
-        self._build_role_script()
-        self._call_ai()
 
     def _parse_response(self, response: str, chapter: Chapter) -> None:
         """
@@ -475,9 +470,9 @@ class NameAnalyzer(NameTools):
     def __init__(
         self,
         book: Book,
-        binder: Binder,
-        error_handler: ErrorManager,
-        ai_model: dict,
+        chapter: Chapter,
+        provider: str,
+        ai_models: dict,
     ) -> None:
         """
         Initializes a NameAnalyzer object.
@@ -502,13 +497,13 @@ class NameAnalyzer(NameTools):
         """
         self.model: str = "gpt_four"
         super().__init__(
-            book, binder, error_handler, ai_model, ai_quality=True
+            book, chapter, provider, ai_models, ai_quality=True
         )
 
         self.temperature: float = 0.4
 
-        self.custom_categories: list = self.book.custom_categories
-        self.character_attributes: list = self.book.character_attributes
+        self.custom_categories: List[str] = self.book.custom_categories
+        self.character_attributes: List[str] = self.book.character_attributes
 
     def _generate_schema(self, category: str) -> str:
         """
@@ -547,7 +542,7 @@ class NameAnalyzer(NameTools):
         schema: dict = {}
         schema_stub: Union[dict, str]
 
-        if category in self.categories_base:
+        if category in self._categories_base:
             schema_stub = {
                 category: "Description" for category in cat_attr_map[category]
             }
@@ -618,7 +613,7 @@ class NameAnalyzer(NameTools):
                 instructions += setting_instructions
             else:
                 other_category_list = [
-                    cat for cat in to_batch if cat not in self.categories_base
+                    cat for cat in to_batch if cat not in self._categories_base
                 ]
                 instructions += (
                     "Provide descriptons of "
@@ -789,10 +784,10 @@ class NameAnalyzer(NameTools):
 
             response_whole: list = []
             for role_script, max_tokens in role_script_info:
-                api_payload = self.ai.create_payload(
+                api_payload = self._ai.create_payload(
                     prompt, role_script, self.temperature, max_tokens
                 )
-                response_part = self.ai.call_api(
+                response_part = self._ai.call_api(
                     api_payload, json_response=True
                 )
                 response_whole.append(response_part)
@@ -863,9 +858,9 @@ class NameSummarizer(NameTools):
     def __init__(
         self,
         book: Book,
-        binder: Binder,
-        error_handler: ErrorManager,
-        ai_model: dict,
+        chapter: Chapter,
+        provider: str,
+        ai_models: dict
     ) -> None:
         """
         Initialize the NameSummarizer class with a Book object.
@@ -879,8 +874,8 @@ class NameSummarizer(NameTools):
         Returns:
             None
         """
-        self.model_key: str = "gpt_three"
-        super().__init__(book, binder, error_handler, ai_model)
+
+        super().__init__(book, chapter, provider, ai_models, ai_quality=False)
         self.temperature: float = 0.4
         self.max_tokens: int = 200
 
@@ -902,7 +897,7 @@ class NameSummarizer(NameTools):
         for category, category_names in self.lorebinder.items():
             for name, chapters in category_names.items():
                 for _, details in chapters.items():
-                    if category in self.categories_base:
+                    if category in self._categories_base:
                         description = ", ".join(
                             f"{attribute}: {','.join(detail)}"
                             for attribute, detail in details.items()
@@ -922,10 +917,10 @@ class NameSummarizer(NameTools):
         """
         self._build_role_script()
         for category, name, prompt in self._create_prompts():
-            api_payload = self.ai.create_payload(
+            api_payload = self._ai.create_payload(
                 prompt, self.role_script, self.temperature, self.max_tokens
             )
-            response = self.ai.call_api(api_payload)
+            response = self._ai.call_api(api_payload)
             self._parse_response(category, name, response)
         self.book.update_binder(self.lorebinder)
 
