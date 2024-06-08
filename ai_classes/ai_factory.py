@@ -12,6 +12,56 @@ from _types import ChatCompletion, ErrorManager, FinishReason
 from file_handling import read_json_file, write_json_file
 
 
+class AIType:
+    """
+    Dummy class to pacify MyPy. Not intended to be used
+    """
+
+    def __init__(
+        self,
+        error_manager: ErrorManager,
+        model_key: str,
+    ) -> None:
+        self._error_handler = error_manager
+        self.model_key = model_key
+
+    def create_payload(
+        self,
+        prompt: str,
+        role_script: str,
+        temperature: float,
+        max_tokens: int,
+    ) -> dict:
+        """
+        Dummy method. Do not use.
+        """
+        return {
+            "prompt": prompt,
+            "role_script": role_script,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+
+    def call_api(
+        self,
+        api_payload: dict,
+        retry_count: int = 0,
+        assistant_message: Optional[str] = None,
+    ) -> str:
+        """
+        Dummy method. Do not use.
+        """
+        self.combined_list = []
+        if api_payload:
+            self.combined_list = [str(value) for value in api_payload.values()]
+        if retry_count:
+            self.combined_list.append(str(retry_count))
+        if assistant_message is not None:
+            self.combined_list.append(assistant_message)
+
+        return ",".join(self.combined_list)
+
+
 class RateLimit:
     def __init__(self, model_key: str) -> None:
         self._model_key = model_key
@@ -127,56 +177,6 @@ class RateLimit:
         return rate_limit
 
 
-class AIType:
-    """
-    Dummy class to pacify MyPy. Not intended to be used
-    """
-
-    def __init__(
-        self,
-        error_manager: ErrorManager,
-        model_key: str,
-    ) -> None:
-        self._error_handler = error_manager
-        self.model_key = model_key
-
-    def create_payload(
-        self,
-        prompt: str,
-        role_script: str,
-        temperature: float,
-        max_tokens: int,
-    ) -> dict:
-        """
-        Dummy method. Do not use.
-        """
-        return {
-            "prompt": prompt,
-            "role_script": role_script,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-        }
-
-    def call_api(
-        self,
-        api_payload: dict,
-        retry_count: int = 0,
-        assistant_message: Optional[str] = None,
-    ) -> str:
-        """
-        Dummy method. Do not use.
-        """
-        self.combined_list = []
-        if api_payload:
-            self.combined_list = [str(value) for value in api_payload.values()]
-        if retry_count:
-            self.combined_list.append(str(retry_count))
-        if assistant_message is not None:
-            self.combined_list.append(assistant_message)
-
-        return ",".join(self.combined_list)
-
-
 class AIFactory(AIType, ABC, RateLimit):
     def __init__(
         self,
@@ -273,9 +273,7 @@ class AIFactory(AIType, ABC, RateLimit):
                 'rate_limit_data.json'.
         """
         self._rate_limit_data["tokens_used"] += tokens
-        self._file_handler.write_json_file(
-            self._rate_limit_data, "rate_limit_data.json"
-        )
+        write_json_file(self._rate_limit_data, "rate_limit_data.json")
 
     @abstractmethod
     def create_message_payload(
