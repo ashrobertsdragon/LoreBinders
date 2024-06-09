@@ -8,7 +8,15 @@ from typing import Optional, Tuple
 from _types import ChatCompletion, ErrorManager, FinishReason
 from exceptions import MaxRetryError
 from file_handling import read_json_file, write_json_file
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
+
+
+class Payload(BaseModel):
+    model_name: str
+    role_script: str
+    prompt: str
+    temperature: float
+    max_tokens: int
 
 
 class AIType:
@@ -30,16 +38,17 @@ class AIType:
         role_script: str,
         temperature: float,
         max_tokens: int,
-    ) -> dict:
+    ) -> Payload:
         """
         Dummy method. Do not use.
         """
-        return {
-            "prompt": prompt,
-            "role_script": role_script,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-        }
+        return Payload(
+            model_name="Do not use",
+            role_script=role_script,
+            prompt=prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
 
     def call_api(
         self,
@@ -50,15 +59,7 @@ class AIType:
         """
         Dummy method. Do not use.
         """
-        self.combined_list = []
-        if api_payload:
-            self.combined_list = [str(value) for value in api_payload.values()]
-        if retry_count:
-            self.combined_list.append(str(retry_count))
-        if assistant_message is not None:
-            self.combined_list.append(assistant_message)
-
-        return ",".join(self.combined_list)
+        return "Do not use this method"
 
 
 class RateLimit:
@@ -199,7 +200,7 @@ class AIFactory(AIType, ABC, RateLimit):
         role_script: str,
         temperature: float,
         max_tokens: int,
-    ) -> dict:
+    ) -> Payload:
         """
         Creates a payload dictionary for making API calls to the AI engine.
 
@@ -216,44 +217,20 @@ class AIFactory(AIType, ABC, RateLimit):
                     prompt (str): The prompt text.
                     temperature (float): The temperature value.
                     max_tokens (int): The maximum number of tokens.
-
-        Raises:
-            ValueError: If the prompt input is not a string.
-            ValueError: If the role_script input is not a string.
-            ValueError: If the temperature input is not a float.
-            ValueError: If the max_tokens input is not an integer.
-            ValueError: If the model name is not set.
-
         """
 
-        class Payload(BaseModel):
-            model_name: str
-            role_script: str
-            prompt: str
-            temperature: float
-            max_tokens: int
+        try:
+            payload = Payload(
+                model_name=self.model_name,
+                role_script=role_script,
+                prompt=prompt,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+        except ValidationError as e:
+            logging.exception(str(e))
 
-        if not isinstance(prompt, str):
-            raise ValueError("Invalid prompt input. Expected a string.")
-        if not isinstance(role_script, str):
-            raise ValueError("Invalid role_script input. Expected a string.")
-        if not isinstance(temperature, float):
-            raise ValueError("Invalid temperature input. Expected a float.")
-        if not isinstance(max_tokens, int):
-            raise ValueError("Invalid max_tokens input. Expected an integer.")
-
-        if self.model_name is None:
-            raise ValueError("Model name is not set.")
-
-        payload = Payload(
-            model_name=self.model_name,
-            role_script=role_script,
-            prompt=prompt,
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
-
-        return payload.model_dump()
+        return payload
 
     def update_rate_limit_data(self, tokens: int) -> None:
         """
