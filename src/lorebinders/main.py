@@ -1,15 +1,27 @@
 import os
+from typing import List, Optional
 
 from binders import Binder
 from book import Book
 from dotenv import load_dotenv
 from ebook2text.convert_file import convert_file  # type: ignore
+from pydantic import BaseModel
 from user_input import get_book
 
 load_dotenv()
 
 
-def create_lorebinder(book_dict: dict, user_folder: str) -> None:
+class BookDict(BaseModel):
+    book_file: str
+    title: str
+    author: str
+    narrator: Optional[str]
+    character_traits: Optional[List[str]]
+    custom_categories: Optional[List[str]]
+    user_folder: str
+
+
+def create_lorebinder(book_dict: BookDict) -> None:
     book = Book(book_dict)
     lorebinder = Binder(book)
     lorebinder.perform_ner()

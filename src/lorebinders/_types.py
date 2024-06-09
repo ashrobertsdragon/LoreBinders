@@ -2,6 +2,7 @@ from logging import Logger
 from typing import Literal, TypeVar
 
 from _managers import EmailManager, ErrorManager
+from ai_classes._model_schema import AIModels
 from ai_classes.ai_factory import AIType
 from ai_classes.exceptions import (
     KeyNotFoundError,
@@ -11,6 +12,7 @@ from ai_classes.exceptions import (
 from attributes import NameTools
 from binders import Binder
 from book import Book, Chapter
+from main import BookDict
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionAssistantMessageParam,
@@ -33,11 +35,13 @@ __all__ = [
     "ChatCompletionSystemMessageParam",
     "ChatCompletionUserMessageParam",
     "ResponseFormat",
+    "BookDict",
     "Book",
     "Chapter",
     "NameTools",
     "Binder",
     "Logger",
+    "AIModels",
     "EmailManager",
     "ErrorManager",
     "T",

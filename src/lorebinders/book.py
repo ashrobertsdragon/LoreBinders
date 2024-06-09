@@ -1,5 +1,6 @@
 from typing import List
 
+from _types import BookDict
 from file_handling import read_text_file, separate_into_chapters
 
 
@@ -35,27 +36,23 @@ class Book:
         get_binder: Returns the Binder dictionary.
     """
 
-    def __init__(self, book_dict: dict):
+    def __init__(self, book_dict: BookDict):
         """
         Initializes the Book object by reading the input file and splitting it
         into chapters.
         """
         self._book_dict = book_dict
-        self.title: str = self._book_dict["title"]
-        self.author: str = self._book_dict["author"]
-        self._book_file: str = self._book_dict["book_file"]
-        self.narrator: str = self._book_dict.get("narrator", "")
-        self.character_attributes: List[str] = self._book_dict.get(
-            "character_attributes", []
-        )
-        self.custom_categories: List[str] = self._book_dict.get(
-            "other_attributes", []
-        )
+        self.title: str = self._book_dict.title
+        self.author: str = self._book_dict.author
+        self._book_file: str = self._book_dict.book_file
+        self.narrator: str = self._book_dict.narrator
+        self.character_attributes: List[str] = self._book_dict.character_traits
+        self.custom_categories: List[str] = self._book_dict.custom_categories
 
         self.name = self.title
 
         self.file = read_text_file(self._book_file)
-        self.chapters = self._build_chapters()
+        self._build_chapters()
 
     def _build_chapters(self) -> list:
         """
@@ -77,16 +74,21 @@ class Book:
     def update_binder(self, binder: dict) -> None:
         if not isinstance(binder, dict):
             raise TypeError("binder data must be a dictionary")
-        if self.get_binder != binder:
+        if self._binder != binder:
             self.add_binder(binder)
 
     @property
-    def get_chapters(self) -> list:
+    def chapters(self) -> list:
         return self._chapters
 
     @property
-    def get_binder(self) -> dict:
+    def binder(self) -> dict:
         return self._binder
+
+    @property
+    def metadata(self) -> BookDict:
+        if self._book_dict:
+            return self._book_dict
 
 
 class Chapter:

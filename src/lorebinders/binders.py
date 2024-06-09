@@ -1,6 +1,7 @@
 from typing import Optional, Union
 
-from _types import Book, NameTools
+from _types import Book, BookDict, NameTools
+from file_handling import read_json_file, write_json_file
 
 
 class Binder:
@@ -21,6 +22,11 @@ class Binder:
         return self._book_name
 
     @property
+    def metadata(self) -> BookDict:
+        if self.book.metadata:
+            return self.book.metadata
+
+    @property
     def get_binder_tempfile(self) -> str:
         if self._temp_file is None:
             self._temp_file = f"{self.book_name}-{self.binder_type}.json"
@@ -30,7 +36,7 @@ class Binder:
         if not isinstance(binder, dict):
             raise TypeError("Binder must be a dictionary")
         self._binder = binder
-        self.file_manager.write_json_file(self._binder, self._temp_file)
+        write_json_file(self._binder, self._temp_file)
 
     def update_binder(self, binder: dict) -> None:
         if not isinstance(binder, dict):
@@ -39,7 +45,7 @@ class Binder:
             self.add_binder(binder)
 
     def get_binder_json(self) -> Union[dict, list, str]:
-        return self.file_manager.read_json_file(self._temp_file)
+        return read_json_file(self._temp_file)
 
     @property
     def get_binder(self) -> dict:
