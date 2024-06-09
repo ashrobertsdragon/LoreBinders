@@ -1,6 +1,6 @@
 from typing import List
 
-from _managers import FileManager
+from file_handling import read_text_file, separate_into_chapters
 
 
 class Book:
@@ -35,17 +35,12 @@ class Book:
         get_binder: Returns the Binder dictionary.
     """
 
-    def __init__(
-        self,
-        _book_dict: dict,
-        *,
-        file_manager: FileManager,
-    ):
+    def __init__(self, book_dict: dict):
         """
         Initializes the Book object by reading the input file and splitting it
         into chapters.
         """
-        self._book_dict = _book_dict
+        self._book_dict = book_dict
         self.title: str = self._book_dict["title"]
         self.author: str = self._book_dict["author"]
         self._book_file: str = self._book_dict["book_file"]
@@ -58,9 +53,8 @@ class Book:
         )
 
         self.name = self.title
-        self.file_manager = file_manager
 
-        self.file = self.file_manager.read_text_file(self._book_file)
+        self.file = read_text_file(self._book_file)
         self.chapters = self._build_chapters()
 
     def _build_chapters(self) -> list:
@@ -69,7 +63,7 @@ class Book:
         """
         chapters: list = []
         for number, text in enumerate(
-            self.file_manager.separate_into_chapters(self.file), start=1
+            separate_into_chapters(self.file), start=1
         ):
             chapters.append(Chapter(number, text))
         self._chapters = chapters

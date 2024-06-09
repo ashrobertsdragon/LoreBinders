@@ -22,5 +22,5 @@ temp.py
 replit.nix
 poetry.lock
 
-users/*
-work/*
+**/users/*
+**/work/*

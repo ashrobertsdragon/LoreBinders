@@ -3,9 +3,8 @@ import logging
 import os
 from typing import Any, Dict, List, Optional
 
-from json_repair import repair_json
-
 from file_handling import FileHandler
+from json_repair import repair_json
 
 file_handler = FileHandler()
 

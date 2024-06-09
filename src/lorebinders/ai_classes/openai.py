@@ -2,10 +2,6 @@ import logging
 import os
 from typing import Dict, Optional, Tuple
 
-from ai_factory import AIFactory
-from exceptions import KeyNotFoundError
-from openai import OpenAI
-
 from _types import (
     ChatCompletion,
     ChatCompletionAssistantMessageParam,
@@ -17,7 +13,10 @@ from _types import (
     NoMessageError,
     ResponseFormat,
 )
+from ai_factory import AIFactory
+from exceptions import KeyNotFoundError
 from json_repairer import JSONRepair
+from openai import OpenAI
 
 
 class OpenaiAPI(AIFactory):

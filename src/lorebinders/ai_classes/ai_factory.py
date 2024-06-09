@@ -5,11 +5,10 @@ import time
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple
 
-from exceptions import MaxRetryError
-from pydantic import BaseModel
-
 from _types import ChatCompletion, ErrorManager, FinishReason
+from exceptions import MaxRetryError
 from file_handling import read_json_file, write_json_file
+from pydantic import BaseModel
 
 
 class AIType:

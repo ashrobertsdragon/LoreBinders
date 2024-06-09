@@ -1,14 +1,6 @@
 from logging import Logger
 from typing import Literal, TypeVar
 
-from openai.types.chat import (
-    ChatCompletion,
-    ChatCompletionAssistantMessageParam,
-    ChatCompletionSystemMessageParam,
-    ChatCompletionUserMessageParam,
-)
-from openai.types.chat.completion_create_params import ResponseFormat
-
 from _managers import EmailManager, ErrorManager
 from ai_classes.ai_factory import AIType
 from ai_classes.exceptions import (
@@ -19,6 +11,13 @@ from ai_classes.exceptions import (
 from attributes import NameTools
 from binders import Binder
 from book import Book, Chapter
+from openai.types.chat import (
+    ChatCompletion,
+    ChatCompletionAssistantMessageParam,
+    ChatCompletionSystemMessageParam,
+    ChatCompletionUserMessageParam,
+)
+from openai.types.chat.completion_create_params import ResponseFormat
 
 T = TypeVar("T", dict, list, str)
 

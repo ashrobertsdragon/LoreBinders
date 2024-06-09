@@ -1,5 +1,6 @@
 import os
 
+from file_handling import FileHandler
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.platypus import (
@@ -12,8 +13,6 @@ from reportlab.platypus import (
     Spacer,
 )
 from reportlab.platypus.tableofcontents import TableOfContents
-
-from file_handling import FileHandler
 
 file_handler = FileHandler()
 
