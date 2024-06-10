@@ -1,13 +1,12 @@
 import json
-import re
 from abc import ABCMeta, abstractmethod
-from collections import defaultdict
-from typing import Dict, Generator, List, Tuple, Union
+from typing import Generator, List, Tuple, Union
 
-from _types import AIType, Book, Chapter
+from _types import AIModels, AIType, BookDict, Chapter
 from ai_classes.ai_interface import AIInterface
 from data_cleaner import ManipulateData
 from json_repairer import JSONRepair
+from sort_names import SortNames
 
 data = ManipulateData()
 json_repairer = JSONRepair()
@@ -24,19 +23,13 @@ class RoleScript:
 
 
 class AIModelConfig:
-    def __init__(
-        self, provider: str, models: Dict[str, str], quality_flag: bool
-    ) -> None:
-        self.provider = provider
+    def __init__(self, models: AIModels, model_id: int = 1) -> None:
         self._models = models
-        self.quality_flag = quality_flag
+        self.provider = self._models.provider
+        self._model_id = model_id
 
     def _model_key(self) -> None:
-        self._key = (
-            self._models["upper"]
-            if self.quality_flag
-            else self._models["lower"]
-        )
+        self._key = self._models.models.get_model_by_id(self._model_id)
 
     def initialize_api(self) -> AIType:
         return AIInterface(self.provider, self._model_key)
@@ -49,11 +42,10 @@ class NameTools(metaclass=ABCMeta):
 
     def __init__(
         self,
-        book: Book,
+        metadata: BookDict,
         chapter: Chapter,
-        provider: str,
-        ai_models: dict,
-        ai_quality: bool = False,
+        ai_models: AIModels,
+        model_id: int = 1,
     ) -> None:
         """
         Initialize the NameTools class with a Book object and an instance of
@@ -66,11 +58,11 @@ class NameTools(metaclass=ABCMeta):
         Raises:
             TypeError: If book is not an instance of the Book class.
         """
-        self.book = book
+        self.metadata = metadata
         self.chapter = chapter
         self._prompt = f"Text: {self.chapter.text}"
 
-        self._ai_config = AIModelConfig(provider, ai_models, ai_quality)
+        self._ai_config = AIModelConfig(ai_models, model_id)
         self._ai = self._ai_config.initialize_api()
 
         self._categories_base = ["Characters", "Settings"]
@@ -125,14 +117,18 @@ class NameExtractor(NameTools):
     """
 
     def __init__(
-        self, book: Book, chapter: Chapter, provider: str, ai_models: dict
+        self,
+        metadata: BookDict,
+        chapter: Chapter,
+        ai_models: AIModels,
     ) -> None:
-        super().__init__(book, chapter, provider, ai_models, ai_quality=False)
+        super().__init__(metadata, chapter, ai_models)
 
         self.max_tokens: int = 1000
         self.temperature: float = 0.2
 
-        self.custom_categories = self.book.custom_categories
+        self.narrator = self.metadata.narrator
+        self.custom_categories = self.metadata.custom_categories
 
     def _build_custom_role(self) -> str:
         """
@@ -151,7 +147,7 @@ class NameExtractor(NameTools):
                 role_categories: str = "\n".join(name_strings)
         return role_categories or ""
 
-    def _build_role_script(self) -> None:
+    def build_role_script(self) -> None:
         """
         Builds the role script for the NameExtractor class.
 
@@ -165,45 +161,50 @@ class NameExtractor(NameTools):
             None
         """
         role_categories: str = self._build_custom_role()
-        self.role_script: str = (
-            "You are a script supervisor compiling a list of characters in "
-            "each scene. For the following selection, determine who are the "
-            "characters, giving only their name and no other information. "
-            "Please also determine the settings, both interior (e.g. ship's "
-            "bridge, classroom, bar) and exterior (e.g. moon, Kastea, Hell's "
-            f"Kitchen).{self.custom_categories}.\n"
-            "If the scene is written in the first person, try to identify "
-            "the narrator by their name. If you can't determine the "
-            "narrator's identity. List 'Narrator' as a character. Use "
-            "characters' names instead of their relationship to the narrator "
-            "(e.g. 'Uncle Joe' should be 'Joe'. If the character is only "
-            "identified by their relationship to the narrator (e.g. 'Mom' or "
-            "'Grandfather'), list the character by that identifier instead "
-            "of the relationship (e.g. 'Mom' instead of 'Narrator's mom' or "
-            "'Grandfather' instead of 'Kalia's Grandfather'\n"
-            "Be as brief as possible, using one or two words for each entry, "
-            "and avoid descriptions. For example, 'On board the Resolve' "
-            "should be 'Resolve'. 'Debris field of leftover asteroid pieces' "
-            "should be 'Asteroid debris field'. 'Unmarked section of wall "
-            "(potentially a hidden door)' should be 'unmarked wall section'\n"
-            "Do not use these examples unless they actually appear in the "
-            "text.\nIf you cannot find any mention of a specific category in "
-            "the text, please respond with 'None found' on the same line as "
-            "the category name. If you are unsure of a setting or no setting "
-            "is shown in the text, please respond with 'None found' on the "
-            "same line as the word 'Setting'\n"
-            "Please format the output exactly like this:\n"
-            "Characters:\n"
-            "character1\n"
-            "character2\n"
-            "character3\n"
-            "Settings:\n"
-            "Setting1 (interior)\n"
-            "Setting2 (exterior)\n"
-            f"{role_categories}"
-        )
+        self._role_scripts = [
+            RoleScript(
+                (
+                    "You are a script supervisor compiling a list of characters in "
+                    "each scene. For the following selection, determine who are the "
+                    "characters, giving only their name and no other information. "
+                    "Please also determine the settings, both interior (e.g. ship's "
+                    "bridge, classroom, bar) and exterior (e.g. moon, Kastea, Hell's "
+                    f"Kitchen).{self.custom_categories}.\n"
+                    "If the scene is written in the first person, try to identify "
+                    "the narrator by their name. If you can't determine the "
+                    "narrator's identity. List 'Narrator' as a character. Use "
+                    "characters' names instead of their relationship to the narrator "
+                    "(e.g. 'Uncle Joe' should be 'Joe'. If the character is only "
+                    "identified by their relationship to the narrator (e.g. 'Mom' or "
+                    "'Grandfather'), list the character by that identifier instead "
+                    "of the relationship (e.g. 'Mom' instead of 'Narrator's mom' or "
+                    "'Grandfather' instead of 'Kalia's Grandfather'\n"
+                    "Be as brief as possible, using one or two words for each entry, "
+                    "and avoid descriptions. For example, 'On board the Resolve' "
+                    "should be 'Resolve'. 'Debris field of leftover asteroid pieces' "
+                    "should be 'Asteroid debris field'. 'Unmarked section of wall "
+                    "(potentially a hidden door)' should be 'unmarked wall section'\n"
+                    "Do not use these examples unless they actually appear in the "
+                    "text.\nIf you cannot find any mention of a specific category in "
+                    "the text, please respond with 'None found' on the same line as "
+                    "the category name. If you are unsure of a setting or no setting "
+                    "is shown in the text, please respond with 'None found' on the "
+                    "same line as the word 'Setting'\n"
+                    "Please format the output exactly like this:\n"
+                    "Characters:\n"
+                    "character1\n"
+                    "character2\n"
+                    "character3\n"
+                    "Settings:\n"
+                    "Setting1 (interior)\n"
+                    "Setting2 (exterior)\n"
+                    f"{role_categories}"
+                ),
+                self.max_tokens,
+            )
+        ]
 
-    def _parse_response(self, response: str, chapter: Chapter) -> None:
+    def parse_response(self, response: str) -> dict:
         """
         Parses the response from the AI model to extract names and add them to
         the Chapter object.
@@ -219,222 +220,8 @@ class NameExtractor(NameTools):
         Returns:
             None
         """
-        narrator = self.book.narrator
-        names = self._sort_names(response, narrator)
-        chapter.add_names(names)
-
-    def _sort_names(self, name_list: str, narrator: str) -> dict:
-        """
-        Parses the response from the AI model to extract names and add them to
-        the Chapter object.
-
-        This method takes the response from the AI model as input and extracts
-        the names using the _sort_names method. It also retrieves the narrator
-        from the Book object. The extracted names are then added to the
-        Chapter object using the add_names method.
-
-        Argss:
-            name_list (str): The response from the AI model.
-            narrator (str): The narrator from the Book object.
-
-        Returns:
-            dict: A dictionary containing the sorted names categorized by
-                their respective categories.
-        """
-        name_map: dict = {}
-        name_table: dict = {}
-        inner_dict: dict = {}
-        category_name: str = ""
-        inner_values: list = []
-
-        character_info_pattern = re.compile(
-            r"\((?!interior|exterior).+\)$", re.IGNORECASE
-        )
-        inverted_setting_pattern = re.compile(
-            r"(interior|exterior)\s+\((\w+)\)", re.IGNORECASE
-        )
-        leading_colon_pattern = re.compile(r"\s*:\s+")
-        list_formatting_pattern = re.compile(
-            r"^[\d.-]\s*|^\.\s|^\*\s*|^\+\s*|^\\t"
-        )
-        missing_newline_before_pattern = re.compile(r"(?<=\w)(?=[A-Z][a-z]*:)")
-        missing_newline_between_pattern = re.compile(r"(\w+ \(\w+\))\s+(\w+)")
-        missing_newline_after_pattern = re.compile(r"(?<=\w):\s*(?=\w)")
-        junk: set = {
-            "additional",
-            "note",
-            "none",
-            "mentioned",
-            "unknown",
-            "he",
-            "they",
-            "she",
-            "we",
-            "it",
-            "boy",
-            "girl",
-            "main",
-            "him",
-            "her",
-            "I",
-            "</s>",
-            "a",
-        }
-
-        lines = name_list.split("\n")
-
-        i = 0
-        while i < len(lines):
-            line = lines[i]
-            line = list_formatting_pattern.sub("", line)
-            line = re.sub(
-                r"(interior|exterior)",
-                lambda m: m.group().lower(),
-                line,
-                flags=re.IGNORECASE,
-            )
-            if line.startswith("interior:") or line.startswith("exterior:"):
-                prefix, places = line.split(":", 1)
-                setting = (
-                    "(interior)" if prefix == "interior" else "(exterior)"
-                )
-                split_lines = [
-                    f"{place.strip()} {setting}" for place in places.split(",")
-                ]
-                lines[i : i + 1] = split_lines
-                continue
-            line = inverted_setting_pattern.sub(r"\2 (\1)", line)
-            if ", " in line:
-                comma_split = line.split(", ")
-                lines[i : i + 1] = comma_split
-                continue
-            added_newline = missing_newline_before_pattern.sub("\n", line)
-            if added_newline != line:
-                added_newlines = added_newline.split("\n")
-                lines[i : i + 1] = added_newlines
-                continue
-            added_newline = missing_newline_between_pattern.sub(
-                r"\1\n\2", line
-            )
-            if added_newline != line:
-                added_newlines = added_newline.split("\n")
-                lines[i : i + 1] = added_newlines
-                continue
-            added_newline = missing_newline_after_pattern.sub(":\n", line)
-            if added_newline != line:
-                added_newlines = added_newline.split("\n")
-                lines[i : i + 1] = added_newlines
-                continue
-            line = leading_colon_pattern.sub("", line)
-            line = line.strip()
-            if line == "":
-                i += 1
-                continue
-            line_set = set(line.lower().split())
-            if line_set.intersection(junk):
-                i += 1
-                continue
-            if line.count("(") != line.count(")"):
-                line.replace("(", "").replace(")", "")
-            if line.lower() == "setting:":
-                line = "Settings:"
-            if any(line.lower().split()) in {
-                "narrator",
-                "protagonist",
-                "main characater",
-            }:
-                line = narrator
-            line = character_info_pattern.sub("", line)
-
-            # Remaining lines ending with a colon are category names and lines
-            # following belong in a list for that category
-            if line.endswith(":"):
-                if category_name:
-                    inner_dict.setdefault(category_name, []).extend(
-                        inner_values
-                    )
-                    inner_values = []
-                category_name = line[:-1].title()
-            else:
-                inner_values.append(line)
-            i += 1
-
-        if category_name:
-            inner_dict.setdefault(category_name, []).extend(inner_values)
-            inner_values = []
-        if inner_dict:
-            for category_name, inner_values in inner_dict.items():
-                if (
-                    category_name.endswith("s")
-                    and category_name[:-1] in inner_dict
-                ):
-                    inner_values.extend(inner_dict[category_name[:-1]])
-                    inner_dict[category_name[:-1]] = []
-                inner_values = self._compare_names(inner_values, name_map)
-                name_table[category_name] = inner_values
-            inner_values = []
-        # Remove empty category_name keys
-        for category_name, inner_values in list(name_table.items()):
-            if not inner_values:
-                del name_table[category_name]
-        return name_table
-
-    def _compare_names(self, inner_values: list, name_map: dict) -> list:
-        """
-        Compares and standardizes names in the inner_values list.
-
-        This method compares the names in the inner_values list and
-        standardizes them based on certain conditions. It removes titles from
-        the names using the _remove_titles method. Then, it iterates through
-        each pair of names and checks if they are similar. If a pair of names
-        is similar, it determines the singular and plural forms of the names
-        and selects the shorter and longer values. It creates a name_map
-        dictionary to map the shorter value to the longer value. Finally, it
-        creates a set of standardized names by applying the name_map to each
-        name in the inner_values list.
-
-        Args:
-            inner_values (list): A list of names to be compared and
-                standardized.
-
-        Returns:
-            list: A list of standardized names.
-
-        """
-        cleaned_values = {
-            value: data.remove_titles(value) for value in inner_values
-        }
-        for i, value_i in enumerate(inner_values):
-            clean_i = cleaned_values[value_i]
-
-            for j, value_j in enumerate(inner_values):
-                if (
-                    i != j
-                    and value_i != value_j
-                    and not value_i.endswith(")")
-                    and not value_j.endswith(")")
-                    and (
-                        value_i.startswith(value_j)
-                        or value_i.endswith(value_j)
-                    )
-                ):
-                    clean_j = cleaned_values[value_j]
-                    if clean_i == data.to_singular(clean_j):
-                        shorter_value = clean_i
-                        longer_value = clean_j
-                    elif clean_j == data.to_singular(clean_i):
-                        shorter_value = clean_j
-                        longer_value = clean_i
-                    else:
-                        shorter_value, longer_value = sorted(
-                            [clean_i, clean_j], key=len
-                        )
-                    name_map = defaultdict(lambda: longer_value)
-                    name_map[shorter_value] = longer_value
-        standardized_names = {
-            name_map.get(name, name) for name in inner_values
-        }
-        return list(standardized_names)
+        sorter = SortNames(response, self.narrator)
+        return sorter.sort()
 
 
 class NameAnalyzer(NameTools):
@@ -464,10 +251,10 @@ class NameAnalyzer(NameTools):
 
     def __init__(
         self,
-        book: Book,
+        metadata: BookDict,
         chapter: Chapter,
-        provider: str,
-        ai_models: dict,
+        ai_models: AIModels,
+        model_id: int = 3,
     ) -> None:
         """
         Initializes a NameAnalyzer object.
@@ -490,13 +277,13 @@ class NameAnalyzer(NameTools):
         Returns:
             None
         """
-        self.model: str = "gpt_four"
-        super().__init__(book, chapter, provider, ai_models, ai_quality=True)
-
+        super().__init__(metadata, chapter, ai_models)
         self.temperature: float = 0.4
 
-        self.custom_categories: List[str] = self.book.custom_categories
-        self.character_attributes: List[str] = self.book.character_attributes
+        self.custom_categories: List[str] = self.metatada.custom_categories
+        self.character_attributes: List[str] = (
+            self.metadata.character_attributes
+        )
 
     def _generate_schema(self, category: str) -> str:
         """
@@ -812,12 +599,6 @@ class NameAnalyzer(NameTools):
         if isinstance(parsed_response, dict):
             chapter.add_analysis(parsed_response)
 
-    def build_lorebinder(self) -> None:
-        lorebinder: dict = {}
-        for chapter in self.book.get_chapters:
-            lorebinder[chapter.number] = chapter.analysis
-        self.book.add_binder(lorebinder)
-
 
 class NameSummarizer(NameTools):
     """
@@ -849,7 +630,7 @@ class NameSummarizer(NameTools):
     """
 
     def __init__(
-        self, book: Book, chapter: Chapter, provider: str, ai_models: dict
+        self, metadata: BookDict, chapter: Chapter, ai_models: AIModels
     ) -> None:
         """
         Initialize the NameSummarizer class with a Book object.
@@ -864,7 +645,7 @@ class NameSummarizer(NameTools):
             None
         """
 
-        super().__init__(book, chapter, provider, ai_models, ai_quality=False)
+        super().__init__(metadata, chapter, ai_models)
         self.temperature: float = 0.4
         self.max_tokens: int = 200
 
@@ -882,7 +663,7 @@ class NameSummarizer(NameTools):
             Tuple[str, str, str]: A tuple containing the category, name, and
                 prompt for each name in the lorebinder.
         """
-        self.lorebinder: dict = self.book.get_binder
+
         for category, category_names in self.lorebinder.items():
             for name, chapters in category_names.items():
                 for _, details in chapters.items():
