@@ -1,6 +1,6 @@
 import json
 from abc import ABCMeta, abstractmethod
-from typing import Generator, List, Tuple, Union
+from typing import Generator, List, Union
 
 from _types import AIModels, AIType, BookDict, Chapter
 from ai_classes.ai_interface import AIInterface
@@ -68,23 +68,36 @@ class NameTools(metaclass=ABCMeta):
         self._categories_base = ["Characters", "Settings"]
         self._role_scripts: List[RoleScript] = []
 
-    def get_info(self) -> str:
+    def _call_ai(self, json_response: bool) -> str:
         """
-        Iterate over the Chapter objects stored in the Book object, send the
-        text as prompts to the AI model, and fetch the response. For use with
-        simpler prompts.
+        Iterate over the list of RoleScript objects, send the chapte rtext as
+        a prompt with each system message from the RoleScript to the AI model,
+        and fetch the response.
         """
 
         responses = []
         for script in self._role_scripts:
             payload = self._ai.create_payload(script.script, script.max_tokens)
-            response = self._ai.call_api(payload)
+            response = self._ai.call_api(payload, json_response)
         if response:
             responses.append(response)
-        return "".join(response)
+
+        return self._combine_responses(responses, json_response)
+
+    @staticmethod
+    def _combine_responses(responses: List[str], json_response: bool) -> str:
+        if json_response:
+            response = (
+                "{"
+                + ",".join(part.lstrip("{").rstrip("}") for part in responses)
+                + "}"
+            )
+        else:
+            response = "".join(responses)
+        return response
 
     @abstractmethod
-    def parse_response(self, response: str) -> Union[list, dict]:
+    def _parse_response(self, response: str) -> Union[list, dict]:
         """
         Abstract method to parse the AI response.
 
@@ -121,8 +134,9 @@ class NameExtractor(NameTools):
         metadata: BookDict,
         chapter: Chapter,
         ai_models: AIModels,
+        model_id: int,
     ) -> None:
-        super().__init__(metadata, chapter, ai_models)
+        super().__init__(metadata, chapter, ai_models, model_id)
 
         self.max_tokens: int = 1000
         self.temperature: float = 0.2
@@ -161,50 +175,50 @@ class NameExtractor(NameTools):
             None
         """
         role_categories: str = self._build_custom_role()
-        self._role_scripts = [
-            RoleScript(
-                (
-                    "You are a script supervisor compiling a list of characters in "
-                    "each scene. For the following selection, determine who are the "
-                    "characters, giving only their name and no other information. "
-                    "Please also determine the settings, both interior (e.g. ship's "
-                    "bridge, classroom, bar) and exterior (e.g. moon, Kastea, Hell's "
-                    f"Kitchen).{self.custom_categories}.\n"
-                    "If the scene is written in the first person, try to identify "
-                    "the narrator by their name. If you can't determine the "
-                    "narrator's identity. List 'Narrator' as a character. Use "
-                    "characters' names instead of their relationship to the narrator "
-                    "(e.g. 'Uncle Joe' should be 'Joe'. If the character is only "
-                    "identified by their relationship to the narrator (e.g. 'Mom' or "
-                    "'Grandfather'), list the character by that identifier instead "
-                    "of the relationship (e.g. 'Mom' instead of 'Narrator's mom' or "
-                    "'Grandfather' instead of 'Kalia's Grandfather'\n"
-                    "Be as brief as possible, using one or two words for each entry, "
-                    "and avoid descriptions. For example, 'On board the Resolve' "
-                    "should be 'Resolve'. 'Debris field of leftover asteroid pieces' "
-                    "should be 'Asteroid debris field'. 'Unmarked section of wall "
-                    "(potentially a hidden door)' should be 'unmarked wall section'\n"
-                    "Do not use these examples unless they actually appear in the "
-                    "text.\nIf you cannot find any mention of a specific category in "
-                    "the text, please respond with 'None found' on the same line as "
-                    "the category name. If you are unsure of a setting or no setting "
-                    "is shown in the text, please respond with 'None found' on the "
-                    "same line as the word 'Setting'\n"
-                    "Please format the output exactly like this:\n"
-                    "Characters:\n"
-                    "character1\n"
-                    "character2\n"
-                    "character3\n"
-                    "Settings:\n"
-                    "Setting1 (interior)\n"
-                    "Setting2 (exterior)\n"
-                    f"{role_categories}"
-                ),
-                self.max_tokens,
-            )
-        ]
+        system_message = (
+            "You are a script supervisor compiling a list of characters in "
+            "each scene. For the following selection, determine who are the "
+            "characters, giving only their name and no other information. "
+            "Please also determine the settings, both interior (e.g. ship's "
+            "bridge, classroom, bar) and exterior (e.g. moon, Kastea, Hell's "
+            f"Kitchen).{self.custom_categories}.\n"
+            "If the scene is written in the first person, try to identify "
+            "the narrator by their name. If you can't determine the "
+            "narrator's identity. List 'Narrator' as a character. Use "
+            "characters' names instead of their relationship to the narrator "
+            "(e.g. 'Uncle Joe' should be 'Joe'. If the character is only "
+            "identified by their relationship to the narrator (e.g. 'Mom' or "
+            "'Grandfather'), list the character by that identifier instead "
+            "of the relationship (e.g. 'Mom' instead of 'Narrator's mom' or "
+            "'Grandfather' instead of 'Kalia's Grandfather'\n"
+            "Be as brief as possible, using one or two words for each entry, "
+            "and avoid descriptions. For example, 'On board the Resolve' "
+            "should be 'Resolve'. 'Debris field of leftover asteroid pieces' "
+            "should be 'Asteroid debris field'. 'Unmarked section of wall "
+            "(potentially a hidden door)' should be 'unmarked wall section'\n"
+            "Do not use these examples unless they actually appear in the "
+            "text.\nIf you cannot find any mention of a specific category in "
+            "the text, please respond with 'None found' on the same line as "
+            "the category name. If you are unsure of a setting or no setting "
+            "is shown in the text, please respond with 'None found' on the "
+            "same line as the word 'Setting'\n"
+            "Please format the output exactly like this:\n"
+            "Characters:\n"
+            "character1\n"
+            "character2\n"
+            "character3\n"
+            "Settings:\n"
+            "Setting1 (interior)\n"
+            "Setting2 (exterior)\n"
+            f"{role_categories}"
+        )
+        self._role_scripts = [RoleScript(system_message, self.max_tokens)]
 
-    def parse_response(self, response: str) -> dict:
+    def extract_names(self) -> dict:
+        response = self._call_ai(json_response=False)
+        return self._parse_response(response)
+
+    def _parse_response(self, response: str) -> dict:
         """
         Parses the response from the AI model to extract names and add them to
         the Chapter object.
@@ -237,16 +251,9 @@ class NameAnalyzer(NameTools):
             analysis.
 
     Methods:
-        _generate_schema: Generates a string representation of the JSON
-            schema for the AI to follow.
-        _create_instructions: Creates instructions for the AI based on the
-            categories to be analyzed.
-        _form_schema: Forms the JSON schema for the categories to be analyzed.
-        _reset_variables: Resets the variables for a new batch of categories.
-        _append_attributes_batch: Appends the attributes batch to the list.
         analyze_names: Analyzes the names in the chapters and returns
             information about them.
-        _parse_response(: Parses the AI response and adds it to the Chapter.
+        parse_response(: Parses the AI response and adds it to the Chapter.
     """
 
     def __init__(
@@ -277,7 +284,7 @@ class NameAnalyzer(NameTools):
         Returns:
             None
         """
-        super().__init__(metadata, chapter, ai_models)
+        super().__init__(metadata, chapter, ai_models, model_id)
         self.temperature: float = 0.4
 
         self.custom_categories: List[str] = self.metatada.custom_categories
@@ -332,7 +339,7 @@ class NameAnalyzer(NameTools):
 
         return json.dumps(schema)
 
-    def _create_instructions(self, to_batch: list) -> str:
+    def _create_instructions(self) -> str:
         """
         Creates instructions for the AI based on the categories to be
         analyzed.
@@ -386,14 +393,16 @@ class NameAnalyzer(NameTools):
             'as a child and represents freedom to her"}'
         )
 
-        for category in to_batch:
+        for category in self.to_batch:
             if category == "Characters":
                 instructions += character_instructions
             if category == "Settings":
                 instructions += setting_instructions
             else:
                 other_category_list = [
-                    cat for cat in to_batch if cat not in self._categories_base
+                    cat
+                    for cat in self.to_batch
+                    if cat not in self._categories_base
                 ]
                 instructions += (
                     "Provide descriptons of "
@@ -408,7 +417,7 @@ class NameAnalyzer(NameTools):
         )
         return instructions
 
-    def _form_schema(self, to_batch: list) -> str:
+    def _form_schema(self) -> str:
         """
         Forms the JSON schema for the categories to be analyzed.
 
@@ -428,15 +437,13 @@ class NameAnalyzer(NameTools):
         """
         attributes_json = ""
 
-        for category in to_batch:
+        for category in self.to_batch:
             schema_json = self._generate_schema(category)
             attributes_json += schema_json
 
         return attributes_json
 
-    def _reset_variables(
-        self, category: str, token_count: int
-    ) -> Tuple[list, int]:
+    def _reset_variables(self, category: str, token_count: int) -> None:
         """
         Resets the variables for a new batch of categories.
 
@@ -454,17 +461,10 @@ class NameAnalyzer(NameTools):
                 and 'max_tokens' variable.
 
         """
-        to_batch = [category]
-        max_tokens = token_count
-        return to_batch, max_tokens
+        self.to_batch = [category]
+        self.max_tokens = token_count
 
-    def _append_attributes_batch(
-        self,
-        attributes_batch: list,
-        to_batch: list,
-        max_tokens: int,
-        instructions: str,
-    ) -> list:
+    def _append_attributes_batch(self, instructions: str) -> None:
         """
         Appends the attributes batch to the list.
 
@@ -484,11 +484,12 @@ class NameAnalyzer(NameTools):
         Returns:
             list: The updated attributes batch list.
         """
-        attributes_json: str = self._form_schema(to_batch)
-        attributes_batch.append((attributes_json, max_tokens, instructions))
-        return attributes_batch
+        attributes_json: str = self._form_schema()
+        self._attributes_batch.append(
+            (attributes_json, self.max_tokens, instructions)
+        )
 
-    def _build_role_script(self) -> List[Tuple[str, int]]:
+    def build_role_script(self) -> None:
         """
         Builds a list of tuples containing the role script and max_tokens to
         be used for each pass of the Chapter.
@@ -500,14 +501,13 @@ class NameAnalyzer(NameTools):
             instructions (str): The instructions for the AI.
 
         Returns:
-            list: The updated attributes batch list.
+            None.
         """
         ABSOLUTE_MAX_TOKENS: int = 4096
 
-        max_tokens: int = 0
+        self.max_tokens = 0
         attributes_batch: list = []
         to_batch: list = []
-        role_script_info: list = []
 
         tokens_per: dict = {
             "Characters": 200,
@@ -520,68 +520,29 @@ class NameAnalyzer(NameTools):
         for category, names in chapter_data.items():
             token_value = tokens_per.get(category, tokens_per["Other"])
             token_count = min(len(names) * token_value, ABSOLUTE_MAX_TOKENS)
-            instructions = self._create_instructions(to_batch)
-            if max_tokens + token_count > ABSOLUTE_MAX_TOKENS:
-                instructions = self._create_instructions(to_batch)
-                attributes_batch = self._append_attributes_batch(
-                    attributes_batch, to_batch, max_tokens, instructions
-                )
-                to_batch, max_tokens = self._reset_variables(
-                    category, token_count
-                )
+            instructions = self._create_instructions()
+            if self.max_tokens + token_count > ABSOLUTE_MAX_TOKENS:
+                instructions = self._create_instructions()
+                self._append_attributes_batch(instructions)
+                self._reset_variables(category, token_count)
             else:
-                to_batch.append(category)
-                max_tokens += token_count
+                self.to_batch.append(category)
+                self.max_tokens += token_count
 
         if to_batch:
-            instructions = self._create_instructions(to_batch)
-            attributes_batch = self._append_attributes_batch(
-                attributes_batch, to_batch, max_tokens, instructions
-            )
+            instructions = self._create_instructions()
+            self._append_attributes_batch(instructions)
 
-        for attributes_json, max_tokens, instructions in attributes_batch:
-            role_script = f"{instructions}" f"{attributes_json}"
-            role_script_info.append((role_script, max_tokens))
-        return role_script_info
+        for attributes_json, self.max_tokens, instructions in attributes_batch:
+            system_message = instructions + attributes_json
+            role_script = RoleScript(system_message, self.max_tokens)
+            self._role_scripts.append(role_script)
 
-    def analyze_names(self) -> None:
-        """
-        Takes a chapter object and returns information about the names in its
-        names list.
+    def analyze_names(self, json_response=True) -> dict:
+        response = self._call_ai(json_response)
+        return self._parse_response(response)
 
-        This method iterates over each chapter in the book and analyzes the
-        names present in the chapter's text. It generates a prompt using the
-        chapter's text and builds a role script using the _build_role_script
-        method. The role script contains instructions and JSON schema for the
-        AI model to follow. The method then calls the AI API for each role
-        script in the role script info list and appends the responses to a
-        list. Finally, it parses the response and adds the analyzed
-        information to the Chapter object.
-        """
-        for chapter in self.book.get_chapters:
-            prompt = f"Text: {chapter.text}"
-            role_script_info = self._build_role_script()
-
-            response_whole: list = []
-            for role_script, max_tokens in role_script_info:
-                api_payload = self._ai.create_payload(
-                    prompt, role_script, self.temperature, max_tokens
-                )
-                response_part = self._ai.call_api(
-                    api_payload, json_response=True
-                )
-                response_whole.append(response_part)
-            response = (
-                "{"
-                + ",".join(
-                    part.lstrip("{").rstrip("}") for part in response_whole
-                )
-                + "}"
-            )
-
-            self._parse_response(response, chapter)
-
-    def _parse_response(self, response: str, chapter: Chapter) -> None:
+    def _parse_response(self, response: str) -> dict:
         """
         Parses the AI response and adds it to the Chapter.
 
@@ -593,11 +554,9 @@ class NameAnalyzer(NameTools):
             response (str): The AI response as a string.
 
         Returns:
-            None
+            T
         """
-        parsed_response = json_repairer.repair(response)
-        if isinstance(parsed_response, dict):
-            chapter.add_analysis(parsed_response)
+        return json_repairer.json_str_to_dict(response)
 
 
 class NameSummarizer(NameTools):
