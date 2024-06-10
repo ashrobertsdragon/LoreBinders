@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from file_handling import FileHandler
 from json_repair import repair_json
@@ -75,8 +75,11 @@ class JSONRepair:
 
     def repair(
         self, bad_string: str
-    ) -> Dict[str, Any] | List[Any] | str | float | int | bool | None:
+    ) -> Union[Dict[str, Any], List[Any], str, float, int, bool, None]:
         return repair_json(bad_string, return_objects=True)
 
     def repair_str(self, bad_string: str) -> str:
         return repair_json(bad_string)
+
+    def json_str_to_dict(self, json_str: str) -> dict:
+        return repair_json(json_str)
