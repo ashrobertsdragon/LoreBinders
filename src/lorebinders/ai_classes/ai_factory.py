@@ -38,17 +38,18 @@ class AIType:
         role_script: str,
         temperature: float,
         max_tokens: int,
-    ) -> Payload:
+    ) -> dict:
         """
         Dummy method. Do not use.
         """
-        return Payload(
+        payload = Payload(
             model_name="Do not use",
             role_script=role_script,
             prompt=prompt,
             temperature=temperature,
             max_tokens=max_tokens,
         )
+        return payload.model_dump()
 
     def call_api(
         self,
@@ -200,7 +201,7 @@ class AIFactory(AIType, ABC, RateLimit):
         role_script: str,
         temperature: float,
         max_tokens: int,
-    ) -> Payload:
+    ) -> dict:
         """
         Creates a payload dictionary for making API calls to the AI engine.
 
@@ -230,7 +231,7 @@ class AIFactory(AIType, ABC, RateLimit):
         except ValidationError as e:
             logging.exception(str(e))
 
-        return payload
+        return payload.model_dump()
 
     def update_rate_limit_data(self, tokens: int) -> None:
         """
