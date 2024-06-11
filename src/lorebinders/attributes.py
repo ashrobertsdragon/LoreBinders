@@ -222,7 +222,7 @@ class NameExtractor(NameTools):
         from the Book object. The extracted names are then added to the
         Chapter object using the add_names method.
 
-        Argss:
+        Args:
             response (str): The response from the AI model.
 
         Returns:
@@ -310,7 +310,7 @@ class NameAnalyzer(NameTools):
         given category.
 
         Args:
-            cateogry (str): The category to form the JSON schema for.
+            category (str): The category to form the JSON schema for.
         Returns:
             str: The JSON schema string.
         """
@@ -382,7 +382,7 @@ class NameAnalyzer(NameTools):
             "personality, mood, and relationships to other characters\n"
             "An example from an early chapter of Jane Eyre:\n"
             '"Jane Eyre": {"Appearance": "Average height, slender build, fair '
-            'skin, dark brown hair, hazel eyes, plain apearance", '
+            'skin, dark brown hair, hazel eyes, plain appearance", '
             '"Personality": "Reserved, self-reliant, modest", "Mood": "Angry '
             'at her aunt about her treatment while at Gateshead"}'
         )
@@ -395,7 +395,7 @@ class NameAnalyzer(NameTools):
             'text, please respond with "None found" as the description for '
             "that setting.\nHere is an example from Wuthering Heights:\n"
             '"Moors": {"Appearance": Expansive, desolate, rugged, with high '
-            'winds and cragy rocks", "Relative location": "Surrounds '
+            'winds and craggy rocks", "Relative location": "Surrounds '
             'Wuthering Heights estate", "Main character\'s familiarity": '
             '"Very familiar, Catherine spent significant time roaming here '
             'as a child and represents freedom to her"}'
@@ -413,14 +413,14 @@ class NameAnalyzer(NameTools):
                     if cat not in self._categories_base
                 ]
                 instructions += (
-                    "Provide descriptons of "
+                    "Provide descriptions of "
                     + ", ".join(other_category_list)
                     + " without referencing specific characters or plot points"
                 )
 
         instructions += (
             "\nYou will format this information as a JSON object using the "
-            'folllowing schema where "description" is replaced with the '
+            'following schema where "description" is replaced with the '
             "actual information.\n"
         )
         return instructions
