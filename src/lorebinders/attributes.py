@@ -649,7 +649,7 @@ class NameSummarizer(NameTools):
         for category, category_names in self.lorebinder.items():
             yield from generate_prompts(category, category_names)
 
-    def sumarize_names(self) -> dict:
+    def summarize_names(self) -> dict:
         """
         Generate summaries for each name in the Lorebinder.
 

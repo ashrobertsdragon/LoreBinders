@@ -1,21 +1,23 @@
 __pycache__/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .config/
 venv/
 .upm/
 .git/
+.vscode/
+
 
 .breakpoints
 .env
 
 
-api_calls.log
+*.log
+*.txt
 api_counter.json
-critical_error.log
 rate_limit_data.json
-repair_log.txt
 role_scripts.json
-run.txt
 temp.py
 
 .replit
