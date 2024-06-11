@@ -1,6 +1,6 @@
 import json
 from abc import ABCMeta, abstractmethod
-from typing import Generator, List, Union
+from typing import Generator, List, Tuple, Union, cast
 
 from _types import AIModels, AIType, BookDict, Chapter
 from ai_classes.ai_interface import AIInterface
@@ -60,33 +60,24 @@ class NameTools(metaclass=ABCMeta):
         """
         self.metadata = metadata
         self.chapter = chapter
-        self._prompt = f"Text: {self.chapter.text}"
 
         self._ai_config = AIModelConfig(ai_models, model_id)
         self._ai = self._ai_config.initialize_api()
 
         self._categories_base = ["Characters", "Settings"]
-        self._role_scripts: List[RoleScript] = []
+        self._json_mode: bool = False
 
-    def _call_ai(self, json_response: bool) -> str:
+    def _get_ai_response(self, role_script: RoleScript, prompt) -> str:
         """
-        Iterate over the list of RoleScript objects, send the chapte rtext as
-        a prompt with each system message from the RoleScript to the AI model,
-        and fetch the response.
+        Create the payload to send to the AI and send it.
         """
+        payload = self._ai.create_payload(
+            prompt, role_script.script, role_script.max_tokens
+        )
+        return self._ai.call_api(payload, self._json_mode)
 
-        responses = []
-        for script in self._role_scripts:
-            payload = self._ai.create_payload(script.script, script.max_tokens)
-            response = self._ai.call_api(payload, json_response)
-        if response:
-            responses.append(response)
-
-        return self._combine_responses(responses, json_response)
-
-    @staticmethod
-    def _combine_responses(responses: List[str], json_response: bool) -> str:
-        if json_response:
+    def _combine_responses(self, responses: List[str]) -> str:
+        if self._json_mode:
             response = (
                 "{"
                 + ",".join(part.lstrip("{").rstrip("}") for part in responses)
@@ -97,7 +88,7 @@ class NameTools(metaclass=ABCMeta):
         return response
 
     @abstractmethod
-    def _parse_response(self, response: str) -> Union[list, dict]:
+    def _parse_response(self, response: str) -> dict:
         """
         Abstract method to parse the AI response.
 
@@ -140,6 +131,7 @@ class NameExtractor(NameTools):
 
         self.max_tokens: int = 1000
         self.temperature: float = 0.2
+        self._prompt = f"Text: {self.chapter.text}"
 
         self.narrator = self.metadata.narrator
         self.custom_categories = self.metadata.custom_categories
@@ -212,10 +204,12 @@ class NameExtractor(NameTools):
             "Setting2 (exterior)\n"
             f"{role_categories}"
         )
-        self._role_scripts = [RoleScript(system_message, self.max_tokens)]
+        self._single_role_script = RoleScript(system_message, self.max_tokens)
 
     def extract_names(self) -> dict:
-        response = self._call_ai(json_response=False)
+        response = self._get_ai_response(
+            self._single_role_script, self._prompt
+        )
         return self._parse_response(response)
 
     def _parse_response(self, response: str) -> dict:
@@ -286,11 +280,25 @@ class NameAnalyzer(NameTools):
         """
         super().__init__(metadata, chapter, ai_models, model_id)
         self.temperature: float = 0.4
+        self._prompt = f"Text: {self.chapter.text}"
+        self._json_mode = True
 
-        self.custom_categories: List[str] = self.metatada.custom_categories
+        self.custom_categories: List[str] = self.metadata.custom_categories
         self.character_attributes: List[str] = (
             self.metadata.character_attributes
         )
+
+        self.ABSOLUTE_MAX_TOKENS: int = 4096
+        self.tokens_per: dict = {
+            "Characters": 200,
+            "Settings": 150,
+            "Other": 100,
+        }
+
+        self.max_tokens = 0
+        self._attributes_batch: List[Tuple[str, int, str]] = []
+        self._to_batch: list = []
+        self._role_scripts: List[RoleScript] = []
 
     def _generate_schema(self, category: str) -> str:
         """
@@ -393,7 +401,7 @@ class NameAnalyzer(NameTools):
             'as a child and represents freedom to her"}'
         )
 
-        for category in self.to_batch:
+        for category in self._to_batch:
             if category == "Characters":
                 instructions += character_instructions
             if category == "Settings":
@@ -401,7 +409,7 @@ class NameAnalyzer(NameTools):
             else:
                 other_category_list = [
                     cat
-                    for cat in self.to_batch
+                    for cat in self._to_batch
                     if cat not in self._categories_base
                 ]
                 instructions += (
@@ -437,7 +445,7 @@ class NameAnalyzer(NameTools):
         """
         attributes_json = ""
 
-        for category in self.to_batch:
+        for category in self._to_batch:
             schema_json = self._generate_schema(category)
             attributes_json += schema_json
 
@@ -461,7 +469,7 @@ class NameAnalyzer(NameTools):
                 and 'max_tokens' variable.
 
         """
-        self.to_batch = [category]
+        self._to_batch = [category]
         self.max_tokens = token_count
 
     def _append_attributes_batch(self, instructions: str) -> None:
@@ -476,9 +484,6 @@ class NameAnalyzer(NameTools):
         the list.
 
         Args:
-            attributes_batch (list): The list of attributes batches.
-            to_batch (list): A list of categories to be analyzed.
-            max_tokens (int): The maximum number of tokens.
             instructions (str): The instructions for the AI.
 
         Returns:
@@ -493,54 +498,46 @@ class NameAnalyzer(NameTools):
         """
         Builds a list of tuples containing the role script and max_tokens to
         be used for each pass of the Chapter.
-
-        Args:
-            attributes_batch (list): The list of attributes batches.
-            to_batch (list): A list of categories to be analyzed.
-            max_tokens (int): The maximum number of tokens.
-            instructions (str): The instructions for the AI.
-
-        Returns:
-            None.
         """
-        ABSOLUTE_MAX_TOKENS: int = 4096
-
-        self.max_tokens = 0
-        attributes_batch: list = []
-        to_batch: list = []
-
-        tokens_per: dict = {
-            "Characters": 200,
-            "Settings": 150,
-            "Other": 100,
-        }
 
         chapter_data: dict = Chapter.names
 
         for category, names in chapter_data.items():
-            token_value = tokens_per.get(category, tokens_per["Other"])
-            token_count = min(len(names) * token_value, ABSOLUTE_MAX_TOKENS)
+            token_value = self.tokens_per.get(
+                category, self.tokens_per["Other"]
+            )
+            token_count = min(
+                len(names) * token_value, self.ABSOLUTE_MAX_TOKENS
+            )
             instructions = self._create_instructions()
-            if self.max_tokens + token_count > ABSOLUTE_MAX_TOKENS:
+            if self.max_tokens + token_count > self.ABSOLUTE_MAX_TOKENS:
                 instructions = self._create_instructions()
                 self._append_attributes_batch(instructions)
                 self._reset_variables(category, token_count)
             else:
-                self.to_batch.append(category)
+                self._to_batch.append(category)
                 self.max_tokens += token_count
 
-        if to_batch:
+        if self._to_batch:
             instructions = self._create_instructions()
             self._append_attributes_batch(instructions)
 
-        for attributes_json, self.max_tokens, instructions in attributes_batch:
+        for (
+            attributes_json,
+            max_tokens,
+            instructions,
+        ) in self._attributes_batch:
             system_message = instructions + attributes_json
-            role_script = RoleScript(system_message, self.max_tokens)
+            role_script = RoleScript(system_message, max_tokens)
             self._role_scripts.append(role_script)
 
-    def analyze_names(self, json_response=True) -> dict:
-        response = self._call_ai(json_response)
-        return self._parse_response(response)
+    def analyze_names(self) -> dict:
+        responses: List[str] = []
+        for script in self._role_scripts:
+            response = self._get_ai_response(script, self._prompt)
+            responses.append(response)
+        combined_response = self._combine_responses(responses)
+        return self._parse_response(combined_response)
 
     def _parse_response(self, response: str) -> dict:
         """
@@ -564,15 +561,14 @@ class NameSummarizer(NameTools):
     Responsible for generating summaries for each name across all
     chapters.
 
-
     Attributes:
-        book (Book): The Book object representing the book.
-        model_key (str): The key for the AI model to be used.
+        metadata (dict): The book metadata.
+        chapter (Chapter): The Chapter object being iterated over.
         temperature (float): The temperature parameter for AI response
             generation.
         max_tokens (int): The maximum number of tokens for AI response
             generation.
-        role_script (str): The role script to be used for AI response
+        _single_role_script (str): The role script to be used for AI response
             generation.
         lorebinder (dict): The lorebinder dictionary containing the names,
             categories, and summaries.
@@ -607,12 +603,14 @@ class NameSummarizer(NameTools):
         super().__init__(metadata, chapter, ai_models)
         self.temperature: float = 0.4
         self.max_tokens: int = 200
+        self.lorebinder = self.chapter.analysis
 
-    def _build_role_script(self) -> None:
-        self.role_script = (
+    def build_role_script(self) -> None:
+        system_message = (
             "You are an expert summarizer. Please summarize the description "
             "over the course of the story for the following:"
         )
+        self._single_role_script = RoleScript(system_message, self.max_tokens)
 
     def _create_prompts(self) -> Generator:
         """
@@ -622,38 +620,51 @@ class NameSummarizer(NameTools):
             Tuple[str, str, str]: A tuple containing the category, name, and
                 prompt for each name in the lorebinder.
         """
+        minimum_chapter_threshold = 3
+
+        def create_description(
+            category: str, details: Union[dict, list]
+        ) -> str:
+            if category in self._categories_base:
+                detail_dict: dict = cast(dict, details)  # Stupid MyPy
+                return ", ".join(
+                    f"{attribute}: {','.join(detail)}"
+                    for attribute, detail in detail_dict.items()
+                )
+            else:
+                detail_list: list = cast(list, details)
+                return ", ".join(detail_list)
+
+        def filter_chapters(category_names: dict) -> Generator:
+            for name, chapters in category_names.items():
+                if len(chapters) > minimum_chapter_threshold:
+                    yield name, chapters
+
+        def generate_prompts(category: str, category_names: dict) -> Generator:
+            for name, chapters in filter_chapters(category_names):
+                for _, details in chapters.items():
+                    description = create_description(category, details)
+                    yield category, name, f"{name}: {description}"
 
         for category, category_names in self.lorebinder.items():
-            for name, chapters in category_names.items():
-                for _, details in chapters.items():
-                    if category in self._categories_base:
-                        description = ", ".join(
-                            f"{attribute}: {','.join(detail)}"
-                            for attribute, detail in details.items()
-                        )
-                    else:
-                        description = ", ".join(details)
-                    yield (category, name, f"{name}: {description}")
+            yield from generate_prompts(category, category_names)
 
-    def sumarize_names(self) -> None:
+    def sumarize_names(self) -> dict:
         """
-        Generate summaries for each name in the lorebinder.
+        Generate summaries for each name in the Lorebinder.
 
-        This method iterates over each name in the lorebinder and generates a
-        summary using the OpenAI API. The generated summary is then parsed and
-        updated in the lorebinder dictionary. Finally, the updated lorebinder
-        is saved in the Book object.
+        This method iterates over each name in the Lorebinder and generates a
+        summary. The generated summary is then parsed and updated in the
+        Lorebinder dictionary.
         """
-        self._build_role_script()
         for category, name, prompt in self._create_prompts():
-            api_payload = self._ai.create_payload(
-                prompt, self.role_script, self.temperature, self.max_tokens
-            )
-            response = self._ai.call_api(api_payload)
-            self._parse_response(category, name, response)
-        self.book.update_binder(self.lorebinder)
+            self._current_category = category
+            self._current_name = name
+            response = self._get_ai_response(self._single_role_script, prompt)
+            self.lorebinder = self._parse_response(response)
+        return self.lorebinder
 
-    def _parse_response(self, category: str, name: str, response: str) -> None:
+    def _parse_response(self, response: str) -> dict:
         """
         Parse the AI response and update the lorebinder with the generated
         summary.
@@ -668,5 +679,8 @@ class NameSummarizer(NameTools):
             name (str): The name for which the summary is generated.
             response (str): The AI response containing the generated summary.
         """
+        category = self._current_category
+        name = self._current_name
         if response:
             self.lorebinder[category][name]["summary"] = response
+        return self.lorebinder
