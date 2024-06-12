@@ -2,7 +2,17 @@ import importlib
 import logging
 from typing import Dict, Optional
 
+from ai_classes._model_schema import AIModels
 from ai_classes.ai_factory import AIType
+
+
+class AIModelConfig:
+    def __init__(self, models: AIModels) -> None:
+        self.provider_models = models
+        self.provider = self.models.provider
+
+    def initialize_api(self) -> AIType:
+        return AIInterface(self.provider)
 
 
 class AIInterface:
@@ -23,14 +33,24 @@ class AIInterface:
     def __init__(
         self,
         provider: str,
-        model_key: str,
     ) -> None:
-        self.model_key = model_key
         self._cached_classes: Dict[str, AIType] = {}
 
         self.ai_implementation: AIType = self._load_ai_implementation(provider)
 
     def _load_ai_implementation(self, provider: str) -> AIType:
+        """
+        Load the AI implementation based on the provider.
+
+        Args:
+            provider (str): The name of the AI provider.
+
+        Returns:
+            AIType: An instance of the AI implementation.
+
+        Raises:
+            ValueError: If the provider is invalid.
+        """
         try:
             if provider not in self._cached_classes:
                 module = importlib.import_module(
@@ -38,14 +58,22 @@ class AIInterface:
                 )
                 provider_class = f"{provider.capitalize()}API"
                 implementation_class: AIType = getattr(module, provider_class)
-                ai_class = implementation_class(self.model_key)
-                self._cached_classes[provider] = ai_class
+                self._cached_classes[provider] = implementation_class
             else:
-                ai_class = self._cached_classes[provider]
-            return ai_class
+                implementation_class = self._cached_classes[provider]
+            return implementation_class
         except (ImportError, AttributeError):
             logging.error(f"Invalid AI provider: {provider}")
             raise ValueError(f"Invalid AI provider: {provider}")
+
+    def set_model(self, model_config: AIModelConfig, model_id: int) -> None:
+        """
+        Retrieve model dictionary from configuration and pass it to
+        implementation class.
+        """
+        model = model_config.provider_models.models.get_model_by_id(model_id)
+        model_dict = model.model_dump()
+        return self.ai_implementation.set_model(model_dict)
 
     def call_api(
         self,
