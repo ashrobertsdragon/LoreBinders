@@ -7,6 +7,8 @@ class Model(BaseModel):
     id: int
     model: str
     context_window: int
+    rate_limit: int
+    tokenizer: str
 
 
 class Models(BaseModel):
