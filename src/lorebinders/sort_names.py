@@ -1,6 +1,6 @@
 import re
 from collections import defaultdict
-from typing import Callable, List, Tuple
+from typing import Callable, List, Optional, Tuple
 
 from data_cleaner import ManipulateData
 
@@ -23,7 +23,7 @@ class SortNames:
         sort: Parse the raw NER string into a nested dictionary.
     """
 
-    def __init__(self, name_list: str, narrator: str) -> None:
+    def __init__(self, name_list: str, narrator: Optional[str]) -> None:
         self._lines = name_list.split("\n")
         self._narrator = narrator or ""
 
@@ -59,7 +59,7 @@ class SortNames:
         """
         Compile regex patterns for various text processing needs.
         """
-        self._not_int_ext_paranthetical_pattern = re.compile(
+        self._not_int_ext_parenthetical_pattern = re.compile(
             r"\((?!interior|exterior).+\)$", re.IGNORECASE
         )
         self._inverted_setting_pattern = re.compile(
@@ -132,9 +132,9 @@ class SortNames:
 
     def _remove_parantheticals_pattern(self, line: str) -> str:
         """
-        Remove non-interior/exterior parentheticals from the line.
+        Remove non-interior/exterior parantheticals from the line.
         """
-        return self._not_int_ext_paranthetical_pattern.sub(r"\`1", line)
+        return self._not_int_ext_parenthetical_pattern.sub(r"\`1", line)
 
     @staticmethod
     def _num_added_lines(split_lines: list) -> int:
@@ -406,7 +406,7 @@ class SortNames:
         from the Book object. The extracted names are then added to the
         Chapter object using the add_names method.
 
-        Argss:
+        Args:
             name_list (str): The response from the AI model.
             narrator (str): The narrator from the Book object.
 
@@ -442,7 +442,7 @@ class SortNames:
                 line = self._replace_bad_setting(line)
             if self._has_narrator(line):
                 line = self._narrator
-            # line = self._remove_parentheticals_pattern(line)
+            # line = self._remove_parantheticals_pattern(line)
 
             # Remaining lines ending with a colon are category names and lines
             # following belong in a list for that category
