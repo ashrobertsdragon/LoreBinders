@@ -1,6 +1,8 @@
 import os
 from typing import List, Optional
 
+from book_dict import BookDict
+
 
 def get_narrator() -> str:
     """
@@ -77,7 +79,7 @@ def input_book_path() -> str:
     return parse_file_path(file_path)
 
 
-def get_inputs() -> dict:
+def get_inputs() -> BookDict:
     title: str = input_title()
     author: str = input_author()
     book_path = input_book_path()
@@ -85,22 +87,17 @@ def get_inputs() -> dict:
     character_attributes: list = get_attributes("character")
     other_categories: list = get_attributes()
 
-    return {
-        "title": title,
-        "author": author,
-        "book_file": book_path,
-        "narrator": narrator,
-        "character_attributes_list": character_attributes,
-        "other_categories_list": other_categories,
-    }
+    return BookDict(
+        title=title,
+        author=author,
+        book_file=book_path,
+        narrator=narrator,
+        character_traits=character_attributes,
+        custom_categories=other_categories,
+    )
 
 
-def get_book() -> dict:
-    book_dict: dict = get_inputs()
-    return confirm_inputs(book_dict)
-
-
-def confirm_inputs(book_dict: dict) -> dict:
+def confirm_inputs(book_dict: BookDict) -> BookDict:
     """
     Displays the book metadata in a user-friendly format, allows editing, and
     returns the final data.
@@ -113,12 +110,12 @@ def confirm_inputs(book_dict: dict) -> dict:
     """
 
     key_name_map = {
+        "book_file": "Book File Path",
         "title": "Title",
         "author": "Author",
-        "book_file": "Book File Path",
         "narrator": "Narrator",
-        "character_attributes": "Character Attributes (List)",
-        "other_attributes": "Other Attributes (List)",
+        "character_traits": "Character Traits (List)",
+        "custom_categories": "Other Categories (List)",
     }
 
     def edit_book_dict(key_name):
@@ -138,13 +135,12 @@ def confirm_inputs(book_dict: dict) -> dict:
             "other_attributes": get_attributes(),
         }
         new_value = input_function[key_name]()
-        book_dict[key_name] = new_value
+        setattr(book_dict, key_name, new_value)
 
     while True:
-        print("\nBook book_dict:")
-        for key, value in book_dict.items():
-            key_name = key_name_map[key]
-            print(f"  - {key_name}: {value}")
+        print("\nBook metadata:")
+        for key, value in key_name_map.items():
+            print(f"  - {value}: {getattr(book_dict, key)}")
 
         choice = input(
             "\nIf this is correct, type Y to continue. "
@@ -154,21 +150,12 @@ def confirm_inputs(book_dict: dict) -> dict:
         if choice.upper() == "Y":
             return book_dict
 
-        elif choice.isdigit():
-            index = int(choice) - 1
-            if 0 <= index < len(book_dict):
-                key_name = list(book_dict.keys())[index]
-                edit_book_dict(key_name)
-            else:
-                print(
-                    "Invalid index." "Please enter a valid number or key name."
-                )
+        elif choice in key_name_map.keys():
+            edit_book_dict(choice)
         else:
-            key_name = choice.strip()
-            if key_name in key_name_map.keys():
-                edit_book_dict(key_name)
-            else:
-                print(
-                    "Invalid key name."
-                    "Please enter a valid number or key name."
-                )
+            print("Invalid index." "Please enter a valid number or key name.")
+
+
+def get_book() -> BookDict:
+    book_dict = get_inputs()
+    return confirm_inputs(book_dict)
