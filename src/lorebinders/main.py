@@ -1,32 +1,20 @@
 import os
-from typing import List, Optional
 
 from binders import Binder
 from book import Book
+from book_dict import BookDict
 from dotenv import load_dotenv
 from ebook2text.convert_file import convert_file  # type: ignore
-from pydantic import BaseModel
+from make_pdf import create_pdf
 from user_input import get_book
 
 load_dotenv()
 
 
-class BookDict(BaseModel):
-    book_file: str
-    title: str
-    author: str
-    narrator: Optional[str]
-    character_traits: Optional[List[str]]
-    custom_categories: Optional[List[str]]
-    user_folder: str
-
-
 def create_lorebinder(book_dict: BookDict) -> None:
     book = Book(book_dict)
     lorebinder = Binder(book)
-    lorebinder.perform_ner()
-    lorebinder.analyze_names()
-    lorebinder.summarize()
+
     lorebinder.build_binder()
 
 
@@ -46,24 +34,37 @@ def create_user_folder(author: str) -> str:
     return create_folder(user)
 
 
-def check_file(book_dict, book_file, user_folder, metadata) -> None:
-    _, ext = os.path.splitext(book_file)
-    if ext != "txt":
-        txt_file = convert_file(user_folder, book_file, metadata)
-        book_dict[book_file] = txt_file
+def create_txt_filename(book_dict, book_file) -> None:
+    base, _ = os.path.splitext(book_file)
+    txt_filename = f"{base}.txt"
+    book_dict.txt_file = txt_filename
+
+
+def convert(file_path: str, limited_metadata: dict) -> None:
+    convert_file(file_path, limited_metadata)
+
+
+def create_limited_metadata(book_dict: BookDict) -> dict:
+    author = book_dict.author
+    title = book_dict.title
+    limited_metadata = {"title": title, "author": author}
+    return limited_metadata
 
 
 def main():
     book_dict = get_book()
 
-    book_file = book_dict["book_file"]
-    author = book_dict["author"]
-    title = book_dict["title"]
-    metadata = {"title": title, "author": author}
+    book_file = book_dict.book_file
+    author = book_dict.author
 
     user_folder = create_user_folder(author)
-    check_file(book_dict, book_file, user_folder, metadata)
+    file_path = os.path.join(user_folder, book_file)
+    limited_metadata = create_limited_metadata(book_dict)
+    convert(file_path, limited_metadata)
+    create_txt_filename(book_dict, book_file)
+
     create_lorebinder(book_dict, user_folder)
+    create_pdf(book_dict.user_folder, book_dict.title)
 
 
 if __name__ == "__main__":
