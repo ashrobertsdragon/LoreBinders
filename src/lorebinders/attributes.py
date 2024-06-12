@@ -26,13 +26,10 @@ class AIModelConfig:
     def __init__(self, models: AIModels, model_id: int = 1) -> None:
         self._models = models
         self.provider = self._models.provider
-        self._model_id = model_id
-
-    def _model_key(self) -> None:
-        self._key = self._models.models.get_model_by_id(self._model_id)
+        self._key = self._models.models.get_model_by_id(model_id)
 
     def initialize_api(self) -> AIType:
-        return AIInterface(self.provider, self._model_key)
+        return AIInterface(self.provider, self._key)
 
 
 class NameTools(metaclass=ABCMeta):
