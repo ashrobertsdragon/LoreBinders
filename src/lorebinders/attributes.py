@@ -1,9 +1,10 @@
 import json
 from abc import ABCMeta, abstractmethod
+from dataclasses import dataclass
 from typing import Generator, List, Tuple, Union, cast
 
-from _types import AIModels, AIType, BookDict, Chapter
-from ai_classes.ai_interface import AIInterface
+from _types import AIModels, BookDict, Chapter
+from ai_classes.ai_interface import AIModelConfig
 from data_cleaner import ManipulateData
 from json_repairer import JSONRepair
 from sort_names import SortNames
@@ -12,24 +13,14 @@ data = ManipulateData()
 json_repairer = JSONRepair()
 
 
+@dataclass
 class RoleScript:
     """
     Holds the AI system role script and max tokens for an API call
     """
 
-    def __init__(self, script: str, max_tokens: int) -> None:
-        self.script = script
-        self.max_tokens = max_tokens
-
-
-class AIModelConfig:
-    def __init__(self, models: AIModels, model_id: int = 1) -> None:
-        self._models = models
-        self.provider = self._models.provider
-        self._key = self._models.models.get_model_by_id(model_id)
-
-    def initialize_api(self) -> AIType:
-        return AIInterface(self.provider, self._key)
+    script: str
+    max_tokens: int
 
 
 class NameTools(metaclass=ABCMeta):
@@ -37,13 +28,7 @@ class NameTools(metaclass=ABCMeta):
     Abstract class for name classes
     """
 
-    def __init__(
-        self,
-        metadata: BookDict,
-        chapter: Chapter,
-        ai_models: AIModels,
-        model_id: int = 1,
-    ) -> None:
+    def __init__(self, ai_models: AIModels) -> None:
         """
         Initialize the NameTools class with a Book object and an instance of
         the
@@ -55,19 +40,20 @@ class NameTools(metaclass=ABCMeta):
         Raises:
             TypeError: If book is not an instance of the Book class.
         """
-        self.metadata = metadata
-        self.chapter = chapter
 
-        self._ai_config = AIModelConfig(ai_models, model_id)
+        self._ai_config = AIModelConfig(ai_models)
         self._ai = self._ai_config.initialize_api()
 
         self._categories_base = ["Characters", "Settings"]
         self._json_mode: bool = False
 
-    def _get_ai_response(self, role_script: RoleScript, prompt) -> str:
+    def _get_ai_response(
+        self, role_script: RoleScript, prompt, model_id: int
+    ) -> str:
         """
         Create the payload to send to the AI and send it.
         """
+        self._ai.set_model(self._ai_config, model_id)
         payload = self._ai.create_payload(
             prompt, role_script.script, role_script.max_tokens
         )
@@ -117,19 +103,16 @@ class NameExtractor(NameTools):
     the chapter text using Named Entity Recognition (NER).
     """
 
-    def __init__(
-        self,
-        metadata: BookDict,
-        chapter: Chapter,
-        ai_models: AIModels,
-        model_id: int,
-    ) -> None:
-        super().__init__(metadata, chapter, ai_models, model_id)
+    def __init__(self, ai_models: AIModels) -> None:
+        super().__init__(ai_models)
 
         self.max_tokens: int = 1000
         self.temperature: float = 0.2
-        self._prompt = f"Text: {self.chapter.text}"
 
+    def initialize_chapter(self, metadata: BookDict, chapter: Chapter) -> None:
+        self.metadata = metadata
+        self.chapter = chapter
+        self._prompt = f"Text: {self.chapter.text}"
         self.narrator = self.metadata.narrator
         self.custom_categories = self.metadata.custom_categories
 
@@ -141,7 +124,7 @@ class NameExtractor(NameTools):
             str: The custom role script.
 
         """
-        if len(self.custom_categories) > 0:
+        if self.custom_categories and len(self.custom_categories) > 0:
             name_strings: list = []
             for name in self.custom_categories:
                 attr: str = name.strip()
@@ -205,7 +188,7 @@ class NameExtractor(NameTools):
 
     def extract_names(self) -> dict:
         response = self._get_ai_response(
-            self._single_role_script, self._prompt
+            self._single_role_script, self._prompt, model_id=1
         )
         return self._parse_response(response)
 
@@ -225,7 +208,7 @@ class NameExtractor(NameTools):
         Returns:
             None
         """
-        sorter = SortNames(response, self.narrator)
+        sorter = SortNames(response, self.narrator or "")
         return sorter.sort()
 
 
@@ -238,7 +221,7 @@ class NameAnalyzer(NameTools):
         model (str): The AI model to be used for analysis.
         temperature (float): The temperature parameter for the AI model.
         custom_categories (list): A list of custom categories for analysis.
-        character_attributes (list): A list of character attributes for
+        character_traits (list): A list of character attributes for
             analysis.
 
     Methods:
@@ -249,10 +232,7 @@ class NameAnalyzer(NameTools):
 
     def __init__(
         self,
-        metadata: BookDict,
-        chapter: Chapter,
         ai_models: AIModels,
-        model_id: int = 3,
     ) -> None:
         """
         Initializes a NameAnalyzer object.
@@ -268,22 +248,16 @@ class NameAnalyzer(NameTools):
             temperature (float): The temperature parameter for the AI model.
             custom_categories (list): A list of custom categories for
                 analysis.
-            character_attributes (list): A list of character attributes for
+            character_traits (list): A list of character attributes for
                 analysis.
             categories_base (list): The base list of categories for analysis.
 
         Returns:
             None
         """
-        super().__init__(metadata, chapter, ai_models, model_id)
+        super().__init__(ai_models)
         self.temperature: float = 0.4
-        self._prompt = f"Text: {self.chapter.text}"
         self._json_mode = True
-
-        self.custom_categories: List[str] = self.metadata.custom_categories
-        self.character_attributes: List[str] = (
-            self.metadata.character_attributes
-        )
 
         self.ABSOLUTE_MAX_TOKENS: int = 4096
         self.tokens_per: dict = {
@@ -296,6 +270,14 @@ class NameAnalyzer(NameTools):
         self._attributes_batch: List[Tuple[str, int, str]] = []
         self._to_batch: list = []
         self._role_scripts: List[RoleScript] = []
+
+    def initialize_chapter(self, metadata: BookDict, chapter: Chapter) -> None:
+        self.metadata = metadata
+        self.chapter = chapter
+
+        self._prompt = f"Text: {self.chapter.text}"
+        self.custom_categories = self.metadata.custom_categories
+        self.character_traits = self.metadata.character_traits
 
     def _generate_schema(self, category: str) -> str:
         """
@@ -312,13 +294,14 @@ class NameAnalyzer(NameTools):
             str: The JSON schema string.
         """
 
-        character_attributes = [
+        character_traits = [
             "Appearance",
             "Personality",
             "Mood",
             "Relationships with other characters",
         ]
-        character_attributes.extend(self.character_attributes)
+        if self.character_traits:
+            character_traits.extend(self.character_traits)
 
         settings_attributes = [
             "Appearance",
@@ -327,7 +310,7 @@ class NameAnalyzer(NameTools):
         ]
 
         cat_attr_map = {
-            "Characters": character_attributes,
+            "Characters": character_traits,
             "Settings": settings_attributes,
         }
 
@@ -531,7 +514,7 @@ class NameAnalyzer(NameTools):
     def analyze_names(self) -> dict:
         responses: List[str] = []
         for script in self._role_scripts:
-            response = self._get_ai_response(script, self._prompt)
+            response = self._get_ai_response(script, self._prompt, model_id=1)
             responses.append(response)
         combined_response = self._combine_responses(responses)
         return self._parse_response(combined_response)
@@ -581,9 +564,7 @@ class NameSummarizer(NameTools):
             the generated summary.
     """
 
-    def __init__(
-        self, metadata: BookDict, chapter: Chapter, ai_models: AIModels
-    ) -> None:
+    def __init__(self, ai_models: AIModels) -> None:
         """
         Initialize the NameSummarizer class with a Book object.
 
@@ -597,10 +578,9 @@ class NameSummarizer(NameTools):
             None
         """
 
-        super().__init__(metadata, chapter, ai_models)
+        super().__init__(ai_models)
         self.temperature: float = 0.4
         self.max_tokens: int = 200
-        self.lorebinder = self.chapter.analysis
 
     def build_role_script(self) -> None:
         system_message = (
@@ -646,7 +626,7 @@ class NameSummarizer(NameTools):
         for category, category_names in self.lorebinder.items():
             yield from generate_prompts(category, category_names)
 
-    def summarize_names(self) -> dict:
+    def summarize_names(self, lorebinder: dict) -> dict:
         """
         Generate summaries for each name in the Lorebinder.
 
@@ -654,10 +634,13 @@ class NameSummarizer(NameTools):
         summary. The generated summary is then parsed and updated in the
         Lorebinder dictionary.
         """
+        self.lorebinder = lorebinder
         for category, name, prompt in self._create_prompts():
             self._current_category = category
             self._current_name = name
-            response = self._get_ai_response(self._single_role_script, prompt)
+            response = self._get_ai_response(
+                self._single_role_script, prompt, model_id=1
+            )
             self.lorebinder = self._parse_response(response)
         return self.lorebinder
 
