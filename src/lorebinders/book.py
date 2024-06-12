@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from _types import BookDict
 from file_handling import read_text_file, separate_into_chapters
@@ -9,7 +9,7 @@ class Book:
     A book or collection of chapters
 
     Attributes:
-        _book_dict (dict): A dictionary containing the book data.
+        _metadata (dict): A dictionary containing the book data.
             contains:
                 title (str): The book's title.
                 author (str): The book's author.
@@ -21,7 +21,7 @@ class Book:
                     to search for. Defaults to None, meaning only preselected
                     attributes are used.
                 other_categories_list (Optional list): A list of user inputted
-                    cateogiries for the AI to search for. Defaults to None,
+                    categories for the AI to search for. Defaults to None,
                     meaning only Characters and Settings are used.
         name (str): The name of the Book instance. The title is assigned to it.
         file (str): The content of the input file.
@@ -41,13 +41,18 @@ class Book:
         Initializes the Book object by reading the input file and splitting it
         into chapters.
         """
-        self._book_dict = book_dict
-        self.title: str = self._book_dict.title
-        self.author: str = self._book_dict.author
-        self._book_file: str = self._book_dict.book_file
-        self.narrator: str = self._book_dict.narrator
-        self.character_attributes: List[str] = self._book_dict.character_traits
-        self.custom_categories: List[str] = self._book_dict.custom_categories
+        self.metadata = book_dict
+
+        self.title: str = self.metadata.title
+        self.author: str = self.metadata.author
+        self._book_file: str = self.metadata.book_file
+        self.narrator: Optional[str] = self.metadata.narrator
+        self.character_attributes: Optional[List[str]] = (
+            self.metadata.character_traits
+        )
+        self.custom_categories: Optional[List[str]] = (
+            self.metadata.custom_categories
+        )
 
         self.name = self.title
 
@@ -58,7 +63,7 @@ class Book:
         """
         Returns a list of Chapter objects
         """
-        chapters: list = []
+        chapters: List[Chapter] = []
         for number, text in enumerate(
             separate_into_chapters(self.file), start=1
         ):
@@ -84,11 +89,6 @@ class Book:
     @property
     def binder(self) -> dict:
         return self._binder
-
-    @property
-    def metadata(self) -> BookDict:
-        if self._book_dict:
-            return self._book_dict
 
 
 class Chapter:
