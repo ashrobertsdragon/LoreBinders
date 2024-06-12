@@ -1,7 +1,8 @@
-from typing import Optional, Union
+from typing import Optional
 
-from _types import Book, BookDict, NameTools
-from file_handling import read_json_file, write_json_file
+from _types import AIModels, Book, BookDict, Chapter
+from attributes import NameAnalyzer, NameExtractor, NameSummarizer
+from file_handling import write_json_file
 
 
 class Binder:
@@ -9,8 +10,9 @@ class Binder:
     Base class for all book analysis binders.
     """
 
-    def __init__(self, book: Book) -> None:
+    def __init__(self, book: Book, ai_model: AIModels) -> None:
         self.book = book
+        self.ai_models = ai_model
         self.binder_type = __name__.lower()
         self._book_name: Optional[str] = None
         self._temp_file: Optional[str] = None
@@ -23,11 +25,10 @@ class Binder:
 
     @property
     def metadata(self) -> BookDict:
-        if self.book.metadata:
-            return self.book.metadata
+        return self.book.metadata
 
     @property
-    def get_binder_tempfile(self) -> str:
+    def binder_tempfile(self) -> str:
         if self._temp_file is None:
             self._temp_file = f"{self.book_name}-{self.binder_type}.json"
         return self._temp_file
@@ -44,21 +45,36 @@ class Binder:
         if self._binder != binder:
             self.add_binder(binder)
 
-    def get_binder_json(self) -> Union[dict, list, str]:
-        return read_json_file(self._temp_file)
-
     @property
-    def get_binder(self) -> dict:
+    def binder(self) -> dict:
         return self._binder
 
-    def perform_ner(self, ner: NameTools) -> None:
-        self._ner = ner
+    def perform_ner(
+        self, ner: NameExtractor, metadata: BookDict, chapter: Chapter
+    ) -> None:
+        ner.initialize_chapter(metadata, chapter)
+        ner.build_role_script()
+        names = ner.extract_names()
+        chapter.add_names(names)
 
-    def analyze_names(self, analyzer: NameTools) -> None:
-        self._analyzer = analyzer
+    def analyze_names(
+        self, analyzer: NameAnalyzer, metadata: BookDict, chapter: Chapter
+    ) -> None:
+        analyzer.initialize_chapter(metadata, chapter)
+        analyzer.build_role_script()
+        analysis = analyzer.analyze_names()
+        chapter.add_analysis(analysis)
 
-    def summarize(self, summarizer: NameTools) -> None:
-        self._summarizer = summarizer
+    def summarize(self, summarizer: NameSummarizer) -> None:
+        summarizer.build_role_script()
+        self._binder = summarizer.summarize_names(self._binder)
 
     def build_binder(self) -> None:
-        pass
+        ner = NameExtractor(self.ai_models)
+        analyzer = NameAnalyzer(self.ai_models)
+        summarizer = NameSummarizer(self.ai_models)
+
+        for chapter in self.book.chapters:
+            self.perform_ner(ner, self.metadata, chapter)
+            self.analyze_names(analyzer, self.metadata, chapter)
+        self.summarize(summarizer)
