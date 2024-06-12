@@ -12,7 +12,7 @@ from ai_classes.exceptions import (
 from attributes import NameTools
 from binders import Binder
 from book import Book, Chapter
-from main import BookDict
+from book_dict import BookDict
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionAssistantMessageParam,
