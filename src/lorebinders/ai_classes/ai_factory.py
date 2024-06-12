@@ -5,10 +5,15 @@ import time
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple
 
-from _types import ChatCompletion, ErrorManager, FinishReason
+from _types import ChatCompletion, FinishReason
 from exceptions import MaxRetryError
+from error_handler import ErrorHandler
+from email_handler.send_email import EmailHandler
 from file_handling import read_json_file, write_json_file
 from pydantic import BaseModel, ValidationError
+
+email_handler = EmailHandler()
+error_handling = ErrorHandler(email_manager=email_handler)
 
 
 class Payload(BaseModel):
@@ -23,15 +28,6 @@ class AIType:
     """
     Dummy class to pacify MyPy. Not intended to be used
     """
-
-    def __init__(
-        self,
-        error_manager: ErrorManager,
-        model_key: str,
-    ) -> None:
-        self._error_handler = error_manager
-        self.model_key = model_key
-
     def create_payload(
         self,
         prompt: str,
@@ -64,15 +60,20 @@ class AIType:
 
 
 class RateLimit:
-    def __init__(self, model_key: str) -> None:
-        self._model_key = model_key
-        self.model_details()
+    def __init__(self, model_dict: dict) -> None:
+        self.model_details(model_dict)
         self._set_rate_limit_data()
+
+    def model_details(self, model_dict) -> None:
+        self.model_name: str = model_dict["model"]
+        self._rate_limit: int = model_dict["rate_limit"]
+        self.context_window: int = model_dict["context_window"]
+        self.tokenizer: str = model_dict["tokenizer"]
 
     def _set_rate_limit_data(self) -> None:
         self._rate_limit_data: dict = (
-            read_json_file("rate_limit.json")
-            if os.path.exists("rate_limit.json")
+            read_json_file(f"{self.model_name}_rate_limit.json")
+            if os.path.exists(f"{self.model_name}_rate_limit.json")
             else {}
         )
         self._reset_rate_limit_minute()
@@ -94,78 +95,15 @@ class RateLimit:
     def get_rate_limit_tokens_used(self) -> int:
         return self._rate_limit_data["tokens_used"]
 
-    def model_details(self) -> None:
-        model_details = self.get_model_details(self._model_key)
-        self.model_name: str = model_details["model_name"]
-        self._rate_limit: int = model_details["rate_limt"]
-        self.context_window: int = model_details["context_window"]
-        self.tokenizer: str = model_details["tozenizer"]
-
-    def get_model_details(self, model_key: str) -> dict:
+    def is_rate_limit(self) -> int:
         """
-        Interprets the generic model key and returns model-specific details.
-
-        Args:
-            model_key (str): The key used to identify the model.
-
-        Returns:
-            dict: A dictionary containing the model-specific details. The
-            dictionary has the following keys:
-                    model_name (str): The name of the model.
-                    rate_limit (int): The rate limit for the model.
-                    context_window (int): The size of the context window for
-                        the model.
-                    tokenizer (str): The tokenizer used by the model.
-
-        Raises:
-            FileNotFoundError: If the model_dict.json file is not found.
-            json.JSONDecodeError: If there is an error decoding the
-                model_dict.json file.
-
-        """
-        defaults: dict = {
-            "model_name": None,
-            "rate_limit": 250000,
-            "context_window": 4096,
-            "tokenizer": "tiktoken",
-        }
-        try:
-            model_dict = (
-                read_json_file("model_dict.json")
-                if os.path.exists("model_dict.json")
-                else {}
-            )
-            if isinstance(model_dict, dict):
-                model_details: dict = model_dict.get(model_key, defaults)
-        except (FileNotFoundError, json.JSONDecodeError):
-            model_details = defaults
-        return model_details
-
-    def is_rate_limit(self, model_key: str) -> int:
-        """
-        Returns the rate limit based on the model key.
-
-        Args:
-            model_key (str): The key used to identify the model.
+        Returns the rate limit.
 
         Returns:
             int: The rate limit for the model.
-
-        Raises:
-            ValueError: If the model_key input is not a non-empty string.
-            ValueError: If the rate limit is not an integer.
         """
-        if not isinstance(model_key, str) or not model_key:
-            raise ValueError(
-                "Invalid model_key input. Expected a non-empty string."
-            )
 
-        if model_key not in self._rate_limit_data:
-            self._rate_limit_data[model_key] = self.get_model_details(
-                model_key
-            )
-
-        model_details = self._rate_limit_data[model_key]
+        model_details = self._rate_limit_data
 
         if model_details is None:
             return 0
@@ -179,15 +117,14 @@ class RateLimit:
 
 
 class AIFactory(AIType, ABC, RateLimit):
-    def __init__(
-        self,
-        error_manager: ErrorManager,
-        model_key: str,
-    ) -> None:
-        self._error_handler = error_manager
-
-        RateLimit.__init__(self, model_key)
+    def __init__(self) -> None:
         self.unresolvable_error_handler = self._set_unresolvable_errors()
+
+    def set_model(self, model_dict: dict) -> None:
+        self.model_dict = model_dict
+
+        RateLimit.__init__(self, self.model_dict)
+        self.model_name = self.model_dict["model"]
 
     def count_tokens(self, text: str) -> int:
         """
@@ -287,7 +224,7 @@ class AIFactory(AIType, ABC, RateLimit):
             retry_count: the number of attempts so far
 
         Returns:
-            retry_count: the number of attemps so far
+            retry_count: the number of attempts so far
         """
         try:
             response = getattr(e, "response", None)
@@ -299,12 +236,12 @@ class AIFactory(AIType, ABC, RateLimit):
         error_code = getattr(e, "status_code", None)
         error_message = error_details.get("message", "Unknown error")
 
-        if isinstance(e, tuple(self.unresolvable_error_handler)):
-            self._error_handler.kill_app(e)
-        if error_code == 401:
-            self._error_handler.kill_app(e)
-        if "exceeded your current quota" in error_message:
-            self._error_handler.kill_app(e)
+        if (
+            isinstance(e, tuple(self.unresolvable_error_handler))
+            or error_code == 401
+            or "exceeded your current quota" in error_message
+        ):
+            error_handling.kill_app(e)
 
         logging.error(f"An error occurred: {e}", exc_info=True)
 
@@ -320,7 +257,7 @@ class AIFactory(AIType, ABC, RateLimit):
                     f"Retry attempt #{retry_count} in {sleep_time} seconds."
                 )
         except MaxRetryError as e:
-            self._error_handler.kill_app(e)
+            error_handling.kill_app(e)
 
         return retry_count
 
@@ -372,7 +309,7 @@ class AIFactory(AIType, ABC, RateLimit):
     ) -> str:
         """
         Makes API calls to the AI engine.
-        This method smust be implemented in the child class for specific API
+        This method must be implemented in the child class for specific API
         implementations.
         """
         raise NotImplementedError("Must be implemented in child class")
