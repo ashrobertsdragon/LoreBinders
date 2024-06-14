@@ -8,13 +8,16 @@ from ebook2text.convert_file import convert_file  # type: ignore
 from make_pdf import create_pdf
 from user_input import get_book
 
-load_dotenv()
+
+def create_book(book_dict: BookDict) -> Book:
+    return Book(book_dict)
 
 
-def create_lorebinder(book_dict: BookDict) -> None:
-    book = Book(book_dict)
-    lorebinder = Binder(book)
+def create_lorebinder(book: Book, ai_model) -> Binder:
+    return Binder(book, ai_model)
 
+
+def build_binder(lorebinder: Binder) -> None:
     lorebinder.build_binder()
 
 
@@ -34,7 +37,7 @@ def create_user_folder(author: str) -> str:
     return create_folder(user)
 
 
-def create_txt_filename(book_dict, book_file) -> None:
+def create_txt_filename(book_dict: BookDict, book_file: str) -> None:
     base, _ = os.path.splitext(book_file)
     txt_filename = f"{base}.txt"
     book_dict.txt_file = txt_filename
@@ -47,13 +50,10 @@ def convert(file_path: str, limited_metadata: dict) -> None:
 def create_limited_metadata(book_dict: BookDict) -> dict:
     author = book_dict.author
     title = book_dict.title
-    limited_metadata = {"title": title, "author": author}
-    return limited_metadata
+    return {"title": title, "author": author}
 
 
-def main():
-    book_dict = get_book()
-
+def convert_book_file(book_dict: BookDict) -> None:
     book_file = book_dict.book_file
     author = book_dict.author
 
@@ -63,9 +63,20 @@ def main():
     convert(file_path, limited_metadata)
     create_txt_filename(book_dict, book_file)
 
-    create_lorebinder(book_dict, user_folder)
-    create_pdf(book_dict.user_folder, book_dict.title)
+
+def main():
+    book_dict = get_book()
+
+    convert_book_file(book_dict)
+
+    book = create_book(book_dict)
+    ai_model = os.getenv("ai_model")  # Placeholder
+    lorebinder = create_lorebinder(book, ai_model)
+    build_binder(lorebinder)
+    if book_dict.user_folder is not None:
+        create_pdf(book_dict.user_folder, book_dict.title)
 
 
 if __name__ == "__main__":
+    load_dotenv()
     main()
