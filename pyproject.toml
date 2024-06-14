@@ -48,7 +48,7 @@ production = ["supabase>=2.3.4"]
 [tool.ruff]
 line-length = 79
 force-exclude = true
-exclude = [".git", "__pycache__", ".venv", "to_refactor", "temp.py", "*cache", "work", "*.json"]
+exclude = [".git", ".__pycache__", ".venv", ".tests", ".to_refactor", "temp.py", ".*cache", ".work", "*.json"]
 
 [tool.isort]
 line_length = 79
