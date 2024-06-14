@@ -141,7 +141,7 @@ def test_display_book_metadata(book_dict, key_name_map, capsys):
 
 def test_get_user_choice_edit():
     with patch("builtins.input", return_value="title"):
-        assert get_user_choice() == "title"
+        assert get_user_choice(key_name_map()) == "title"
 
 
 def test_edit_book_dict(book_dict):
