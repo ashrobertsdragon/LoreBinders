@@ -255,10 +255,7 @@ class SortNames:
         """
         if line != "":
             line_set = set(line.lower().split())
-            if line_set.intersection(self._junk_words):
-                return True
-            else:
-                return False
+            bool(line_set.intersection(self._junk_words))
         return True
 
     @staticmethod
@@ -315,8 +312,9 @@ class SortNames:
                 inner_values.extend(self._category_dict[category_name[:-1]])
                 self._category_dict[category_name[:-1]] = []
 
-            standardized_values = self._compare_names(inner_values, name_map)
-            if standardized_values:
+            if standardized_values := self._compare_names(
+                inner_values, name_map
+            ):
                 self.ner_dict[category_name] = standardized_values
 
     def _compare_names(self, inner_values: list, name_map: dict) -> list:
@@ -393,7 +391,7 @@ class SortNames:
         added_lines: int
 
         split_lines, added_lines = split_func(self._lines[index])
-        self._lines[index: index + 1] = split_lines
+        self._lines[index : index + 1] = split_lines
         return index + added_lines
 
     def sort(self) -> dict:
