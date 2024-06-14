@@ -1,7 +1,39 @@
 import os
-from typing import List, Optional
+from typing import Callable, List, Optional
 
+from _decorators import required_string
 from book_dict import BookDict
+
+
+@required_string
+def get_is_third_person() -> str:
+    """
+    Prompt the user to input whether the book is written in third person.
+
+    """
+    return input("Is the book written in third person? Y/n > ")
+
+
+def is_third_person() -> bool:
+    """
+    Check if the user input indicates third person perspective.
+
+    Returns:
+        True if the input starts with 'Y' (case insensitive),
+        False if it starts with 'N',and continues to prompt the user until a
+            valid input is provided.
+    """
+    valid_input: bool = False
+    while not valid_input:
+        third_p_input = get_is_third_person()
+        if third_p_input.upper().startswith("Y"):
+            return True
+        elif third_p_input.lower().startswith("n"):
+            return False
+        else:
+            print("Invalid input, please try again.")
+            continue
+    return False  # shut MyPy up
 
 
 def get_narrator() -> str:
@@ -13,23 +45,21 @@ def get_narrator() -> str:
         narrator (str): The name of the narrator or "" if book is in
             third-person.
     """
-    valid_input: bool = False
-    while not valid_input:
-        third_p_input: str = input(
-            "Is the book written in third person? Y/n > "
-        )
-        if third_p_input.upper().startswith("Y"):
-            is_third: bool = True
-        elif third_p_input.lower().startswith("n"):
-            is_third = False
 
-    if is_third:
+    if is_third_person():
         return ""
     else:
         return input(
             "Enter narrator's name as identified by most of the "
             "characters in the story > "
         )
+
+
+def set_input_label(attribute_type: Optional[str] = None) -> str:
+    """
+    Sets the input label based on the attribute type
+    """
+    return "category" if attribute_type is None else f"{attribute_type} trait"
 
 
 def get_attributes(attribute_type: Optional[str] = None) -> list:
@@ -44,10 +74,7 @@ def get_attributes(attribute_type: Optional[str] = None) -> list:
     Returns:
         A list of user inputted attributes.
     """
-    if attribute_type is None:
-        input_label = "category"
-    else:
-        input_label = f"{attribute_type} trait"
+    input_label = set_input_label(attribute_type)
     attribute_list: List[str] = []
     while True:
         attribute = input(
@@ -59,19 +86,26 @@ def get_attributes(attribute_type: Optional[str] = None) -> list:
     return attribute_list
 
 
-def parse_file_path(path) -> str:
-    path_parts: str = path.split("/") if "/" in path else path.split("\\")
-    return os.path.join(path_parts)
+def parse_file_path(path: str) -> str:
+    """
+    Extract the individual parts of the path.
+    """
+    path_parts = path.split("/") if "/" in path else path.split("\\")
+    parts_tuple = tuple(path_parts)
+    return os.path.join(*parts_tuple)
 
 
+@required_string
 def input_title() -> str:
     return input("Enter book title > ")
 
 
+@required_string
 def input_author() -> str:
     return input("Enter author name > ")
 
 
+@required_string
 def input_book_path() -> str:
     file_path: str = input(
         "Enter the absolute path to the ebook to process > "
@@ -97,6 +131,52 @@ def get_inputs() -> BookDict:
     )
 
 
+def display_book_metadata(book_dict: BookDict, key_name_map: dict) -> None:
+    """
+    Prints the book metadata in a user-friendly format.
+
+    Args:
+        book_dict (BookDict): The dictionary containing book metadata.
+        key_name_map (dict): A dictionary mapping keys to user-friendly names.
+    """
+    print("\nBook metadata:")
+    for key, value in key_name_map.items():
+        print(f"  - {value}: {getattr(book_dict, key)}")
+
+
+def get_user_choice(key_name_map: dict) -> str:
+    """
+    Prompts the user for a choice and returns the user's input.
+
+    Args:
+        key_name_map (dict): A dictionary mapping keys to user-friendly names.
+
+    Returns:
+        str: The user's input.
+    """
+    return input(
+        "\nIf this is correct, type Y to continue. "
+        "Otherwise, enter the item you wish to change > "
+    ).lower()
+
+
+def edit_book_dict(
+    book_dict: BookDict, key_name: str, input_function: Callable
+) -> None:
+    """
+    Edits the specified key in the book_dict dictionary using the provided
+    input function.
+
+    Args:
+        book_dict (BookDict): The dictionary containing book metadata.
+        key_name (str): The name of the key to edit.
+        input_function (Callable): The function to call to get the new value
+        for the key.
+    """
+    new_value = input_function()
+    setattr(book_dict, key_name, new_value)
+
+
 def confirm_inputs(book_dict: BookDict) -> BookDict:
     """
     Displays the book metadata in a user-friendly format, allows editing, and
@@ -108,7 +188,6 @@ def confirm_inputs(book_dict: BookDict) -> BookDict:
     Returns:
         dict: The updated book_dict dictionary.
     """
-
     key_name_map = {
         "book_file": "Book File Path",
         "title": "Title",
@@ -118,42 +197,26 @@ def confirm_inputs(book_dict: BookDict) -> BookDict:
         "custom_categories": "Other Categories (List)",
     }
 
-    def edit_book_dict(key_name):
-        """
-        Edits the specified key in the book_dict dictionary using the
-        appropriate input function.
-
-        Args:
-            key_name (str): The name of the key to edit.
-        """
-        input_function = {
-            "title": input_title,
-            "author": input_author,
-            "narrator": get_narrator,
-            "book_file": input_book_path,
-            "character_attributes": get_attributes("characters"),
-            "other_attributes": get_attributes(),
-        }
-        new_value = input_function[key_name]()
-        setattr(book_dict, key_name, new_value)
+    input_function_map = {
+        "title": input_title,
+        "author": input_author,
+        "narrator": get_narrator,
+        "book_file": input_book_path,
+        "character_traits": lambda: get_attributes("characters"),
+        "custom_categories": get_attributes,
+    }
 
     while True:
-        print("\nBook metadata:")
-        for key, value in key_name_map.items():
-            print(f"  - {value}: {getattr(book_dict, key)}")
-
-        choice = input(
-            "\nIf this is correct, type Y to continue. "
-            "Otherwise, enter the item you wish to change > "
-        ).lower()
+        display_book_metadata(book_dict, key_name_map)
+        choice = get_user_choice(key_name_map)
 
         if choice.upper() == "Y":
             return book_dict
 
-        elif choice in key_name_map.keys():
-            edit_book_dict(choice)
+        elif choice in key_name_map:
+            edit_book_dict(book_dict, choice, input_function_map[choice])
         else:
-            print("Invalid index." "Please enter a valid number or key name.")
+            print("Please enter a valid number or key name.")
 
 
 def get_book() -> BookDict:
