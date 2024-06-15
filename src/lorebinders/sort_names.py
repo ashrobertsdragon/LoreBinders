@@ -235,15 +235,12 @@ class SortNames:
         return ", " in line
 
     @staticmethod
-    def _should_compare_values(
-        i: int, j: int, value_i: str, value_j: str
-    ) -> bool:
+    def _should_compare_values(value_i: str, value_j: str) -> bool:
         """
         Determine if two values should be compared.
         """
         return (
-            i != j
-            and value_i != value_j
+            value_i != value_j
             and not value_i.endswith(")")
             and not value_j.endswith(")")
             and (value_i.startswith(value_j) or value_i.endswith(value_j))
@@ -346,8 +343,8 @@ class SortNames:
 
         for i, value_i in enumerate(inner_values):
             clean_i = cleaned_values[value_i]
-            for j, value_j in enumerate(inner_values):
-                if self._should_compare_values(i, j, value_i, value_j):
+            for value_j in inner_values[i+1:]:
+                if self._should_compare_values(value_i, value_j):
                     clean_j = cleaned_values[value_j]
                     shorter_value, longer_value = self._sort_shorter_longer(
                         clean_i, clean_j
@@ -391,7 +388,7 @@ class SortNames:
         added_lines: int
 
         split_lines, added_lines = split_func(self._lines[index])
-        self._lines[index : index + 1] = split_lines
+        self._lines[index: index + 1] = split_lines
         return index + added_lines
 
     def sort(self) -> dict:

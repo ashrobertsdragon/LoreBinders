@@ -159,9 +159,10 @@ def test_sort_shorter_longer(sort_names):
 
 
 def test_should_compare_values(sort_names):
-    assert sort_names._should_compare_values(0, 1, "Pene", "Pene's")
-    assert not sort_names._should_compare_values(0, 1, "Pene", "Florian")
-    assert not sort_names._should_compare_values(0, 0, "Pene", "Pene")
+    assert sort_names._should_compare_values("Pene", "Pene's")
+    assert not sort_names._should_compare_values("Pene", "Florian")
+    assert not sort_names._should_compare_values("Lake (exterior)", "Lake")
+    assert not sort_names._should_compare_values("Lake", "Lake (exterior)")
 
 
 def test_should_skip_line(sort_names):
