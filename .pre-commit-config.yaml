@@ -38,24 +38,25 @@ repos:
     rev: 7.0.0
     hooks:
       - id: flake8
-        exclude: ^ebook2text/ebooklib/
-        additional_dependencies: ["flake8-bandit", "flake8-bugbear"]
+        exclude: ^ebook2text/ebooklib/|^tests|^stubs|^to_refactor
+        additional_dependencies: ["flake8-bandit", "flake8-bugbear", "flake8-docstrings"]
 
   - repo: https://github.com/pycqa/isort
     rev: 5.13.2
     hooks:
       - id: isort
-        args: ["--profile", "black", "--filter-files"]
+        args: [--py=39,--gitignore=true, --multiline=3, --use-parentheses=true, --fss=true, --filter-files=true]
         additional_dependencies: [toml]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.4.4
     hooks:
       - id: ruff
-        exclude: ^ebook2text/ebooklib/
-        args: [ --fix ]
+        exclude: ^ebook2text/ebooklib/|^tests|^stubs|cache|work|json|temp|^|to_refactor
+        args: [ --fix, --force-exclude=true, --line-length=79 ]
       - id: ruff-format
-        exclude: ^ebook2text/ebooklib/
+        exclude: ^ebook2text/ebooklib/|^tests|^stubs|cache|work|json|temp|^|to_refactor
+        args: [--force-exclude=true, --line-length=79]
 
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.15.2
