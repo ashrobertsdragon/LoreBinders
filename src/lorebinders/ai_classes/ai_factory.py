@@ -5,14 +5,15 @@ import time
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple
 
-from _types import ChatCompletion, FinishReason
 from exceptions import MaxRetryError
-from error_handler import ErrorHandler
-from email_handler.send_email import EmailHandler
-from file_handling import read_json_file, write_json_file
 from pydantic import BaseModel, ValidationError
 
-email_handler = EmailHandler()
+from email_handler.send_email import SMTPHandler
+from lorebinders._types import ChatCompletion, FinishReason
+from lorebinders.error_handler import ErrorHandler
+from lorebinders.file_handling import read_json_file, write_json_file
+
+email_handler = SMTPHandler()
 error_handling = ErrorHandler(email_manager=email_handler)
 
 
@@ -50,6 +51,7 @@ class AIType:
     def call_api(
         self,
         api_payload: dict,
+        json_response: bool = False,
         retry_count: int = 0,
         assistant_message: Optional[str] = None,
     ) -> str:
@@ -57,6 +59,12 @@ class AIType:
         Dummy method. Do not use.
         """
         return "Do not use this method"
+
+    def set_model(self, model_dict: dict) -> None:
+        """
+        Dummy method. Do not use.
+        """
+        pass
 
 
 class RateLimit:
@@ -210,7 +218,7 @@ class AIFactory(AIType, ABC, RateLimit):
         Returns:
             dict: The modified api_payload dictionary.
         """
-        api_payload.update(kwargs)
+        api_payload |= kwargs
         return api_payload
 
     def error_handle(self, e: Exception, retry_count: int) -> int:
@@ -227,8 +235,7 @@ class AIFactory(AIType, ABC, RateLimit):
             retry_count: the number of attempts so far
         """
         try:
-            response = getattr(e, "response", None)
-            if response:
+            if response := getattr(e, "response", None):
                 error_details = response.json().get("error", {})
         except (AttributeError, json.JSONDecodeError):
             error_details = {}
@@ -251,11 +258,10 @@ class AIFactory(AIType, ABC, RateLimit):
             retry_count += 1
             if retry_count == MAX_RETRY_COUNT:
                 raise MaxRetryError("Maximum retry count reached")
-            else:
-                sleep_time = (MAX_RETRY_COUNT - retry_count) + (retry_count**2)
-                logging.warning(
-                    f"Retry attempt #{retry_count} in {sleep_time} seconds."
-                )
+            sleep_time = (MAX_RETRY_COUNT - retry_count) + (retry_count**2)
+            logging.warning(
+                f"Retry attempt #{retry_count} in {sleep_time} seconds."
+            )
         except MaxRetryError as e:
             error_handling.kill_app(e)
 
@@ -292,19 +298,23 @@ class AIFactory(AIType, ABC, RateLimit):
             write_json_file(self._rate_limit_data, "rate_limit_data.json")
 
         if tokens_used + input_tokens + max_tokens > self._rate_limit:
-            logging.warning("Rate limit exceeded")
-            sleep_time = 60 - (time.time() - minute)
-            logging.info(f"Sleeping {sleep_time} seconds")
-            time.sleep(sleep_time)
-            self._reset_rate_limit_tokens_used()
-            self._reset_rate_limit_minute()
-            write_json_file(self._rate_limit_data, "rate_limit_data.json")
+            self._cool_down(minute)
+
+    def _cool_down(self, minute):
+        logging.warning("Rate limit exceeded")
+        sleep_time = 60 - (time.time() - minute)
+        logging.info(f"Sleeping {sleep_time} seconds")
+        time.sleep(sleep_time)
+        self._reset_rate_limit_tokens_used()
+        self._reset_rate_limit_minute()
+        write_json_file(self._rate_limit_data, "rate_limit_data.json")
 
     @abstractmethod
     def call_api(
         self,
         api_payload: dict,
-        retry_count: Optional[int] = 0,
+        json_response: bool = False,
+        retry_count: int = 0,
         assistant_message: Optional[str] = None,
     ) -> str:
         """
@@ -315,9 +325,20 @@ class AIFactory(AIType, ABC, RateLimit):
         raise NotImplementedError("Must be implemented in child class")
 
     @abstractmethod
-    def process_response(
+    def preprocess_response(
         self, response: ChatCompletion
     ) -> Tuple[str, int, FinishReason]:
+        raise NotImplementedError("Must be implemented in child class")
+
+    @abstractmethod
+    def process_response(
+        self,
+        content_tuple: Tuple[str, int, FinishReason],
+        assistant_message: Optional[str],
+        api_payload: dict,
+        retry_count: int,
+        json_response: bool,
+    ) -> str:
         raise NotImplementedError("Must be implemented in child class")
 
     @abstractmethod
