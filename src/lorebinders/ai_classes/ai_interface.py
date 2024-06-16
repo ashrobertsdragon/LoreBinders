@@ -2,16 +2,17 @@ import importlib
 import logging
 from typing import Dict, Optional
 
-from ai_classes._model_schema import AIModels
-from ai_classes.ai_factory import AIType
+from _model_schema import AIModels
+from ai_factory import AIType
+from exceptions import MissingAIProviderError
 
 
 class AIModelConfig:
     def __init__(self, models: AIModels) -> None:
         self.provider_models = models
-        self.provider = self.models.provider
+        self.provider = self.provider_models.provider
 
-    def initialize_api(self) -> AIType:
+    def initialize_api(self):
         return AIInterface(self.provider)
 
 
@@ -64,7 +65,7 @@ class AIInterface:
             return implementation_class
         except (ImportError, AttributeError):
             logging.error(f"Invalid AI provider: {provider}")
-            raise ValueError(f"Invalid AI provider: {provider}")
+            raise MissingAIProviderError(f"Invalid AI provider: {provider}")
 
     def set_model(self, model_config: AIModelConfig, model_id: int) -> None:
         """
@@ -78,14 +79,15 @@ class AIInterface:
     def call_api(
         self,
         api_payload: dict,
-        retry_count: Optional[int] = 0,
+        json_response: bool = False,
+        retry_count: int = 0,
         assistant_message: Optional[str] = None,
     ) -> str:
         """
         Calls the 'call_api method of the actual AI API class.
         """
         return self.ai_implementation.call_api(
-            api_payload, retry_count, assistant_message
+            api_payload, json_response, retry_count, assistant_message
         )
 
     def create_payload(

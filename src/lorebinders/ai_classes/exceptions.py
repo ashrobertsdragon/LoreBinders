@@ -8,3 +8,7 @@ class MaxRetryError(Exception):
 
 class KeyNotFoundError(Exception):
     pass
+
+
+class MissingAIProviderError(Exception):
+    pass
