@@ -2,7 +2,7 @@ from _typeshed import Incomplete
 
 from _managers import EmailManager
 
-class EmailHandler(EmailManager):
+class SMTPHandler(EmailManager):
     password: Incomplete
     admin_email: Incomplete
     server: Incomplete
