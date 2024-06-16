@@ -60,15 +60,13 @@ class NameTools(metaclass=ABCMeta):
         return self._ai.call_api(payload, self._json_mode)
 
     def _combine_responses(self, responses: List[str]) -> str:
-        if self._json_mode:
-            response = (
-                "{"
-                + ",".join(part.lstrip("{").rstrip("}") for part in responses)
-                + "}"
-            )
-        else:
-            response = "".join(responses)
-        return response
+        return (
+            "{"
+            + ",".join(part.lstrip("{").rstrip("}") for part in responses)
+            + "}"
+            if self._json_mode
+            else "".join(responses)
+        )
 
     @abstractmethod
     def _parse_response(self, response: str) -> dict:
@@ -124,14 +122,15 @@ class NameExtractor(NameTools):
             str: The custom role script.
 
         """
+        role_categories: str = ""
         if self.custom_categories and len(self.custom_categories) > 0:
             name_strings: list = []
             for name in self.custom_categories:
                 attr: str = name.strip()
                 name_string: str = f"{attr}:{attr}1, {attr}2, {attr}3"
                 name_strings.append(name_string)
-                role_categories: str = "\n".join(name_strings)
-        return role_categories or ""
+                role_categories = "\n".join(name_strings)
+        return role_categories
 
     def build_role_script(self) -> None:
         """
@@ -303,28 +302,26 @@ class NameAnalyzer(NameTools):
         if self.character_traits:
             character_traits.extend(self.character_traits)
 
-        settings_attributes = [
-            "Appearance",
-            "Relative location",
-            "Familiarity for main character",
-        ]
-
-        cat_attr_map = {
-            "Characters": character_traits,
-            "Settings": settings_attributes,
-        }
-
-        schema: dict = {}
         schema_stub: Union[dict, str]
 
         if category in self._categories_base:
+            settings_attributes = [
+                "Appearance",
+                "Relative location",
+                "Familiarity for main character",
+            ]
+
+            cat_attr_map = {
+                "Characters": character_traits,
+                "Settings": settings_attributes,
+            }
+
             schema_stub = {
                 category: "Description" for category in cat_attr_map[category]
             }
         else:
             schema_stub = "Description"
-        schema[category] = schema_stub
-
+        schema: dict = {category: schema_stub}
         return json.dumps(schema)
 
     def _create_instructions(self) -> str:
@@ -659,8 +656,8 @@ class NameSummarizer(NameTools):
             name (str): The name for which the summary is generated.
             response (str): The AI response containing the generated summary.
         """
-        category = self._current_category
-        name = self._current_name
         if response:
+            category = self._current_category
+            name = self._current_name
             self.lorebinder[category][name]["summary"] = response
         return self.lorebinder
