@@ -1,5 +1,6 @@
 import json
 import os
+import pathlib
 import re
 from typing import Union
 
@@ -8,9 +9,7 @@ from _types import T
 
 def read_text_file(file_path: str) -> str:
     "Opens and reads text file"
-    with open(file_path) as f:
-        read_file = f.read()
-    return read_file
+    return pathlib.Path(file_path).read_text()
 
 
 def read_json_file(file_path: str) -> T:  # type: ignore
@@ -28,7 +27,7 @@ def write_to_file(content: str, file_path: str) -> None:
 
 
 def separate_into_chapters(text: str) -> list:
-    "Splits string at delimeter of three asterisks"
+    "Splits string at dimeter of three asterisks"
 
     return re.split(r"\s*\*\*\s*", text)
 
