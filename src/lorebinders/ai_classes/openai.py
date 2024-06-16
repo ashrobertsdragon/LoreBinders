@@ -2,21 +2,26 @@ import logging
 import os
 from typing import Dict, Optional, Tuple
 
+import openai
+from ai_factory import AIFactory
+from exceptions import KeyNotFoundError
+from openai import OpenAI
+
 from _types import (
     ChatCompletion,
     ChatCompletionAssistantMessageParam,
     ChatCompletionSystemMessageParam,
     ChatCompletionUserMessageParam,
-    ErrorManager,
-    FileManager,
     FinishReason,
     NoMessageError,
-    ResponseFormat,
+    ResponseFormat
 )
-from ai_factory import AIFactory
-from exceptions import KeyNotFoundError
-from json_repairer import JSONRepair
-from openai import OpenAI
+from email_handler.send_email import SMTPHandler
+from lorebinders.error_handler import ErrorHandler
+from lorebinders.json_repairer import JSONRepair
+
+email_handler = SMTPHandler()
+errors = ErrorHandler(email_manager=email_handler)
 
 
 class OpenaiAPI(AIFactory):
@@ -24,25 +29,30 @@ class OpenaiAPI(AIFactory):
     Child class of AIInterface.
     """
 
-    def __init__(
-        self,
-        file_manager: FileManager,
-        error_manager: ErrorManager,
-        model_key: str,
-    ) -> None:
+    def __init__(self) -> None:
         """
         Initialize the model details and the OpenAI client.
         """
-        super().__init__(file_manager, error_manager, model_key)
         try:
-            api_key = os.environ.get("OPENAI_API_KEY")
-            if not api_key:
+            if api_key := os.environ.get("OPENAI_API_KEY"):
+                self.openai_client = OpenAI(api_key=api_key)
+            else:
                 raise KeyNotFoundError(
                     "OPENAI_API_KEY environment variable not set"
                 )
-            self.openai_client = OpenAI(api_key=api_key)
         except KeyNotFoundError as e:
-            self.errors.kill_app(e)
+            errors.kill_app(e)
+
+        self.unresolvable_errors = self._set_unresolvable_errors()
+
+    def _set_unresolvable_errors(self) -> Tuple:
+        return (
+            openai.BadRequestError,
+            openai.AuthenticationError,
+            openai.NotFoundError,
+            openai.PermissionDeniedError,
+            openai.UnprocessableEntityError
+        )
 
     def create_message_payload(
         self,
@@ -101,8 +111,8 @@ class OpenaiAPI(AIFactory):
     def call_api(
         self,
         api_payload: Dict[str, str],
-        retry_count: int = 0,
         json_response: bool = False,
+        retry_count: int = 0,
         assistant_message: Optional[str] = None,
     ) -> str:
         """
@@ -155,7 +165,7 @@ class OpenaiAPI(AIFactory):
         except Exception as e:
             retry_count = self.error_handle(e, retry_count)
             answer = self.call_api(
-                api_payload, retry_count, json_response, assistant_message
+                api_payload, json_response, retry_count, assistant_message
             )
 
         return answer
@@ -248,8 +258,7 @@ class OpenaiAPI(AIFactory):
             if json_response:
                 repair = JSONRepair()
                 new_part = content[1:]
-                combined = repair.merge(assistant_message, new_part)
-                if combined:
+                if combined := repair.merge(assistant_message, new_part):
                     answer = combined
                 else:
                     answer = repair.repair_str(assistant_message + new_part)
@@ -276,7 +285,7 @@ class OpenaiAPI(AIFactory):
                 api_payload, max_tokens=MAX_TOKENS
             )
             answer = self.call_api(
-                api_payload, retry_count, json_response, assistant_message
+                api_payload, json_response, retry_count, assistant_message
             )
 
         return answer
