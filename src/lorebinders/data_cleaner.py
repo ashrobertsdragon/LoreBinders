@@ -101,7 +101,7 @@ class RemoveNoneFound(CleanData):
         """
         return self._remove_none(self.binder)
 
-    def _remove_none(self, d: Union[dict | list | str]) -> dict:
+    def _remove_none(self, d: Union[dict, list, str]) -> dict:
         """
         Takes the nested dictionary from AttributeAnalyzer and removes "None
         found" entries.
@@ -171,7 +171,7 @@ class DeduplicateKeys(CleanData):
         super().__init__(binder)
 
     def __call__(self) -> None:
-        self.deuplicated = self._deduplicate_keys(self.binder)
+        self.deduplicated = self._deduplicate_keys(self.binder)
 
     def _deduplicate_keys(self, d: dict) -> dict:
         """
@@ -215,16 +215,16 @@ class DeduplicateKeys(CleanData):
         Determines priority of keys, based on whether one is standalone title
         or length. Order is lower priority, higher priority.
         """
-        key1_is_title: bool = self._is_title(key1)
-        key2_is_title: bool = self._is_title(key2)
         lower_key1: str = key1.lower()
         lower_key2: str = key2.lower()
 
         if (
             lower_key1 in lower_key2 or lower_key2 in lower_key1
         ) and lower_key1 != lower_key2:
+            key1_is_title: bool = self._is_title(key1)
             if key1_is_title:
                 return key2, key1
+            key2_is_title: bool = self._is_title(key2)
             if key2_is_title:
                 return key1, key2
         lower_p, higher_p = sorted([key1, key2], key=len)
@@ -336,9 +336,9 @@ class DeduplicateKeys(CleanData):
 
     def _merge_values(
         self,
-        value1: Union[dict | list | str],
-        value2: Union[dict | list | str],
-    ) -> Union[dict | list | str]:
+        value1: Union[dict, list, str],
+        value2: Union[dict, list, str],
+    ) -> Union[dict, list, str]:
         """
         Merges two dictionary key values of unknown datatypes into one
         Args:
@@ -358,7 +358,7 @@ class DeduplicateKeys(CleanData):
         if not (
             isinstance(value2, dict)
             or isinstance(value2, list)
-            or isinstance(value1, str)
+            or isinstance(value2, str)
         ):
             raise TypeError(
                 "Value2 must be either a dictionary, list, or string"
@@ -542,7 +542,7 @@ class SortDictionary(CleanData):
 class ReplaceNarrator(CleanData):
     """
     A class that replaces occurrences of the word 'narrator', 'protagonist',
-    'the main character', or 'main characterr' with a specified narrator name
+    'the main character', or 'main character' with a specified narrator name
     in a given dictionary.
 
     Args:
@@ -573,7 +573,7 @@ class ReplaceNarrator(CleanData):
 
     def _replace_str(self, value: str) -> str:
         narrator_list: str = (
-            r"\b(narrator|protagonist|the main character|main characterr)\b"
+            r"\b(narrator|protagonist|the main character|main character)\b"
         )
         return re.sub(narrator_list, self._narrator_name, value)
 
@@ -616,7 +616,7 @@ def clean_lorebinders(lorebinder: dict, narrator: str):
     only_found: dict = remove_none.clean_none_found()
 
     deduplicator = DeduplicateKeys(only_found)
-    deduped: dict = deduplicator.deuplicated
+    deduped: dict = deduplicator.deduplicated
 
     replace_narrator = ReplaceNarrator(deduped)
     narrator_replaced: dict = replace_narrator.replace(narrator)
