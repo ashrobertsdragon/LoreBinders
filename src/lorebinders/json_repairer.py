@@ -3,10 +3,9 @@ import logging
 import os
 from typing import Any, Dict, List, Optional, Union
 
-from file_handling import FileHandler
 from json_repair import repair_json
 
-file_handler = FileHandler()
+from file_handling import read_json_file
 
 
 class JSONRepair:
@@ -30,9 +29,11 @@ class JSONRepair:
     def is_valid_json(self, file_path: str) -> bool:
         "Checks to see if JSON file exists and is non-empty"
 
-        if os.path.exists(file_path):
-            return bool(file_handler.read_json_file(file_path))
-        return False
+        return (
+            bool(read_json_file(file_path))
+            if os.path.exists(file_path)
+            else False
+        )
 
     def merge(self, first_half: str, second_half: str) -> Optional[str]:
         """
