@@ -1,4 +1,5 @@
 import os
+import pathlib
 import smtplib
 from email import encoders
 from email.mime.base import MIMEBase
@@ -9,7 +10,7 @@ from typing import Optional, Tuple
 from _managers import EmailManager
 
 
-class EmailHandler(EmailManager):
+class SMTPHandler(EmailManager):
     def __init__(self) -> None:
         self.password: str = os.environ["MAIL_PASSWORD"]
         self.admin_email: str = os.environ["MAIL_USERNAME"]
@@ -22,10 +23,7 @@ class EmailHandler(EmailManager):
         body text.
         """
         html_path: str = os.path.join("ProsePal", "email_content.html")
-        with open(html_path) as f:
-            email_body = f.read()
-
-        return email_body
+        return pathlib.Path(html_path).read_text()
 
     def _get_attachment(self, attachment: Tuple[str, str, str]) -> str:
         """
@@ -57,36 +55,55 @@ class EmailHandler(EmailManager):
             book_name: Name of the book.
             user_email: Email address of the user.
         """
-        if attachment:
-            file_path: str = self._get_attachment(attachment)
-
-        email_body = error_msg if error_msg else self._get_email_body()
+        email_body = error_msg or self._get_email_body()
 
         subject = (
-            "A critical error occured" if error_msg else "Your Binder is ready"
+            "A critical error occurred"
+            if error_msg
+            else "Your Binder is ready"
         )
         try:
-            s = smtplib.SMTP_SSL(host=self.server, port=self.port)
-            s.login(self.admin_email, self.password)
+            if attachment:
+                file_path: str = self._get_attachment(attachment)
+                self._create_email_object(
+                    user_email,
+                    subject,
+                    email_body,
+                    file_path=file_path)
+            else:
+                self._create_email_object(user_email, subject, email_body)
+        except Exception as e:
+            print(f"Failed to send email. Reason: {e}")
+        return
 
-            msg = MIMEMultipart()
-            msg["To"] = user_email
-            msg["From"] = self.admin_email
-            msg["Subject"] = subject
-            with open(file_path, "rb") as attachment_file:
-                part = MIMEBase("application", "octet-stream")
-                part.set_payload(attachment_file.read())
+    def _create_attachment(self, file_path: str) -> MIMEBase:
+        with open(file_path, "rb") as attachment_file:
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(attachment_file.read())
             encoders.encode_base64(part)
             part.add_header(
                 "Content-Disposition", f"attachment; filename= {file_path}"
             )
-            msg.attach(part)
-            msg.attach(MIMEText(email_body, "html"))
-            s.send_message(msg)
-            print("email sent")
-        except Exception as e:
-            print(f"Failed to send email. Reason: {e}")
-        return
+        return part
+
+    def _create_email_object(
+            self,
+            user_email,
+            subject,
+            email_body,
+            file_path: Optional[str] = None):
+        s = smtplib.SMTP_SSL(host=self.server, port=self.port)
+        s.login(self.admin_email, self.password)
+        msg = MIMEMultipart()
+        msg["To"] = user_email
+        msg["From"] = self.admin_email
+        msg["Subject"] = subject
+        if file_path:
+            attachment_part = self._create_attachment(file_path)
+            msg.attach(attachment_part)
+        msg.attach(MIMEText(email_body, "html"))
+        s.send_message(msg)
+        print("email sent")
 
     def error_email(self, error_msg: str) -> None:
         """
