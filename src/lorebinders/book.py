@@ -63,11 +63,12 @@ class Book:
         """
         Returns a list of Chapter objects
         """
-        chapters: List[Chapter] = []
-        for number, text in enumerate(
-            separate_into_chapters(self.file), start=1
-        ):
-            chapters.append(Chapter(number, text))
+        chapters: List[Chapter] = [
+            Chapter(number, text)
+            for number, text in enumerate(
+                separate_into_chapters(self.file), start=1
+            )
+        ]
         self._chapters = chapters
         return self._chapters
 
