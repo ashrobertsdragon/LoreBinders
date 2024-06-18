@@ -6,11 +6,11 @@ from typing import Generator, List, Tuple, Union, cast
 from _types import AIModels, BookDict, Chapter
 from ai_classes.ai_interface import AIModelConfig
 from data_cleaner import ManipulateData
-from json_repairer import JSONRepair
+from json_tools import RepairJSON
 from sort_names import SortNames
 
 data = ManipulateData()
-json_repairer = JSONRepair()
+json_repair_tool = RepairJSON()
 
 
 @dataclass
@@ -467,9 +467,11 @@ class NameAnalyzer(NameTools):
             list: The updated attributes batch list.
         """
         attributes_json: str = self._form_schema()
-        self._attributes_batch.append(
-            (attributes_json, self.max_tokens, instructions)
-        )
+        self._attributes_batch.append((
+            attributes_json,
+            self.max_tokens,
+            instructions,
+        ))
 
     def build_role_script(self) -> None:
         """
@@ -530,7 +532,7 @@ class NameAnalyzer(NameTools):
         Returns:
             T
         """
-        return json_repairer.json_str_to_dict(response)
+        return json_repair_tool.json_str_to_dict(response)
 
 
 class NameSummarizer(NameTools):
