@@ -190,8 +190,6 @@ class DeduplicateKeys(CleanData):
             if not isinstance(nested_dict, dict):
                 continue
             duplicate_keys = set()
-            inner_dict = {}
-
             for key1, key2 in combinations(nested_dict.keys(), 2):
                 if key1 in duplicate_keys or key2 in duplicate_keys:
                     continue
@@ -204,9 +202,11 @@ class DeduplicateKeys(CleanData):
                     )
                     duplicate_keys.add(key_to_merge)
 
-            for key, value in nested_dict.items():
-                if key not in duplicate_keys:
-                    inner_dict[key] = value
+            inner_dict = {
+                key: value
+                for key, value in nested_dict.items()
+                if key not in duplicate_keys
+            }
             cleaned_dict[outer_key] = inner_dict
         return self._deduplicate_across_dictionaries(cleaned_dict)
 
