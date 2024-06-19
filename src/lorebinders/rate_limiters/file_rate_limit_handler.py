@@ -1,0 +1,15 @@
+from file_handling import read_json_file, write_json_file
+from lorebinders._managers import RateLimitManager
+
+
+class FileRateLimitHandler(RateLimitManager):
+    def _filename(self, model_name) -> str:
+        return f"{model_name}rate_limit_data"
+
+    def read(self, model_name: str) -> dict:
+        filename = self._filename(model_name)
+        return read_json_file(filename)
+
+    def write(self, model_name: str, rate_limit_data: dict) -> None:
+        filename = self._filename(model_name)
+        write_json_file(rate_limit_data, filename)

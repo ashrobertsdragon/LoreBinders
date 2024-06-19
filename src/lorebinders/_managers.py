@@ -21,3 +21,13 @@ class ErrorManager(ABC):
     @abstractmethod
     def kill_app(cls, e: Exception) -> None:
         raise NotImplementedError("subclass must implement kil_app")
+
+
+class RateLimitManager(ABC):
+    @abstractmethod
+    def read(self, model_name: str) -> dict:
+        raise NotImplementedError("Must be implemented in child class")
+
+    @abstractmethod
+    def write(self, model_name: str, rate_limit_data: dict) -> None:
+        raise NotImplementedError("Must be implemented in child class")
