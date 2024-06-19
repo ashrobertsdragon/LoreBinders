@@ -17,6 +17,9 @@ class Binder:
         self._book_name: Optional[str] = None
         self._temp_file: Optional[str] = None
 
+    def __str__(self) -> str:
+        return f"Binder for {self.book_name} - {self.book.author}"
+
     @property
     def book_name(self) -> str:
         if self._book_name is None:
