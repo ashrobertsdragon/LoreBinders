@@ -1,20 +1,16 @@
-import json
 import logging
-import os
 import time
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple
 
-from exceptions import MaxRetryError
 from pydantic import BaseModel, ValidationError
 
-from email_handler.send_email import SMTPHandler
-from lorebinders._types import ChatCompletion, FinishReason
-from lorebinders.error_handler import ErrorHandler
-from lorebinders.file_handling import read_json_file, write_json_file
+from email_handlers.smtp_handler import SMTPHandler
+from lorebinders._managers import RateLimitManager
+from lorebinders._types import ChatCompletion, FinishReason, Model
+from lorebinders.error_handler import APIErrorHandler
 
 email_handler = SMTPHandler()
-error_handling = ErrorHandler(email_manager=email_handler)
 
 
 class Payload(BaseModel):
@@ -29,6 +25,7 @@ class AIType:
     """
     Dummy class to pacify MyPy. Not intended to be used
     """
+
     def create_payload(
         self,
         prompt: str,
@@ -68,71 +65,51 @@ class AIType:
 
 
 class RateLimit:
-    def __init__(self, model_dict: dict) -> None:
-        self.model_details(model_dict)
-        self._set_rate_limit_data()
+    def __init__(self, model: str, rate_handler: RateLimitManager) -> None:
+        self.model = model
+        self._rate_handler = rate_handler
+        self.rate_limit_dict = self.read_rate_limit_dict(self.model)
 
-    def model_details(self, model_dict) -> None:
-        self.model_name: str = model_dict["model"]
-        self._rate_limit: int = model_dict["rate_limit"]
-        self.context_window: int = model_dict["context_window"]
-        self.tokenizer: str = model_dict["tokenizer"]
+    def read_rate_limit_dict(self) -> None:
+        self.rate_limit_dict: dict = self._rate_handler.read(self.model)
 
-    def _set_rate_limit_data(self) -> None:
-        self._rate_limit_data: dict = (
-            read_json_file(f"{self.model_name}_rate_limit.json")
-            if os.path.exists(f"{self.model_name}_rate_limit.json")
-            else {}
-        )
-        self._reset_rate_limit_minute()
-        self._reset_rate_limit_tokens_used()
+    def update_rate_limit_dict(self) -> None:
+        self._rate_handler.write(self.model, self.rate_limit_dict)
 
-    def _reset_rate_limit_minute(self) -> None:
-        self._rate_limit_data["minute"] = self._rate_limit_data.get(
-            "minute", time.time()
-        )
+    def reset_rate_limit_dict(self) -> None:
+        self._reset_minute()
+        self._reset_tokens_used()
+        self.write_rate_limit_dict()
 
-    def _reset_rate_limit_tokens_used(self) -> None:
-        self._rate_limit_data["tokens_used"] = self._rate_limit_data.get(
-            "tokens_used", 0
-        )
+    def _reset_minute(self) -> None:
+        self.rate_limit_dict["minute"] = time.time()
 
-    def get_rate_limit_minute(self) -> float:
-        return self._rate_limit_data["minute"]
+    def _reset_tokens_used(self) -> None:
+        self.rate_limit_dict["tokens_used"] = 0
 
-    def get_rate_limit_tokens_used(self) -> int:
-        return self._rate_limit_data["tokens_used"]
+    @property
+    def minute(self) -> float:
+        self.read_rate_limit_dict()
+        return self.rate_limit_dict["minute"]
 
-    def is_rate_limit(self) -> int:
-        """
-        Returns the rate limit.
-
-        Returns:
-            int: The rate limit for the model.
-        """
-
-        model_details = self._rate_limit_data
-
-        if model_details is None:
-            return 0
-
-        rate_limit = model_details.get("rate_limit")
-
-        if not isinstance(rate_limit, int):
-            raise ValueError("Rate limit must be an integer.")
-
-        return rate_limit
+    @property
+    def tokens_used(self) -> int:
+        self.read_rate_limit_dict()
+        return self.rate_limit_dict["tokens_used"]
 
 
-class AIFactory(AIType, ABC, RateLimit):
+class AIFactory(AIType, ABC):
     def __init__(self) -> None:
-        self.unresolvable_error_handler = self._set_unresolvable_errors()
+        self.unresolvable_errors = self._set_unresolvable_errors()
+        self.error_handler = APIErrorHandler(
+            email_manager=email_handler, unresolvable=self.unresolvable_errors
+        )
 
-    def set_model(self, model_dict: dict) -> None:
-        self.model_dict = model_dict
+    def set_model(self, model: Model, rate_handler: RateLimitManager) -> None:
+        self.model = model
 
-        RateLimit.__init__(self, self.model_dict)
-        self.model_name = self.model_dict["model"]
+        self.model_name = self.model.model
+        self.rate_limiter = RateLimit(self.model_name, rate_handler)
 
     def count_tokens(self, text: str) -> int:
         """
@@ -178,7 +155,7 @@ class AIFactory(AIType, ABC, RateLimit):
 
         return payload.model_dump()
 
-    def update_rate_limit_data(self, tokens: int) -> None:
+    def update_rate_limit_dict(self, tokens: int) -> None:
         """
         Updates the rate limit data by adding the number of tokens used.
 
@@ -192,10 +169,10 @@ class AIFactory(AIType, ABC, RateLimit):
             The rate limit data dictionary is updated by adding the number of
             tokens used to the 'tokens_used' key.
             The updated rate limit data is then written to a JSON file named
-                'rate_limit_data.json'.
+                'rate_limit_dict.json'.
         """
-        self._rate_limit_data["tokens_used"] += tokens
-        write_json_file(self._rate_limit_data, "rate_limit_data.json")
+        self.rate_limit_dict["tokens_used"] += tokens
+        self.rate_limiter.update_rate_limit_dict(self.rate_limit_dict)
 
     @abstractmethod
     def create_message_payload(
@@ -221,11 +198,12 @@ class AIFactory(AIType, ABC, RateLimit):
         api_payload |= kwargs
         return api_payload
 
-    def error_handle(self, e: Exception, retry_count: int) -> int:
+    def _error_handle(self, e: Exception, retry_count: int) -> int:
         """
-        Determines whether error is unresolvable or should be retried. If
-        unresolvable, error is logged and administrator is emailed before
-        exit. Otherwise, exponential backoff is used for up to 5 retries.
+        Calls the 'handle_error' method of the error handler class which
+        determines if the exception is recoverable or not. If it is, an
+        updated retry count is returned. If not, the error is logged, and the
+        application exits.
 
         Args:
             e: an Exception body
@@ -234,40 +212,10 @@ class AIFactory(AIType, ABC, RateLimit):
         Returns:
             retry_count: the number of attempts so far
         """
-        try:
-            if response := getattr(e, "response", None):
-                error_details = response.json().get("error", {})
-        except (AttributeError, json.JSONDecodeError):
-            error_details = {}
 
-        error_code = getattr(e, "status_code", None)
-        error_message = error_details.get("message", "Unknown error")
+        return self.error_handler.handle_error(e, retry_count)
 
-        if (
-            isinstance(e, tuple(self.unresolvable_error_handler))
-            or error_code == 401
-            or "exceeded your current quota" in error_message
-        ):
-            error_handling.kill_app(e)
-
-        logging.error(f"An error occurred: {e}", exc_info=True)
-
-        MAX_RETRY_COUNT = 5
-
-        try:
-            retry_count += 1
-            if retry_count == MAX_RETRY_COUNT:
-                raise MaxRetryError("Maximum retry count reached")
-            sleep_time = (MAX_RETRY_COUNT - retry_count) + (retry_count**2)
-            logging.warning(
-                f"Retry attempt #{retry_count} in {sleep_time} seconds."
-            )
-        except MaxRetryError as e:
-            error_handling.kill_app(e)
-
-        return retry_count
-
-    def handle_rate_limiting(self, input_tokens: int, max_tokens: int) -> None:
+    def _enforce_rate_limit(self, input_tokens: int, max_tokens: int) -> None:
         """
         Handles rate limiting for API calls to the AI engine.
 
@@ -282,32 +230,33 @@ class AIFactory(AIType, ABC, RateLimit):
             input_tokens (int): The number of tokens used in the API call.
             max_tokens (int): The maximum number of tokens allowed for the API
                 call.
-
-        Returns:
-            None
-
-        Raises:
-            None
         """
-        minute = self.get_rate_limit_minute()
-        tokens_used = self.get_rate_limit_tokens_used()
+        minute = self.rate_limiter.minute
+        tokens_used = self.rate_limiter.tokens_used
 
         if time.time() > minute + 60:
-            self._reset_rate_limit_minute()
-            self._reset_rate_limit_tokens_used()
-            write_json_file(self._rate_limit_data, "rate_limit_data.json")
+            self.rate_limiter.reset_rate_limit_dict()
 
-        if tokens_used + input_tokens + max_tokens > self._rate_limit:
+        if (
+            tokens_used + input_tokens + max_tokens
+            > self.rate_limiter.rate_limit
+        ):
             self._cool_down(minute)
 
-    def _cool_down(self, minute):
-        logging.warning("Rate limit exceeded")
+    def _cool_down(self, minute: float):
+        """
+        Pause the application thread while the rate limit is in danger of
+        being exceeded.
+
+        Args:
+            minute (float): The timestamp of the last rate limit reset
+        """
+
+        logging.warning("Rate limit in danger of being exceeded")
         sleep_time = 60 - (time.time() - minute)
         logging.info(f"Sleeping {sleep_time} seconds")
         time.sleep(sleep_time)
-        self._reset_rate_limit_tokens_used()
-        self._reset_rate_limit_minute()
-        write_json_file(self._rate_limit_data, "rate_limit_data.json")
+        self.rate_limiter.reset_rate_limit_dict()
 
     @abstractmethod
     def call_api(
