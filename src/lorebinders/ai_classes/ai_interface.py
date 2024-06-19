@@ -11,35 +11,9 @@ class AIModelConfig:
     def __init__(self, models: AIModels) -> None:
         self.provider_models = models
         self.provider = self.provider_models.provider
-
-    def initialize_api(self):
-        return AIInterface(self.provider)
-
-
-class AIInterface:
-    """
-    Load the AI implementation based on the provider. This class acts as a
-    common interface to access all AI API's.
-
-    Args:
-        provider (str): The name of the AI provider.
-
-    Returns:
-        AIFactory: An instance of the AI implementation.
-
-    Raises:
-        ValueError: If the provider is invalid.
-    """
-
-    def __init__(
-        self,
-        provider: str,
-    ) -> None:
         self._cached_classes: Dict[str, AIType] = {}
 
-        self.ai_implementation: AIType = self._load_ai_implementation(provider)
-
-    def _load_ai_implementation(self, provider: str) -> AIType:
+    def initialize_api(self):
         """
         Load the AI implementation based on the provider.
 
@@ -53,19 +27,39 @@ class AIInterface:
             ValueError: If the provider is invalid.
         """
         try:
-            if provider not in self._cached_classes:
+            if self.provider not in self._cached_classes:
                 module = importlib.import_module(
-                    provider, package="ai_classes"
+                    f"api_{self.provider}", package="ai_classes"
                 )
-                provider_class = f"{provider.capitalize()}API"
+                provider_class = f"{self.provider.capitalize()}API"
                 implementation_class: AIType = getattr(module, provider_class)
-                self._cached_classes[provider] = implementation_class
+                self._cached_classes[self.provider] = implementation_class()
             else:
-                implementation_class = self._cached_classes[provider]
-            return implementation_class
-        except (ImportError, AttributeError):
-            logging.error(f"Invalid AI provider: {provider}")
-            raise MissingAIProviderError(f"Invalid AI provider: {provider}")
+                implementation_class = self._cached_classes[self.provider]
+            return AIInterface(implementation_class)
+        except (ImportError, AttributeError) as e:
+            error_msg = f"Invalid AI provider: {self.provider}"
+            logging.error(error_msg)
+            raise MissingAIProviderError(error_msg) from e
+
+
+class AIInterface:
+    """
+    Load the AI implementation based on the provider. This class acts as a
+    common interface to access all AI API's.
+
+    Args:
+        provider (str): The name of the AI provider.
+
+    Returns:
+        AIType: An instance of the AI implementation.
+
+    Raises:
+        ValueError: If the provider is invalid.
+    """
+
+    def __init__(self, ai_implementation: AIType):
+        self._ai = ai_implementation
 
     def set_model(self, model_config: AIModelConfig, model_id: int) -> None:
         """
