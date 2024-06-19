@@ -17,11 +17,11 @@ from _types import (
     ResponseFormat
 )
 from email_handlers.smtp_handler import SMTPHandler
-from lorebinders.error_handler import ErrorHandler
+from lorebinders.error_handler import APIErrorHandler
 from lorebinders.json_tools import RepairJSON
 
 email_handler = SMTPHandler()
-errors = ErrorHandler(email_manager=email_handler)
+errors = APIErrorHandler(email_manager=email_handler)
 
 
 class OpenaiAPI(AIFactory):
@@ -82,6 +82,8 @@ class OpenaiAPI(AIFactory):
             ValueError: If the role_script input is not a string.
             ValueError: If the prompt input is not a string.
 
+        Note: Parameter dictionaries are typed to OpenAI's custom TypedDicts
+        to keep MyPy happy.
         """
         role_dict: ChatCompletionSystemMessageParam = {
             "role": "system",
@@ -92,26 +94,36 @@ class OpenaiAPI(AIFactory):
             "content": prompt,
         }
         messages = [role_dict, prompt_dict]
-        added_prompt = ""
+
         if assistant_message is not None:
-            added_prompt = (
-                "Please continue from the exact point you left off without "
-                "any commentary"
-            )
-            assistant_dict: ChatCompletionAssistantMessageParam = {
-                "role": "assistant",
-                "content": assistant_message,
-            }
-            added_prompt_dict: ChatCompletionUserMessageParam = {
-                "role": "user",
-                "content": added_prompt,
-            }
-            messages.extend([assistant_dict, added_prompt_dict])
-        combined_text = "".join([prompt, role_script])
-        input_tokens = self.count_tokens(
-            f"{combined_text}{assistant_message}{added_prompt}"
-        )
+            messages = self._add_assistant_message(messages, assistant_message)
+
+        combined_text = "".join([msg["content"] for msg in messages])
+        input_tokens = self.count_tokens(combined_text)
         return messages, input_tokens
+
+    def _add_assistant_message(
+        self,
+        messages: list,
+        assistant_message: str,
+    ) -> list:
+        """
+        Append the assistant message and continuation prompt to the message
+        list.
+        """
+        added_prompt = (
+            "Please continue from the exact point you left off without "
+            "any commentary"
+        )
+        assistant_dict: ChatCompletionAssistantMessageParam = {
+            "role": "assistant",
+            "content": assistant_message,
+        }
+        added_prompt_dict: ChatCompletionUserMessageParam = {
+            "role": "user",
+            "content": added_prompt,
+        }
+        messages.extend([assistant_dict, added_prompt_dict])
 
     def call_api(
         self,
@@ -140,38 +152,56 @@ class OpenaiAPI(AIFactory):
         messages, input_tokens = self.create_message_payload(
             role_script, prompt, assistant_message
         )
+
+        try:
+            return self._make_api_call(
+                api_payload,
+                messages,
+                input_tokens,
+                json_response,
+                retry_count,
+                assistant_message,
+            )
+        except Exception as e:
+            retry_count = self.error_handle(e, retry_count)
+            return self.call_api(
+                api_payload, json_response, retry_count, assistant_message
+            )
+
+    def _make_api_call(
+        self,
+        api_payload: Dict[str, str],
+        messages: list,
+        input_tokens: int,
+        json_response: bool,
+        retry_count: int,
+        assistant_message: Optional[str] = None,
+    ) -> str:
+        """Performs the actual OpenAI API call."""
+        self.enforce_rate_limit(input_tokens, int(api_payload["max_tokens"]))
         model_name = api_payload["model_name"]
         max_tokens = int(api_payload["max_tokens"])
         temperature = float(api_payload["temperature"])
 
-        self.handle_rate_limiting(input_tokens, max_tokens)
         response_format: ResponseFormat = (
             {"type": "json_object"} if json_response else {"type": "text"}
         )
 
-        try:
-            response: ChatCompletion = self.client.chat.completions.create(
-                messages=messages,
-                model=model_name,
-                max_tokens=max_tokens,
-                response_format=response_format,
-                temperature=temperature,
-            )
-            content_tuple = self.preprocess_response(response)
-            answer = self.process_response(
-                content_tuple,
-                assistant_message,
-                api_payload,
-                retry_count,
-                json_response,
-            )
-        except Exception as e:
-            retry_count = self.error_handle(e, retry_count)
-            answer = self.call_api(
-                api_payload, json_response, retry_count, assistant_message
-            )
-
-        return answer
+        response: ChatCompletion = self.client.chat.completions.create(
+            messages=messages,
+            model=model_name,
+            max_tokens=max_tokens,
+            response_format=response_format,
+            temperature=temperature,
+        )
+        content_tuple = self.preprocess_response(response)
+        return self.process_response(
+            content_tuple,
+            assistant_message,
+            api_payload,
+            retry_count,
+            json_response,
+        )
 
     def preprocess_response(
         self, response: ChatCompletion
@@ -257,38 +287,63 @@ class OpenaiAPI(AIFactory):
             The API call is made again with the modified payload.
         """
         content, completion_tokens, finish_reason = content_tuple
+
         if assistant_message:
-            if json_response:
-                repair = RepairJSON()
-                new_part = content[1:]
-                if combined := repair.merge(assistant_message, new_part):
-                    answer = combined
-                else:
-                    answer = repair.repair_str(assistant_message + new_part)
-            else:
-                answer = assistant_message + content
+            answer = self._combine_answer(
+                assistant_message, content, json_response
+            )
         else:
             answer = content
 
         if finish_reason == "length":
-            length_warning = (
-                "Max tokens exceeded.\n"
-                f"Used {completion_tokens} of {api_payload.get("max_tokens")}"
-            )
-            logging.warning(length_warning)
-            if json_response:
-                last_complete = answer.rfind("},")
-                assistant_message = (
-                    answer[: last_complete + 1] if last_complete > 0 else ""
-                )
-            else:
-                assistant_message = answer
-            MAX_TOKENS = 500
-            api_payload = self.modify_payload(
-                api_payload, max_tokens=MAX_TOKENS
-            )
-            answer = self.call_api(
-                api_payload, json_response, retry_count, assistant_message
+            return self._handle_length_limit(
+                answer,
+                api_payload,
+                retry_count,
+                json_response,
+                completion_tokens,
             )
 
         return answer
+
+    def _combine_answer(
+        self, assistant_message: str, content: str, json_response: bool
+    ) -> str:
+        """
+        Combine assistant message and new content based on response format.
+        """
+        if json_response:
+            repair = RepairJSON()
+            new_part = content[1:]
+            return repair.merge(
+                assistant_message, new_part
+            ) or repair.repair_str(assistant_message + new_part)
+        return assistant_message + content
+
+    def _handle_length_limit(
+        self,
+        answer: str,
+        api_payload: dict,
+        retry_count: int,
+        json_response: bool,
+        completion_tokens: int,
+    ) -> str:
+        """Handle cases where the response exceeds the maximum token limit."""
+        MAX_TOKENS = 500
+        logging.warning(
+            f"Max tokens exceeded.\n"
+            f"Used {completion_tokens} of {api_payload.get("max_tokens")}"
+        )
+
+        if json_response:
+            last_complete = answer.rfind("},")
+            assistant_message = (
+                answer[: last_complete + 1] if last_complete > 0 else ""
+            )
+        else:
+            assistant_message = answer
+
+        api_payload = self.modify_payload(api_payload, max_tokens=MAX_TOKENS)
+        return self.call_api(
+            api_payload, json_response, retry_count, assistant_message
+        )
