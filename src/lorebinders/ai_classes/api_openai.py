@@ -16,9 +16,9 @@ from _types import (
     NoMessageError,
     ResponseFormat
 )
-from email_handler.send_email import SMTPHandler
+from email_handlers.smtp_handler import SMTPHandler
 from lorebinders.error_handler import ErrorHandler
-from lorebinders.json_repairer import JSONRepair
+from lorebinders.json_tools import RepairJSON
 
 email_handler = SMTPHandler()
 errors = ErrorHandler(email_manager=email_handler)
@@ -31,11 +31,17 @@ class OpenaiAPI(AIFactory):
 
     def __init__(self) -> None:
         """
-        Initialize the model details and the OpenAI client.
+        Initialize the OpenAI client and unresolvable errors.
         """
+        self._initialize_client()
+
+        self.unresolvable_errors = self._set_unresolvable_errors()
+
+    def _initialize_client(self) -> None:
+        """Create the OpenAI API client with the API key"""
         try:
             if api_key := os.environ.get("OPENAI_API_KEY"):
-                self.openai_client = OpenAI(api_key=api_key)
+                self.client = OpenAI(api_key=api_key)
             else:
                 raise KeyNotFoundError(
                     "OPENAI_API_KEY environment variable not set"
@@ -43,15 +49,14 @@ class OpenaiAPI(AIFactory):
         except KeyNotFoundError as e:
             errors.kill_app(e)
 
-        self.unresolvable_errors = self._set_unresolvable_errors()
-
     def _set_unresolvable_errors(self) -> Tuple:
+        """Set the unresolvable errors for OpenAI's API"""
         return (
             openai.BadRequestError,
             openai.AuthenticationError,
             openai.NotFoundError,
             openai.PermissionDeniedError,
-            openai.UnprocessableEntityError
+            openai.UnprocessableEntityError,
         )
 
     def create_message_payload(
@@ -145,14 +150,12 @@ class OpenaiAPI(AIFactory):
         )
 
         try:
-            response: ChatCompletion = (
-                self.openai_client.chat.completions.create(
-                    messages=messages,
-                    model=model_name,
-                    max_tokens=max_tokens,
-                    response_format=response_format,
-                    temperature=temperature,
-                )
+            response: ChatCompletion = self.client.chat.completions.create(
+                messages=messages,
+                model=model_name,
+                max_tokens=max_tokens,
+                response_format=response_format,
+                temperature=temperature,
             )
             content_tuple = self.preprocess_response(response)
             answer = self.process_response(
@@ -256,7 +259,7 @@ class OpenaiAPI(AIFactory):
         content, completion_tokens, finish_reason = content_tuple
         if assistant_message:
             if json_response:
-                repair = JSONRepair()
+                repair = RepairJSON()
                 new_part = content[1:]
                 if combined := repair.merge(assistant_message, new_part):
                     answer = combined
