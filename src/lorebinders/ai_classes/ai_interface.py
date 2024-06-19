@@ -67,8 +67,7 @@ class AIInterface:
         implementation class.
         """
         model = model_config.provider_models.models.get_model_by_id(model_id)
-        model_dict = model.model_dump()
-        return self.ai_implementation.set_model(model_dict)
+        return self.ai_implementation.set_model(model)
 
     def call_api(
         self,
