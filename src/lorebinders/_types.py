@@ -1,25 +1,26 @@
 from logging import Logger
 from typing import Literal, TypeVar
 
+from openai.types.chat import (
+    ChatCompletion,
+    ChatCompletionAssistantMessageParam,
+    ChatCompletionSystemMessageParam,
+    ChatCompletionUserMessageParam
+)
+from openai.types.chat.completion_create_params import ResponseFormat
+
 from _managers import EmailManager, ErrorManager
-from ai_classes._model_schema import AIModels
+from ai_classes._model_schema import AIModels, Model
 from ai_classes.ai_factory import AIType
 from ai_classes.exceptions import (
     KeyNotFoundError,
     MaxRetryError,
-    NoMessageError,
+    NoMessageError
 )
 from attributes import NameTools
 from binders import Binder
 from book import Book, Chapter
 from book_dict import BookDict
-from openai.types.chat import (
-    ChatCompletion,
-    ChatCompletionAssistantMessageParam,
-    ChatCompletionSystemMessageParam,
-    ChatCompletionUserMessageParam,
-)
-from openai.types.chat.completion_create_params import ResponseFormat
 
 T = TypeVar("T", dict, list, str)
 
@@ -42,6 +43,7 @@ __all__ = [
     "Binder",
     "Logger",
     "AIModels",
+    "Model",
     "EmailManager",
     "ErrorManager",
     "T",
