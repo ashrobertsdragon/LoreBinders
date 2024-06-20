@@ -30,15 +30,10 @@ class NameTools(metaclass=ABCMeta):
 
     def __init__(self, ai_models: AIModels) -> None:
         """
-        Initialize the NameTools class with a Book object and an instance of
-        the
-        OpenAIAPI class.
+        Initialize the NameTools class an AIModels dataclass object.
 
         Args:
-            chapter (Chapter): The Chapter object representing the chapter.
-
-        Raises:
-            TypeError: If book is not an instance of the Book class.
+            ai_models (AIModels): A dataclass of the AI API information.
         """
 
         self._ai_config = AIModelConfig(ai_models)
@@ -60,6 +55,14 @@ class NameTools(metaclass=ABCMeta):
         return self._ai.call_api(payload, self._json_mode)
 
     def _combine_responses(self, responses: List[str]) -> str:
+        """Combine AI responses
+
+        Args:
+            responses (List[str]): A list of the AI responses as JSON strings.
+
+        Returns:
+            str: A stringified JSON array of the combined AI responses.
+        """
         return (
             "{"
             + ",".join(part.lstrip("{").rstrip("}") for part in responses)
