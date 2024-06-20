@@ -3,11 +3,13 @@ import os
 from typing import Dict, Optional, Tuple
 
 import openai
+import tiktoken
 from ai_factory import AIFactory
 from exceptions import KeyNotFoundError
 from openai import OpenAI
 
-from _types import (
+from email_handlers.smtp_handler import SMTPHandler
+from lorebinders._types import (
     ChatCompletion,
     ChatCompletionAssistantMessageParam,
     ChatCompletionSystemMessageParam,
@@ -16,7 +18,6 @@ from _types import (
     NoMessageError,
     ResponseFormat
 )
-from email_handlers.smtp_handler import SMTPHandler
 from lorebinders.error_handler import APIErrorHandler
 from lorebinders.json_tools import RepairJSON
 
@@ -130,7 +131,7 @@ class OpenaiAPI(AIFactory):
         Counts tokens using the tokenizer for the AI model.
         """
         if not self.tokenizer:
-            self.tokenizer = self.tokenizer_class()
+            self.tokenizer = tiktoken.get_encoding("cl100k_base")
         return len(self.tokenizer.encode(text))
 
     def call_api(
