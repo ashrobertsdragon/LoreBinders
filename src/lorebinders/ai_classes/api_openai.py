@@ -99,7 +99,7 @@ class OpenaiAPI(AIFactory):
             messages = self._add_assistant_message(messages, assistant_message)
 
         combined_text = "".join([msg["content"] for msg in messages])
-        input_tokens = self.count_tokens(combined_text)
+        input_tokens = self._count_tokens(combined_text)
         return messages, input_tokens
 
     def _add_assistant_message(
@@ -124,6 +124,14 @@ class OpenaiAPI(AIFactory):
             "content": added_prompt,
         }
         messages.extend([assistant_dict, added_prompt_dict])
+
+    def _count_tokens(self, text: str) -> int:
+        """
+        Counts tokens using the tokenizer for the AI model.
+        """
+        if not self.tokenizer:
+            self.tokenizer = self.tokenizer_class()
+        return len(self.tokenizer.encode(text))
 
     def call_api(
         self,
