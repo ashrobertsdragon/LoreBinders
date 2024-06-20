@@ -110,12 +110,14 @@ class AIFactory(AIType, ABC):
 
         self.model_name = self.model.model
         self.rate_limiter = RateLimit(self.model_name, rate_handler)
+        self.tokenizer_class = self.model.tokenizer
 
-    def count_tokens(self, text: str) -> int:
+    @abstractmethod
+    def _count_tokens(self, text: str) -> int:
         """
         Counts tokens using the tokenizer for the AI model.
         """
-        return len(self.tokenizer.encode(text))
+        raise NotImplementedError("Must be implemented in child class")
 
     def create_payload(
         self,
