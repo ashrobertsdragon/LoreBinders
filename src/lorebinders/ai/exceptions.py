@@ -1,14 +1,26 @@
-class NoMessageError(Exception):
+class MissingAIError(Exception):
     pass
 
 
-class MaxRetryError(Exception):
+class APIError(Exception):
     pass
 
 
-class KeyNotFoundError(Exception):
+class NoMessageError(APIError):
     pass
 
 
-class MissingAIProviderError(Exception):
+class MaxRetryError(APIError):
+    pass
+
+
+class KeyNotFoundError(APIError):
+    pass
+
+
+class MissingAIProviderError(MissingAIError):
+    pass
+
+
+class MissingModelFamilyError(MissingAIError):
     pass
