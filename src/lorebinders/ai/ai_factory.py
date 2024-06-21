@@ -3,12 +3,12 @@ import time
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple
 
+from api_error_handler import APIErrorHandler
 from pydantic import BaseModel, ValidationError
 
 from email_handlers.smtp_handler import SMTPHandler
 from lorebinders._managers import RateLimitManager
 from lorebinders._types import ChatCompletion, FinishReason, Model
-from lorebinders.error_handler import APIErrorHandler
 
 email_handler = SMTPHandler()
 

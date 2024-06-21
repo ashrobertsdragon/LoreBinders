@@ -2,9 +2,10 @@ import importlib
 import logging
 from typing import Dict, Optional
 
-from _model_schema import AIModels
 from ai_factory import AIType
 from exceptions import MissingAIProviderError
+
+from ai.ai_models._model_schema import AIModels
 
 
 class AIModelConfig:
@@ -29,10 +30,10 @@ class AIModelConfig:
         try:
             if self.provider not in self._cached_classes:
                 module = importlib.import_module(
-                    f"api_{self.provider}", package="ai_classes"
+                    f"api_{self.provider}", package="ai.ai_classes"
                 )
                 provider_class = f"{self.provider.capitalize()}API"
-                implementation_class: AIType = getattr(module, provider_class)
+                implementation_class = getattr(module, provider_class)
                 self._cached_classes[self.provider] = implementation_class()
             else:
                 implementation_class = self._cached_classes[self.provider]

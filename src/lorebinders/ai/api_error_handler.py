@@ -5,8 +5,9 @@ import time
 import traceback
 from typing import Tuple
 
-from _managers import EmailManager, ErrorManager
 from ai_classes.exceptions import MaxRetryError
+
+from _managers import EmailManager, ErrorManager
 
 
 class APIErrorHandler(ErrorManager):

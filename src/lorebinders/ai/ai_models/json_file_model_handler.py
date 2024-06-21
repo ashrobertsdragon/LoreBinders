@@ -3,7 +3,7 @@ from typing import List
 from _managers import AIModelManager
 from _types import AIModels, Model
 from file_handling import read_json_file, write_json_file
-from lorebinders.ai_classes.exceptions import MissingAIProviderError
+from lorebinders.ai.exceptions import MissingAIProviderError
 
 
 class JSONFileModelHandler(AIModelManager):
