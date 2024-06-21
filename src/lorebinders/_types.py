@@ -11,7 +11,12 @@ from openai.types.chat.completion_create_params import ResponseFormat
 
 from _managers import EmailManager, ErrorManager
 from ai.ai_factory import AIType
-from ai.ai_models._model_schema import AIModels, Model
+from ai.ai_models._model_schema import (
+    AIModelRegistry,
+    APIProvider,
+    Model,
+    ModelFamily
+)
 from ai.exceptions import KeyNotFoundError, MaxRetryError, NoMessageError
 from attributes import NameTools
 from binders import Binder
@@ -38,7 +43,9 @@ __all__ = [
     "NameTools",
     "Binder",
     "Logger",
-    "AIModels",
+    "AIModelRegistry",
+    "APIProvider",
+    "ModelFamily",
     "Model",
     "EmailManager",
     "ErrorManager",
