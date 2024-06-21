@@ -1,60 +1,86 @@
 from typing import List
 
-from _managers import AIModelManager
-from _types import AIModels, Model
+from _managers import AIProviderManager
+from _types import AIModelRegistry, APIProvider, Model, ModelFamily
+from ai.exceptions import MissingModelFamilyError
 from file_handling import read_json_file, write_json_file
-from lorebinders.ai.exceptions import MissingAIProviderError
 
 
-class JSONFileModelHandler(AIModelManager):
+class JSONFileProviderHandler(AIProviderManager):
     def __init__(self) -> None:
         self.model_file = "ai_models.json"
-        self.all_models = self.get_all_models()
 
-    def get_all_models(self) -> List[AIModels]:
-        model_families = read_json_file(self.model_file)
-        return [AIModels.model_validate(family) for family in model_families]
+    @property
+    def registry(self) -> AIModelRegistry:
+        if not self._registry:
+            self._registry = self._load_registry()
+        return self._registry
 
-    def get_provider(self, provider: str) -> AIModels:
-        if provider_instance := next(
-            (
-                instance
-                for instance in self.all_models
-                if instance.provider == provider
-            ),
-            None,
-        ):
-            return provider_instance
+    def _load_registry(self) -> AIModelRegistry:
+        data = read_json_file(self.model_file)
+        return AIModelRegistry.model_validate(data)
+
+    def get_all_providers(self) -> List[APIProvider]:
+        return self.registry.providers
+
+    def get_provider(self, provider: str) -> APIProvider:
+        return self.registry.get_provider(provider)
+
+    def add_provider(self, provider: APIProvider) -> None:
+        self.registry.providers.append(provider)
+        self._write_registry_to_file()
+
+    def delete_provider(self, provider: str) -> None:
+        self.registry.providers = [
+            p for p in self.registry.providers if p.name != provider
+        ]
+        self._write_registry_to_file()
+
+    def get_model_family(self, provider: str, family: str) -> ModelFamily:
+        api_provider = self.get_provider(provider)
+        if model_family := api_provider.get_model_family(family):
+            return model_family
         else:
-            raise MissingAIProviderError(f"No provider {provider} found")
+            raise MissingModelFamilyError(
+                f"No model family {family} found for provider {provider}"
+            )
 
-    def add_ai_model(self, ai_model: AIModels) -> None:
-        self.all_models.append(ai_model)
-        self._write_models_to_file()
+    def add_model_family(
+        self, provider: str, model_family: ModelFamily
+    ) -> None:
+        api_provider = self.get_provider(provider)
+        api_provider.model_families.append(model_family)
+        self._write_registry_to_file()
 
-    def add_model(self, model: Model, provider: str) -> None:
-        ai_model = self.get_provider(provider)
-        ai_model.models.append(model)
-        self._write_models_to_file()
-
-    def delete_ai_model(self, provider: str) -> None:
-        """Deletes an AI model family by its provider name."""
-        self.all_models = [
-            model for model in self.all_models if model.provider != provider
+    def delete_model_family(self, provider: str, family: str) -> None:
+        api_provider = self.get_provider(provider)
+        api_provider.model_families = [
+            f for f in api_provider.model_families if f.name != family
         ]
-        self._write_models_to_file()
+        self._write_registry_to_file()
 
-    def delete_model(self, model_id: int, provider: str) -> None:
-        """Deletes a specific model by ID within an AI model family."""
-        ai_model = self.get_provider(provider)
-        ai_model.models = [
-            model for model in ai_model.models if model.id != model_id
+    def add_model(self, provider: str, family: str, model: Model) -> None:
+        model_family = self.get_model_family(provider, family)
+        model_family.models.append(model)
+        self._write_registry_to_file()
+
+    def replace_model(
+        self, model: Model, model_id: int, family: str, provider: str
+    ) -> None:
+        model_family = self.get_model_family(provider, family)
+        model.id = model_id
+        model_family.models = [
+            model if m.id != model_id else m for m in model_family.models
         ]
-        self._write_models_to_file()
+        self._write_registry_to_file()
 
-    def _write_models_to_file(self) -> None:
-        """
-        Helper method to write the current models to the JSON file.
-        """
-        json_models = [model.model_dump() for model in self.all_models]
-        write_json_file(json_models, self.model_file)
+    def delete_model(self, provider: str, family: str, model_id: int) -> None:
+        model_family = self.get_model_family(provider, family)
+        model_family.models = [
+            m for m in model_family.models if m.id != model_id
+        ]
+        self._write_registry_to_file()
+
+    def _write_registry_to_file(self) -> None:
+        json_data = self.registry.model_dump()
+        write_json_file(json_data, self.model_file)
