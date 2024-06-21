@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
 
-from _types import AIModels, Model
+from _types import AIModelRegistry, APIProvider, Model, ModelFamily
 
 
 class EmailManager(ABC):
@@ -27,35 +27,59 @@ class ErrorManager(ABC):
 
 class RateLimitManager(ABC):
     @abstractmethod
-    def read(self, model_name: str) -> dict:
+    def read(self, model: str) -> dict:
         raise NotImplementedError("Must be implemented in child class")
 
     @abstractmethod
-    def write(self, model_name: str, rate_limit_data: dict) -> None:
+    def write(self, model: str, rate_limit_data: dict) -> None:
         raise NotImplementedError("Must be implemented in child class")
 
 
-class AIModelManager(ABC):
+class AIProviderManager(ABC):
+    @property
+    def registry(self) -> AIModelRegistry:
+        if not self._registry:
+            self._registry = self._load_registry()
+        return self._registry
+
     @abstractmethod
-    def get_all_models(self) -> List[AIModels]:
+    def get_all_providers(self) -> List[APIProvider]:
         raise NotImplementedError("Must be implemented by child class")
 
     @abstractmethod
-    def get_provider(self, provider: str) -> AIModels:
+    def get_provider(self, provider: str) -> APIProvider:
         raise NotImplementedError("Must be implemented by child class")
 
     @abstractmethod
-    def add_ai_model(self, ai_model: AIModels) -> None:
+    def add_provider(self, provider: APIProvider) -> None:
         raise NotImplementedError("Must be implemented by child class")
 
     @abstractmethod
-    def add_model(self, model: Model, provider: str) -> None:
+    def delete_provider(self, provider: str) -> None:
         raise NotImplementedError("Must be implemented by child class")
 
     @abstractmethod
-    def delete_ai_model(self, provider: str) -> None:
+    def get_model_family(self, provider: str, family: str) -> ModelFamily:
         raise NotImplementedError("Must be implemented by child class")
 
     @abstractmethod
-    def delete_model(self, model_id: int, provider: str) -> None:
+    def add_model_family(
+        self, provider: str, model_family: ModelFamily
+    ) -> None:
+        raise NotImplementedError("Must be implemented by child class")
+
+    @abstractmethod
+    def delete_model_family(self, provider: str, family: str) -> None:
+        raise NotImplementedError("Must be implemented by child class")
+
+    @abstractmethod
+    def add_model(self, provider: str, family: str, model: Model) -> None:
+        raise NotImplementedError("Must be implemented by child class")
+
+    @abstractmethod
+    def replace_model(self, provider: str, family: str, model: Model) -> None:
+        raise NotImplementedError("Must be implemented by child class")
+
+    @abstractmethod
+    def delete_model(self, provider: str, family: str, model_id: int) -> None:
         raise NotImplementedError("Must be implemented by child class")
