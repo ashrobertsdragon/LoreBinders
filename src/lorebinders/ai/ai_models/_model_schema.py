@@ -5,13 +5,14 @@ from pydantic import BaseModel, Field, root_validator
 
 class Model(BaseModel):
     id: int
-    model: str
+    name: str
     context_window: int
     rate_limit: int
     tokenizer: str
 
 
-class Models(BaseModel):
+class ModelFamily(BaseModel):
+    family: str
     models: List[Model] = Field(default_factory=list)
 
     _id_counter = 0
@@ -31,9 +32,33 @@ class Models(BaseModel):
                 if model.id == model_id:
                     return model
             model_id -= 1
-        raise ValueError("No model found.")
+        return self.models[0]
 
 
-class AIModels(BaseModel):
-    provider: str
-    models: Models
+class APIProvider(BaseModel):
+    name: str
+    model_families: List[ModelFamily] = Field(default_factory=list)
+
+    def get_model_family(self, family: str) -> ModelFamily:
+        return next(
+            (
+                model_family
+                for model_family in self.model_families
+                if model_family.family.lower() == family.lower()
+            ),
+            self.model_families[0],
+        )
+
+
+class AIModelRegistry(BaseModel):
+    providers: List[APIProvider] = Field(default_factory=list)
+
+    def get_provider(self, name: str) -> APIProvider:
+        return next(
+            (
+                provider
+                for provider in self.providers
+                if provider.name.lower() == name.lower()
+            ),
+            self.providers[0],
+        )
