@@ -50,7 +50,7 @@ class SQLiteProviderHandler(AIProviderManager):
                     context_window INTEGER NOT NULL,
                     rate_limit INTEGER NOT NULL,
                     tokenizer TEXT NOT NULL,
-                    family_name TEXT NOT NULL,
+                    family TEXT NOT NULL,
                     PRIMARY KEY(id, family_name),
                     FOREIGN KEY(family_name) REFERENCES model_families(family)
                 )
@@ -66,41 +66,56 @@ class SQLiteProviderHandler(AIProviderManager):
                 cursor.execute(query)
             return cursor.fetchall()
 
-    def _load_registry(self) -> AIModelRegistry:
-        with SQLite(self.db) as cursor:
-            providers = cursor.execute("SELECT name FROM providers").fetchall()
-            model_families = cursor.execute(
-                "SELECT family, provider_name FROM model_families"
-            ).fetchall()
-            models = cursor.execute("""
-                SELECT (
-                    id,
-                    name,
-                    context_window,
-                    rate_limit,
-                    tokenizer,
-                    family_name
-                )
-                FROM models
-            """).fetchall()
-        registry_data = {"providers": []}
-        for provider in providers:
-            provider_data = {"name": provider["name"], "model_families": []}
-            for family in model_families:
-                if family["provider_id"] == provider["id"]:
-                    family_data = {"family": family["family"], "models": []}
-                    for model in models:
-                        if model["family_id"] == family["id"]:
-                            family_data["models"].append({
-                                "id": model["id"],
-                                "name": model["name"],
-                                "context_window": model["context_window"],
-                                "rate_limit": model["rate_limit"],
-                                "tokenizer": model["tokenizer"],
-                            })
-                    provider_data["model_families"].append(family_data)
-            registry_data["providers"].append(provider_data)
+    def _registry_query(self) -> List[dict]:
+        query = """
+            SELECT
+                p.name as provider,
+                mf.provider_name,
+                mf.family as family,
+                m.id,
+                m.name
+                m.context_window,
+                m.rate_limit,
+                m.tokenizer,
+                m.family
+            FROM providers p
+            JOIN model_families mf
+            ON p.id = mf.provider_id
+            JOIN models m
+            ON m.family = family
+            """
+        return self._execute_query(query)
 
+    def _process_db_response(self, data: List[dict]) -> List[dict]:
+        registry: List[dict] = []
+        provider = {}
+        for row in data:
+            provider_name = row["provider"]
+            family = row["family"]
+            if provider_name not in provider:
+                provider = {
+                    "name": provider_name,
+                    "model_families": [],
+                }
+            current_family = None
+            if family != current_family:
+                current_family = family
+                model_family = {"family": family, "models": []}
+                provider["model_families"].append(model_family)
+            model_data = {
+                "id": row["id"],
+                "name": row["name"],
+                "context_window": row["context_window"],
+                "rate_limit": row["rate_limit"],
+                "tokenizer": row["tokenizer"],
+            }
+            current_family["models"].append(model_data)
+            registry.append(provider)
+            return registry
+
+    def _load_registry(self) -> AIModelRegistry:
+        db_response = self._registry_query()
+        registry_data = self._process_db_response(db_response)
         return AIModelRegistry.model_validate(registry_data)
 
     def get_all_providers(self) -> List[APIProvider]:
@@ -144,12 +159,12 @@ class SQLiteProviderHandler(AIProviderManager):
         )
         models = model_family.models
         for model in models:
-            self.add_model(provider, model_family.name, model)
+            self.add_model(provider, model_family.family, model)
 
     def delete_model_family(self, provider: str, family: str) -> None:
         api_provider = self.get_provider(provider)
         api_provider.model_families = [
-            f for f in provider.model_families if f.name != family
+            f for f in provider.model_families if f.family != family
         ]
         self._execute_query(
             "DELETE FROM model_families WHERE name = ? "
@@ -158,18 +173,18 @@ class SQLiteProviderHandler(AIProviderManager):
         )
 
     def add_model(self, provider: str, family: str, model: Model) -> None:
-        family = self.get_model_family(provider, family)
-        family.models.append(model)
+        model_family = self.get_model_family(provider, family)
+        model_family.models.append(model)
         name, context_window, rate_limit, tokenizer, id = self.get_model_attr(
             model
         )
         self._execute_query(
             """
             INSERT INTO models (
-                id, name, context_window, rate_limit, tokenizer, family_name
+                id, name, context_window, rate_limit, tokenizer, family
             ) VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (id, name, context_window, rate_limit, tokenizer),
+            (id, name, context_window, rate_limit, tokenizer, family),
         )
 
     def replace_model(
@@ -187,7 +202,7 @@ class SQLiteProviderHandler(AIProviderManager):
             """
             UPDATE models SET (
                 name = ?, context_window = ?, rate_limit = ?, tokenizer = ?
-            ) WHERE id = ? AND family_name = ?
+            ) WHERE id = ? AND family = ?
             """,
             (name, context_window, rate_limit, tokenizer, id, family),
         )
@@ -196,7 +211,7 @@ class SQLiteProviderHandler(AIProviderManager):
         family = self.get_model_family(provider, family)
         family.models = [m for m in family.models if m.id != model_id]
         self._execute_query(
-            "DELETE FROM models WHERE id = ? AND family_name = ?",
+            "DELETE FROM models WHERE id = ? AND family = ?",
             (model_id, family),
         )
 
