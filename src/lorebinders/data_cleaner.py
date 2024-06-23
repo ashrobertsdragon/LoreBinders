@@ -347,19 +347,11 @@ class DeduplicateKeys(CleanData):
 
         Returns merged dictionary key value
         """
-        if not (
-            isinstance(value1, dict)
-            or isinstance(value1, list)
-            or isinstance(value1, str)
-        ):
+        if not isinstance(value1, (dict, list, str)):
             raise TypeError(
                 "Value1 must be either a dictionary, list, or string"
             )
-        if not (
-            isinstance(value2, dict)
-            or isinstance(value2, list)
-            or isinstance(value2, str)
-        ):
+        if not isinstance(value2, (dict, list, str)):
             raise TypeError(
                 "Value2 must be either a dictionary, list, or string"
             )
