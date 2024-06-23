@@ -1,6 +1,5 @@
 import os
 
-from file_handling import FileHandler
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.platypus import (
@@ -10,9 +9,11 @@ from reportlab.platypus import (
     PageBreak,
     Paragraph,
     SimpleDocTemplate,
-    Spacer,
+    Spacer
 )
 from reportlab.platypus.tableofcontents import TableOfContents
+
+from file_handling import FileHandler
 
 file_handler = FileHandler()
 
@@ -111,7 +112,7 @@ def create_pdf(folder_name: str, title: str) -> None:
             story.append(Paragraph(summary, styles["Normal"]))
             story.append(Spacer(1, 12))
 
-            if attribute == "Characters" or attribute == "Settings":
+            if attribute in {"Characters", "Settings"}:
                 for trait, chapters in content.items():
                     if trait == "summary":
                         continue
