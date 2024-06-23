@@ -1,10 +1,10 @@
 import json
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Generator, List, Tuple, Union, cast
 
 from _types import AIModels, BookDict, Chapter
-from ai_classes.ai_interface import AIModelConfig
+from ai.ai_interface import AIModelConfig
 from data_cleaner import ManipulateData
 from json_tools import RepairJSON
 from sort_names import SortNames
@@ -23,12 +23,12 @@ class RoleScript:
     max_tokens: int
 
 
-class NameTools(metaclass=ABCMeta):
+class NameTools(ABC):
     """
     Abstract class for name classes
     """
 
-    def __init__(self, ai_models: AIModels) -> None:
+    def initialize_api(self, ai_models: AIModels) -> None:
         """
         Initialize the NameTools class an AIModels dataclass object.
 
@@ -105,8 +105,7 @@ class NameExtractor(NameTools):
     """
 
     def __init__(self, ai_models: AIModels) -> None:
-        super().__init__(ai_models)
-
+        self.initialize_api(ai_models)
         self.max_tokens: int = 1000
         self.temperature: float = 0.2
 
@@ -257,7 +256,7 @@ class NameAnalyzer(NameTools):
         Returns:
             None
         """
-        super().__init__(ai_models)
+        self.initialize_api(ai_models)
         self.temperature: float = 0.4
         self._json_mode = True
 
@@ -580,7 +579,7 @@ class NameSummarizer(NameTools):
             None
         """
 
-        super().__init__(ai_models)
+        self.initialize_api(ai_models)
         self.temperature: float = 0.4
         self.max_tokens: int = 200
 
