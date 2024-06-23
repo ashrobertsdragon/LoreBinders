@@ -3,7 +3,7 @@ from pydantic import Field
 
 
 from _types import AIModels, BookDict
-from ai_classes.ai_interface import AIModelConfig
+from ai.ai_interface import AIModelConfig
 from data_cleaner import ManipulateData
 from json_tools import RepairJSON
 
