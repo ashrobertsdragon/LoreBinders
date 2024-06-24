@@ -39,7 +39,8 @@ class NameTools(ABC):
         self._ai_config = AIModelConfig(ai_models)
         self._ai = self._ai_config.initialize_api()
 
-        self._categories_base = ["Characters", "Settings"]
+        self._categories_base: List[str] = ["Characters", "Settings"]
+        self.temperature: float = 0.7
         self._json_mode: bool = False
 
     def _get_ai_response(
