@@ -1,18 +1,17 @@
 import importlib
 import logging
-from typing import Dict, Optional
+from typing import Optional
 
 from ai_factory import AIType
 from exceptions import MissingAIProviderError
 
-from ai.ai_models._model_schema import AIModels
+from lorebinders._types import AIModels
 
 
 class AIModelConfig:
     def __init__(self, models: AIModels) -> None:
         self.provider_models = models
         self.provider = self.provider_models.provider
-        self._cached_classes: Dict[str, AIType] = {}
 
     def initialize_api(self):
         """
@@ -28,15 +27,11 @@ class AIModelConfig:
             ValueError: If the provider is invalid.
         """
         try:
-            if self.provider not in self._cached_classes:
-                module = importlib.import_module(
-                    f"api_{self.provider}", package="ai.ai_classes"
-                )
-                provider_class = f"{self.provider.capitalize()}API"
-                implementation_class = getattr(module, provider_class)
-                self._cached_classes[self.provider] = implementation_class()
-            else:
-                implementation_class = self._cached_classes[self.provider]
+            module = importlib.import_module(
+                f"api_{self.provider}", package="ai.ai_classes"
+            )
+            provider_class = f"{self.provider.capitalize()}API"
+            implementation_class = getattr(module, provider_class)
             return AIInterface(implementation_class)
         except (ImportError, AttributeError) as e:
             error_msg = f"Invalid AI provider: {self.provider}"
