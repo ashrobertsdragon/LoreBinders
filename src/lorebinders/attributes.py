@@ -55,23 +55,6 @@ class NameTools(ABC):
         )
         return self._ai.call_api(payload, self._json_mode)
 
-    def _combine_responses(self, responses: List[str]) -> str:
-        """Combine AI responses
-
-        Args:
-            responses (List[str]): A list of the AI responses as JSON strings.
-
-        Returns:
-            str: A stringified JSON array of the combined AI responses.
-        """
-        return (
-            "{"
-            + ",".join(part.lstrip("{").rstrip("}") for part in responses)
-            + "}"
-            if self._json_mode
-            else "".join(responses)
-        )
-
     @abstractmethod
     def _parse_response(self, response: str) -> dict:
         """
@@ -512,6 +495,23 @@ class NameAnalyzer(NameTools):
             system_message = instructions + attributes_json
             role_script = RoleScript(system_message, max_tokens)
             self._role_scripts.append(role_script)
+
+    def _combine_responses(self, responses: List[str]) -> str:
+        """Combine AI responses
+
+        Args:
+            responses (List[str]): A list of the AI responses as JSON strings.
+
+        Returns:
+            str: A stringified JSON array of the combined AI responses.
+        """
+        return (
+            "{"
+            + ",".join(part.lstrip("{").rstrip("}") for part in responses)
+            + "}"
+            if self._json_mode
+            else "".join(responses)
+        )
 
     def analyze_names(self) -> dict:
         responses: List[str] = []
