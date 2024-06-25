@@ -1,12 +1,13 @@
 from dotenv import load_dotenv
 
-from build_lorebinder import run
-from user_input import get_book
+import build_lorebinder
+import user_input
 
 
 def main():
-    book_dict = get_book()
-    run(book_dict)
+    work_base_dir = "work"
+    book_dict = user_input.get_book()
+    build_lorebinder.start(book_dict, work_base_dir)
 
 
 if __name__ == "__main__":
