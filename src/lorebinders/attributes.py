@@ -5,11 +5,9 @@ from typing import Generator, List, Tuple, Union, cast
 
 from _types import AIModels, BookDict, Chapter
 from ai.ai_interface import AIModelConfig
-from data_cleaner import ManipulateData
 from json_tools import RepairJSON
 from sort_names import SortNames
 
-data = ManipulateData()
 json_repair_tool = RepairJSON()
 
 
