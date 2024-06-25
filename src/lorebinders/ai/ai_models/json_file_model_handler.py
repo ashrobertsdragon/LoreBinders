@@ -1,3 +1,4 @@
+import os
 from typing import List
 
 from _managers import AIProviderManager
@@ -7,8 +8,10 @@ from file_handling import read_json_file, write_json_file
 
 
 class JSONFileProviderHandler(AIProviderManager):
-    def __init__(self) -> None:
-        self.model_file = "ai_models.json"
+    def __init__(
+        self, models_directory: str, models_filename: str = "ai_models.json"
+    ) -> None:
+        self.model_file = os.path.join(models_directory, models_filename)
 
     @property
     def registry(self) -> AIModelRegistry:
