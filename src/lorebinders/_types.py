@@ -9,7 +9,7 @@ from openai.types.chat import (
 )
 from openai.types.chat.completion_create_params import ResponseFormat
 
-from _managers import EmailManager, ErrorManager
+from _managers import AIProviderManager, EmailManager, ErrorManager
 from ai.ai_factory import AIType
 from ai.ai_models._model_schema import (
     AIModelRegistry,
@@ -47,6 +47,7 @@ __all__ = [
     "APIProvider",
     "ModelFamily",
     "Model",
+    "AIProviderManager",
     "EmailManager",
     "ErrorManager",
     "T",
