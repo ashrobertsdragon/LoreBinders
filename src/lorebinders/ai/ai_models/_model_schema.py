@@ -8,11 +8,11 @@ class Model(BaseModel):
     name: str
     context_window: int
     rate_limit: int
-    tokenizer: str
 
 
 class ModelFamily(BaseModel):
     family: str
+    tokenizer: str
     models: List[Model] = Field(default_factory=list)
 
     _id_counter = 0
