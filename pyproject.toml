@@ -46,8 +46,9 @@ dev = ["black", "isort", "ruff", "pytest", "pytest-cov", "pytest-xdist","pytest-
 "Issues" = "https://github.com/ashrobertsdragon/LoreBinders/issues"
 "Pull Requests" = "https://github.com/ashrobertsdragon/LoreBinders/pulls"
 
-[tool.setuptools]
-packages = ["src/lorebinders"]
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["lorebinders*"]
 
 [tool.ruff]
 line-length = 79
