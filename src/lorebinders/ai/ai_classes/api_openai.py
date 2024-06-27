@@ -4,12 +4,11 @@ from typing import Dict, Optional, Tuple
 
 import openai
 import tiktoken
-from ai_factory import AIFactory
-from exceptions import KeyNotFoundError
 from openai import OpenAI
 
-from .api_error_handler import APIErrorHandler
-
+from ai.ai_factory import AIFactory
+from ai.api_error_handler import APIErrorHandler
+from ai.exceptions import KeyNotFoundError
 from email_handlers.smtp_handler import SMTPHandler
 from lorebinders._types import (
     ChatCompletion,
