@@ -1,27 +1,39 @@
+# Cache
 __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-.config/
-venv/
-.upm/
-.git/
+
+# Configuration settings
 .vscode/
-
-
-.breakpoints
+.config/
 .env
 
-
+# logs
 *.log
+.breakpoints
+
+# temporary data
+**/users/*
+**/work/*
 api_counter.json
 rate_limit_data.json
 role_scripts.json
 temp.py
 
+# virtual environments
+venv/
+.venv/
 .replit
 replit.nix
 poetry.lock
 
-**/users/*
-**/work/*
+# Test results
+test-results/
+
+# Coverage data
+.coverage
+htmlcov/
+
+.upm/
+.git/
