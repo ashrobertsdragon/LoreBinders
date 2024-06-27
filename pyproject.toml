@@ -67,3 +67,6 @@ line_length = 79
 
 [tool.pytest.ini_options]
 addopts = "-v --cov=lorebinders --cov-report=html --html=test-results/report.html"
+pythonpath = [
+  "src"
+]
