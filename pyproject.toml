@@ -38,6 +38,7 @@ dependencies = [
 
 [project.optional-dependencies]
 production = ["supabase>=2.3.4"]
+dev = ["black", "isort", "ruff", "pytest", "pytest-cov", "pytest-xdist","pytest-html","pytest-sugar","pytest-clarity"]
 
 [project.urls]
 "Homepage" = "https://prosepal.io"
@@ -63,3 +64,6 @@ use_parentheses = true
 lexicographical = true
 group_by_package = true
 line_length = 79
+
+[tool.pytest.ini_options]
+addopts = "-v --cov=lorebinders --cov-report=html --html=test-results/report.html"
