@@ -4,14 +4,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.lorebinders._types import Book
-from src.lorebinders.main import (
+from src.lorebinders.build_lorebinder import (
     convert,
     convert_book_file,
     create_book,
     create_folder,
     create_limited_metadata,
     create_lorebinder,
-    create_txt_filename,
+    add_txt_filename,
     create_user,
     create_user_folder,
 )
@@ -42,13 +42,13 @@ def test_create_user_folder():
     assert os.path.exists(expected_folder) == True
 
 
-def test_create_txt_filename():
+def test_add_txt_filename():
     book_dict = MagicMock()
     book_dict.author = "John Doe"
     book_dict.title = "Test Title"
     book_dict.book_file = "test_file.pdf"
 
-    create_txt_filename(book_dict, book_dict.book_file)
+    add_txt_filename(book_dict, book_dict.book_file)
 
     assert book_dict.txt_file == "test_file.txt"
 
