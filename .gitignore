@@ -14,7 +14,6 @@ venv/
 
 
 *.log
-*.txt
 api_counter.json
 rate_limit_data.json
 role_scripts.json
