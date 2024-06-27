@@ -1,8 +1,10 @@
 import json
+import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Generator, List, Tuple, Union, cast
 
+import file_handling
 from _types import AIModels, BookDict, Chapter
 from ai.ai_interface import AIModelConfig
 from json_tools import RepairJSON
@@ -130,42 +132,21 @@ class NameExtractor(NameTools):
             None
         """
         role_categories: str = self._build_custom_role()
+        base_instructions_file = os.path.join(
+            "instructions", "name_extractor_sys_prompt.txt"
+        )
+        further_instructions_file = os.path.join(
+            "instructions", "name_extractor_instructions.txt"
+        )
+        base_instructions: str = file_handling.read_text_file(
+            base_instructions_file
+        )
+        further_instructions: str = file_handling.read_text_file(
+            further_instructions_file
+        )
         system_message = (
-            "You are a script supervisor compiling a list of characters in "
-            "each scene. For the following selection, determine who are the "
-            "characters, giving only their name and no other information. "
-            "Please also determine the settings, both interior (e.g. ship's "
-            "bridge, classroom, bar) and exterior (e.g. moon, Kastea, Hell's "
-            f"Kitchen).{self.custom_categories}.\n"
-            "If the scene is written in the first person, try to identify "
-            "the narrator by their name. If you can't determine the "
-            "narrator's identity. List 'Narrator' as a character. Use "
-            "characters' names instead of their relationship to the narrator "
-            "(e.g. 'Uncle Joe' should be 'Joe'. If the character is only "
-            "identified by their relationship to the narrator (e.g. 'Mom' or "
-            "'Grandfather'), list the character by that identifier instead "
-            "of the relationship (e.g. 'Mom' instead of 'Narrator's mom' or "
-            "'Grandfather' instead of 'Kalia's Grandfather'\n"
-            "Be as brief as possible, using one or two words for each entry, "
-            "and avoid descriptions. For example, 'On board the Resolve' "
-            "should be 'Resolve'. 'Debris field of leftover asteroid pieces' "
-            "should be 'Asteroid debris field'. 'Unmarked section of wall "
-            "(potentially a hidden door)' should be 'unmarked wall section'\n"
-            "Do not use these examples unless they actually appear in the "
-            "text.\nIf you cannot find any mention of a specific category in "
-            "the text, please respond with 'None found' on the same line as "
-            "the category name. If you are unsure of a setting or no setting "
-            "is shown in the text, please respond with 'None found' on the "
-            "same line as the word 'Setting'\n"
-            "Please format the output exactly like this:\n"
-            "Characters:\n"
-            "character1\n"
-            "character2\n"
-            "character3\n"
-            "Settings:\n"
-            "Setting1 (interior)\n"
-            "Setting2 (exterior)\n"
-            f"{role_categories}"
+            f"{base_instructions}\n{self.custom_categories}.\n"
+            f"{further_instructions}\n{role_categories}"
         )
         self._single_role_script = RoleScript(system_message, self.max_tokens)
 
@@ -254,6 +235,16 @@ class NameAnalyzer(NameTools):
         self._to_batch: list = []
         self._role_scripts: List[RoleScript] = []
 
+        self._base_instructions = self._get_instruction_text(
+            "name_analyzer_base_instructions.txt"
+        )
+        self._character_instructions = self._get_instruction_text(
+            "character_instructions.txt"
+        )
+        self._settings_instructions = self._get_instruction_text(
+            "settings_instructions.txt"
+        )
+
     def initialize_chapter(self, metadata: BookDict, chapter: Chapter) -> None:
         self.metadata = metadata
         self.chapter = chapter
@@ -308,6 +299,13 @@ class NameAnalyzer(NameTools):
         schema: dict = {category: schema_stub}
         return json.dumps(schema)
 
+    def _get_instruction_text(self, file_name: str) -> str:
+        """
+        Reads the instructions file and returns the text.
+        """
+        file_path = os.path.join("instructions", file_name)
+        return file_handling.read_text_file(file_path)
+
     def _create_instructions(self) -> str:
         """
         Creates instructions for the AI based on the categories to be
@@ -325,48 +323,14 @@ class NameAnalyzer(NameTools):
         Returns:
             str: The instructions for the AI.
         """
-        instructions = (
-            "You are a developmental editor helping create a story bible. \n"
-            "Be detailed but concise, using short phrases instead of "
-            "sentences. Do not justify your reasoning or provide commentary, "
-            "only facts. Only one category per line, just like in the schema "
-            "below, but all description for that category should be on the "
-            "same line. If something appears to be miscatagorized, please "
-            "put it under the correct category. USE ONLY STRINGS AND JSON "
-            "OBJECTS, NO JSON ARRAYS. The output must be valid JSON.\n"
-            "If you cannot find any mention of something in the text, please "
-            'respond with "None found" as the description for that'
-            "category.\n"
-        )
-        character_instructions = (
-            "For each character in the chapter, describe their appearance, "
-            "personality, mood, and relationships to other characters\n"
-            "An example from an early chapter of Jane Eyre:\n"
-            '"Jane Eyre": {"Appearance": "Average height, slender build, fair '
-            'skin, dark brown hair, hazel eyes, plain appearance", '
-            '"Personality": "Reserved, self-reliant, modest", "Mood": "Angry '
-            'at her aunt about her treatment while at Gateshead"}'
-        )
-        setting_instructions = (
-            "For each setting in the chapter, note how the setting is "
-            "described, where it is in relation to other locations and "
-            "whether the characters appear to be familiar or unfamiliar with "
-            "the location. Be detailed but concise.\n"
-            "If you are unsure of a setting or no setting is shown in the "
-            'text, please respond with "None found" as the description for '
-            "that setting.\nHere is an example from Wuthering Heights:\n"
-            '"Moors": {"Appearance": Expansive, desolate, rugged, with high '
-            'winds and craggy rocks", "Relative location": "Surrounds '
-            'Wuthering Heights estate", "Main character\'s familiarity": '
-            '"Very familiar, Catherine spent significant time roaming here '
-            'as a child and represents freedom to her"}'
-        )
 
         for category in self._to_batch:
             if category == "Characters":
-                instructions += character_instructions
+                instructions = (
+                    self._base_instructions + self._character_instructions
+                )
             if category == "Settings":
-                instructions += setting_instructions
+                instructions += self._setting_instructions
             else:
                 other_category_list = [
                     cat

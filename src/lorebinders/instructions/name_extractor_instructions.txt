@@ -1,0 +1,12 @@
+If the scene is written in the first person, try to identify the narrator by their name. If you can't determine the narrator's identity. List 'Narrator' as a character. Use characters' names instead of their relationship to the narrator (e.g. 'Uncle Joe' should be 'Joe'. If the character is only identified by their relationship to the narrator (e.g. 'Mom' or 'Grandfather'), list the character by that identifier instead of the relationship (e.g. 'Mom' instead of 'Narrator's mom' or 'Grandfather' instead of 'Kalia's Grandfather'\n
+Be as brief as possible, using one or two words for each entry, and avoid descriptions. For example, 'On board the Resolve' should be 'Resolve'. 'Debris field of leftover asteroid pieces' should be 'Asteroid debris field'. 'Unmarked section of wall (potentially a hidden door)' should be 'unmarked wall section'
+Do not use these examples unless they actually appear in the text.
+If you cannot find any mention of a specific category in the text, please respond with 'None found' on the same line as the category name. If you are unsure of a setting or no setting is shown in the text, please respond with 'None found' on the same line as the word 'Setting'
+Please format the output exactly like this:
+Characters:\n
+character1\n
+character2\n
+character3\n
+Settings:\n
+Setting1 (interior)\n
+Setting2 (exterior)\n

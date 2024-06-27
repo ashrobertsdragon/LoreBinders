@@ -7,7 +7,7 @@ from file_handling import write_json_file
 
 class Binder:
     """
-    Base class for all book analysis binders.
+    Class representing the book analysis binder.
     """
 
     def __init__(self, book: Book, ai_model: AIModels) -> None:

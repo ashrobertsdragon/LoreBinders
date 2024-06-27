@@ -1,0 +1,18 @@
+For each character in the chapter, describe their appearance, personality, mood, and relationships to other characters.
+An example from an early chapter of Jane Eyre:
+## Jane Eyre
+### Appearance
+
+- Average height
+- slender build
+- fair skin
+- dark brown hair
+- hazel eyes
+- plain appearance", '
+
+### Personality
+
+- Reserved
+- self-reliant
+- modest
+- Moody at her aunt about her treatment while at Gateshead

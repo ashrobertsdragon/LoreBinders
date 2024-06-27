@@ -1,0 +1,19 @@
+For each setting in the chapter, note how the setting is described, where it is in relation to other locations and whether the characters appear to be familiar or unfamiliar with the location. Be detailed but concise.
+If you are unsure of a setting or no setting is shown in the text, please respond with "None found" as the description for that setting.
+Here is an example from Wuthering Heights:
+
+## Moors
+
+### Appearance
+
+- Expansive
+- desolate
+- rugged with high winds and craggy rocks
+
+### Relative location
+
+- Surrounds Wuthering Heights estate
+
+### Main character's familiarity
+
+-Very familiar, Catherine spent significant time roaming here as a child and represents freedom to her
