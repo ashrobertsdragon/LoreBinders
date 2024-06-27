@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, root_validator
 
 
 class Model(BaseModel):
-    id: int
+    id: int = Field(init=False)
     name: str
     context_window: int
     rate_limit: int
@@ -21,8 +21,8 @@ class ModelFamily(BaseModel):
     def set_ids(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         models = values.get("models", [])
         for model in models:
+            cls._id_counter += 1
             if "id" not in model:
-                cls._id_counter += 1
                 model["id"] = cls._id_counter
         return values
 
