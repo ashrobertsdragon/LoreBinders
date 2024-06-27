@@ -1,7 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
 
-from _types import AIModelRegistry, APIProvider, Model, ModelFamily
+from ai.ai_models._model_schema import (
+    AIModelRegistry,
+    APIProvider,
+    Model,
+    ModelFamily
+)
 
 
 class EmailManager(ABC):
@@ -36,11 +41,17 @@ class RateLimitManager(ABC):
 
 
 class AIProviderManager(ABC):
+    _registry: Optional[AIModelRegistry] = None
+
     @property
     def registry(self) -> AIModelRegistry:
         if not self._registry:
             self._registry = self._load_registry()
         return self._registry
+
+    @abstractmethod
+    def _load_registry(self) -> AIModelRegistry:
+        raise NotImplementedError("Must be implemented by child class")
 
     @abstractmethod
     def get_all_providers(self) -> List[APIProvider]:
