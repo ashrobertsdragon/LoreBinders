@@ -94,7 +94,7 @@ def start(book_dict: BookDict, work_base_dir: str) -> None:
 
     book = create_book(book_dict)
     ai_registry = initialize_ai_model_registry(
-        JSONFileProviderHandler, work_base_dir
+        JSONFileProviderHandler, "json_files"
     )
     ai_models = ai_registry.get_provider("OpenAI")
 
