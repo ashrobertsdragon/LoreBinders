@@ -1,13 +1,15 @@
 import inspect
 import json
 import logging
+import os
 import time
 import traceback
 from typing import Tuple
 
-from ai_classes.exceptions import MaxRetryError
-
+import file_handling
 from _managers import EmailManager, ErrorManager
+from _types import Book, BookDict
+from ai.exceptions import MaxRetryError
 
 
 class APIErrorHandler(ErrorManager):
@@ -43,7 +45,7 @@ class APIErrorHandler(ErrorManager):
     def handle_error(self, e: Exception, retry_count: int = 0) -> int:
         error_code, error_message = self._extract_error_info(e)
         if self._is_unresolvable_error(e, error_code, error_message):
-            end_app = UnresolvableErrorHandler()
+            end_app = UnresolvableErrorHandler(self.email)
             end_app.kill_app(e)
         else:
             retry_handler = RetryHandler()
@@ -91,6 +93,9 @@ class RetryHandler:
 
 
 class UnresolvableErrorHandler:
+    def __init__(self, email_manager: EmailManager) -> None:
+        self.email = email_manager
+
     def _get_frame_info(self) -> Tuple[str, str, str]:
         """
         Retrieve information about the exception frame, including the file
@@ -101,8 +106,9 @@ class UnresolvableErrorHandler:
         file_name, function_name = "Unknown", "Unknown"
 
         binder_name = "Unknown"
+        book_name = "Unknown"
 
-        while frame is not None and binder_name == "Unknown":
+        while frame is not None and book_name == "Unknown":
             if (
                 not frame.f_code.co_filename.endswith("error_handler.py")
                 and file_name == "Unknown"
@@ -113,10 +119,34 @@ class UnresolvableErrorHandler:
             locals_ = frame.f_locals
             if "binder" in locals_:
                 binder_name = str(locals_["binder"])
+            if "book" in locals_:
+                book_name = str(locals_["book"])
+                self._save_data(book_name)
+            if binder_name != "Unknown" or book_name != "Unknown":
+                break
 
             frame = frame.f_back
 
         return binder_name, file_name, function_name
+
+    @staticmethod
+    def _save_data(book_name: str) -> None:
+        try:
+            book: Book = globals().get(book_name)
+            if book is None:
+                raise ValueError(f"Book {book_name} not found.")
+
+            metadata: BookDict = book.metadata
+            user_folder: str = metadata.user_folder
+            names_file = os.path.join(user_folder, "names.json")
+            analysis_file = os.path.join(user_folder, "analysis.json")
+
+            for chapter in book.chapters:
+                file_handling.append_json_file(chapter.names, names_file)
+                file_handling.append_json_file(chapter.analysis, analysis_file)
+
+        except Exception as e:
+            logging.error(f"Error saving data: {e}")
 
     def _build_error_msg(self, e: Exception) -> str:
         """
