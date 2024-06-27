@@ -1,0 +1,186 @@
+{
+  "providers": [
+    {
+      "name": "OpenAI",
+      "model_families": [
+        {
+          "family": "GPT",
+          "tokenizer": "tiktoken",
+          "models": [
+            {
+              "id": 1,
+              "name": "gpt_35",
+              "model": "gpt-3.5-turbo",
+              "context_window": 16385,
+              "rate_limit": 60000
+            },
+            {
+              "id": 2,
+              "name": "gpt_4",
+              "model": "gpt-4o",
+              "context_window": 128000,
+              "rate_limit": 30000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Anthropic",
+      "model_families": [
+        {
+          "family": "Claude",
+          "tokenizer": "claude",
+          "models": [
+            {
+              "id": 1,
+              "name": "haiku_3",
+              "model": "claude-3-haiku-20240307",
+              "context_window": 200000,
+              "rate_limit": 50000
+            },
+            {
+              "id": 2,
+              "name": "sonnet_3",
+              "model": "claude-3-sonnet-20240229",
+              "context_window": 200000,
+              "rate_limit": 40000
+            },
+            {
+              "id": 3,
+              "name": "opus_3",
+              "model": "claude-3-opus-20240229",
+              "context_window": 200000,
+              "rate_limit": 20000
+            },
+            {
+              "id": 4,
+              "name": "sonnet_35",
+              "model": "claude-3-5-sonnet-20240620",
+              "context_window": 200000,
+              "rate_limit": 40000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Google",
+      "model_families": [
+        {
+          "family": "Gemini",
+          "tokenizer": "gemini",
+          "models": [
+            {
+              "id": 1,
+              "name": "gemini_1",
+              "model": "models/gemini-1.0-pro",
+              "context_window": 1000000,
+              "rate_limit": 120000
+            },
+            {
+              "id": 2,
+              "name": "gemini_flash_15",
+              "model": "models/gemini-1.5-flash",
+              "context_window": 1000000,
+              "rate_limit": 2000000
+            },
+            {
+              "id": 3,
+              "name": "gemini_pro_15",
+              "model": "models/gemini-1.5-pro",
+              "context_window": 1000000,
+              "rate_limit": 2000000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "OpenRouter",
+      "model_families": [
+        {
+          "family": "GPT",
+          "tokenizer": "tiktoken",
+          "models": [
+            {
+              "id": 1,
+              "name": "gpt_35",
+              "model": "gpt-3.5-turbo",
+              "context_window": 16385,
+              "rate_limit": 60000
+            },
+            {
+              "id": 2,
+              "name": "gpt_4",
+              "model": "gpt-4o",
+              "context_window": 128000,
+              "rate_limit": 30000
+            }
+          ]
+        },
+        {
+          "family": "Gemini",
+          "tokenizer": "gemini",
+          "models": [
+            {
+              "id": 1,
+              "name": "gemini_1",
+              "model": "models/gemini-1.0-pro",
+              "context_window": 1000000,
+              "rate_limit": 120000
+            },
+            {
+              "id": 2,
+              "name": "gemini_flash_15",
+              "model": "models/gemini-1.5-flash",
+              "context_window": 1000000,
+              "rate_limit": 2000000
+            },
+            {
+              "id": 3,
+              "name": "gemini_pro_15",
+              "model": "models/gemini-1.5-pro",
+              "context_window": 1000000,
+              "rate_limit": 2000000
+            }
+          ]
+        },
+        {
+          "family": "Claude",
+          "tokenizer": "claude",
+          "models": [
+            {
+              "id": 1,
+              "name": "haiku_3",
+              "model": "claude-3-haiku-20240307",
+              "context_window": 200000,
+              "rate_limit": 50000
+            },
+            {
+              "id": 2,
+              "name": "sonnet_3",
+              "model": "claude-3-sonnet-20240229",
+              "context_window": 200000,
+              "rate_limit": 40000
+            },
+            {
+              "id": 3,
+              "name": "opus_3",
+              "model": "claude-3-opus-20240229",
+              "context_window": 200000,
+              "rate_limit": 20000
+            },
+            {
+              "id": 4,
+              "name": "sonnet_35",
+              "model": "claude-3-5-sonnet-20240620",
+              "context_window": 200000,
+              "rate_limit": 40000
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
