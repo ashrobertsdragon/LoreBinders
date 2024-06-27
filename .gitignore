@@ -35,5 +35,8 @@ test-results/
 .coverage
 htmlcov/
 
+# build files
+*.egg-info/
+
 .upm/
 .git/
