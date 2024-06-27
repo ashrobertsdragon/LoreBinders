@@ -2,8 +2,8 @@ import importlib
 import logging
 from typing import Optional
 
-from ai_factory import AIType
-from exceptions import MissingAIProviderError
+from .ai_factory import AIType
+from .exceptions import MissingAIProviderError
 
 from lorebinders._types import AIModels
 

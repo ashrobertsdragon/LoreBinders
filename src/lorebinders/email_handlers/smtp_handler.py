@@ -7,7 +7,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Optional, Tuple
 
-from _managers import EmailManager
+from lorebinders._managers import EmailManager
 
 
 class SMTPHandler(EmailManager):
@@ -66,10 +66,8 @@ class SMTPHandler(EmailManager):
             if attachment:
                 file_path: str = self._get_attachment(attachment)
                 self._create_email_object(
-                    user_email,
-                    subject,
-                    email_body,
-                    file_path=file_path)
+                    user_email, subject, email_body, file_path=file_path
+                )
             else:
                 self._create_email_object(user_email, subject, email_body)
         except Exception as e:
@@ -87,11 +85,8 @@ class SMTPHandler(EmailManager):
         return part
 
     def _create_email_object(
-            self,
-            user_email,
-            subject,
-            email_body,
-            file_path: Optional[str] = None):
+        self, user_email, subject, email_body, file_path: Optional[str] = None
+    ):
         s = smtplib.SMTP_SSL(host=self.server, port=self.port)
         s.login(self.admin_email, self.password)
         msg = MIMEMultipart()

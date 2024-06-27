@@ -6,10 +6,11 @@ import time
 import traceback
 from typing import Tuple
 
-import file_handling
-from _managers import EmailManager, ErrorManager
-from _types import Book, BookDict
-from ai.exceptions import MaxRetryError
+from .exceptions import MaxRetryError
+
+from lorebinders import file_handling
+from lorebinders._managers import EmailManager, ErrorManager
+from lorebinders._types import Book, BookDict
 
 
 class APIErrorHandler(ErrorManager):

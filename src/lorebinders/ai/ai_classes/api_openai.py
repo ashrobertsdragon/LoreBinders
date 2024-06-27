@@ -8,6 +8,8 @@ from ai_factory import AIFactory
 from exceptions import KeyNotFoundError
 from openai import OpenAI
 
+from .api_error_handler import APIErrorHandler
+
 from email_handlers.smtp_handler import SMTPHandler
 from lorebinders._types import (
     ChatCompletion,
@@ -18,7 +20,6 @@ from lorebinders._types import (
     NoMessageError,
     ResponseFormat
 )
-from lorebinders.error_handler import APIErrorHandler
 from lorebinders.json_tools import RepairJSON
 
 email_handler = SMTPHandler()

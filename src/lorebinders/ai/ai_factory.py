@@ -3,8 +3,9 @@ import time
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple
 
-from api_error_handler import APIErrorHandler
 from pydantic import BaseModel, ValidationError
+
+from .api_error_handler import APIErrorHandler
 
 from email_handlers.smtp_handler import SMTPHandler
 from lorebinders._managers import RateLimitManager
