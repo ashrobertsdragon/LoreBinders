@@ -2,7 +2,7 @@ import os
 import pytest
 from unittest.mock import patch, MagicMock
 
-from src.lorebinders.email_handlers.smtp_handler import SMTPHandler
+from lorebinders.email_handlers.smtp_handler import SMTPHandler
 
 
 @pytest.fixture

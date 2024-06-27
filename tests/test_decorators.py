@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.lorebinders._decorators import required_string
+from lorebinders._decorators import required_string
 
 
 @pytest.fixture

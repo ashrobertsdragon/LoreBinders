@@ -2,7 +2,7 @@ from collections import defaultdict
 
 import pytest
 
-from src.lorebinders.sort_names import SortNames
+from lorebinders.sort_names import SortNames
 
 
 @pytest.fixture

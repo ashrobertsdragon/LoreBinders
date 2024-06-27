@@ -1,6 +1,6 @@
 import pytest
 
-from src.lorebinders.data_cleaner import (
+from lorebinders.data_cleaner import (
     RemoveNoneFound,
     ReplaceNarrator,
     ReshapeDict,

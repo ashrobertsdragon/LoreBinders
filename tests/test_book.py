@@ -1,7 +1,7 @@
 import pytest
 
-from src.lorebinders.book import Book, Chapter
-from src.lorebinders.book_dict import BookDict
+from lorebinders.book import Book, Chapter
+from lorebinders._types import BookDict
 
 
 @pytest.fixture

@@ -1,6 +1,6 @@
 from _types import AIModelRegistry, APIProvider, Model, ModelFamily
-from src.lorebinders.ai.exceptions import MissingModelFamilyError
-from src.lorebinders.ai.ai_models.sqlite_model_handler import (
+from lorebinders.ai.exceptions import MissingModelFamilyError
+from lorebinders.ai.ai_models.sqlite_model_handler import (
     SQLiteProviderHandler,
 )
 import pytest

@@ -3,7 +3,7 @@ import os
 import pytest
 import tempfile
 
-from src.lorebinders.file_handling import (
+from lorebinders.file_handling import (
     separate_into_chapters,
     append_json_file,
     read_json_file,

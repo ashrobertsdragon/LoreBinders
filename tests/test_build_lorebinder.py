@@ -3,8 +3,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.lorebinders._types import Book
-from src.lorebinders.build_lorebinder import (
+from lorebinders._types import Book
+from lorebinders.build_lorebinder import (
     convert,
     convert_book_file,
     create_book,
@@ -105,7 +105,7 @@ def test_convert():
     file_path = "test_file.txt"
     limited_metadata = {"title": "Test Title", "author": "John Doe"}
 
-    with patch("src.lorebinders.main.convert_file") as mock_convert_file:
+    with patch("lorebinders.main.convert_file") as mock_convert_file:
         convert(file_path, limited_metadata)
 
     mock_convert_file.assert_called_once_with(file_path, limited_metadata)

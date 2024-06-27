@@ -5,11 +5,11 @@ import openai
 import pytest
 from openai import OpenAI
 
-from src.lorebinders._managers import RateLimitManager, EmailManager
-from src.lorebinders.ai.api_error_handler import APIErrorHandler
-from src.lorebinders.ai.ai_factory import RateLimit
-from src.lorebinders.ai.ai_classes.api_openai import OpenaiAPI
-from src.lorebinders.ai.exceptions import (
+from lorebinders._managers import RateLimitManager, EmailManager
+from lorebinders.ai.api_error_handler import APIErrorHandler
+from lorebinders.ai.ai_factory import RateLimit
+from lorebinders.ai.ai_classes.api_openai import OpenaiAPI
+from lorebinders.ai.exceptions import (
     MaxRetryError,
     KeyNotFoundError,
     NoMessageError,

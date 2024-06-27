@@ -2,15 +2,15 @@ from dataclasses import dataclass
 from pydantic import Field
 
 
-from _types import AIModels, BookDict
-from ai.ai_interface import AIModelConfig
-from data_cleaner import ManipulateData
-from json_tools import RepairJSON
+from lorebinders._types import ModelFamily, BookDict
+from lorebinders.ai.ai_interface import AIModelConfig
+from lorebinders.data_cleaner import ManipulateData
+from lorebinders.json_tools import RepairJSON
 
 import pytest
 from unittest.mock import MagicMock
 
-from src.lorebinders.attributes import (
+from lorebinders.attributes import (
     NameTools,
     NameExtractor,
     NameAnalyzer,
@@ -25,7 +25,7 @@ json_repair_tool = RepairJSON()
 @dataclass
 class MockAIModels:
     provider: str = "mock_provider"
-    models: AIModels = Field(default_factory=AIModels)
+    model_families: ModelFamily = Field(default_factory=list)
 
 
 @pytest.fixture

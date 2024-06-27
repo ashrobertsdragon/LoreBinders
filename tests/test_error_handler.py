@@ -1,13 +1,13 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
-from src.lorebinders._types import EmailManager
-from src.lorebinders.error_handler import (
+from lorebinders._types import EmailManager
+from lorebinders.error_handler import (
     APIErrorHandler,
     RetryHandler,
     UnresolvableErrorHandler,
 )
-from src.lorebinders.ai_classes.exceptions import MaxRetryError
+from lorebinders.ai_classes.exceptions import MaxRetryError
 
 
 @pytest.fixture

@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
-from src.lorebinders.ai.exceptions import MissingAIProviderError
-from src.lorebinders.ai.ai_factory import AIModelConfig, AIInterface
+from lorebinders.ai.exceptions import MissingAIProviderError
+from lorebinders.ai.ai_interface import AIModelConfig, AIInterface
 
 
 @pytest.fixture

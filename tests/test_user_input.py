@@ -2,8 +2,8 @@ from unittest.mock import patch
 
 import pytest
 
-from src.lorebinders.book_dict import BookDict
-from src.lorebinders.user_input import (
+from lorebinders.book_dict import BookDict
+from lorebinders.user_input import (
     confirm_inputs,
     display_book_metadata,
     edit_book_dict,

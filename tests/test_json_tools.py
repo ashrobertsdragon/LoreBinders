@@ -1,5 +1,5 @@
 import pytest
-from src.lorebinders.json_tools import MergeJSON
+from lorebinders.json_tools import MergeJSON
 
 
 @pytest.fixture

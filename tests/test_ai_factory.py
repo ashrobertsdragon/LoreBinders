@@ -1,13 +1,13 @@
 import time
 from pydantic import BaseModel
-from _managers import EmailManager, RateLimitManager
-from src.lorebinders.ai.exceptions import MaxRetryError
+from lorebinders._managers import EmailManager, RateLimitManager
+from lorebinders.ai.exceptions import MaxRetryError
 
 import pytest
 from unittest.mock import patch, MagicMock
-from src.lorebinders.ai.ai_factory import RateLimit, AIFactory
-from src.lorebinders.attributes import RoleScript
-from src.lorebinders.ai.api_error_handler import APIErrorHandler
+from lorebinders.ai.ai_factory import RateLimit, AIFactory
+from lorebinders.attributes import RoleScript
+from lorebinders.ai.api_error_handler import APIErrorHandler
 
 
 @pytest.fixture
