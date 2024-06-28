@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 import inspect
 import json
 import logging
 import os
 import time
 import traceback
-from typing import Tuple
 
 from .exceptions import MaxRetryError
 
@@ -17,12 +18,12 @@ class APIErrorHandler(ErrorManager):
     """ """
 
     def __init__(
-        self, email_manager: EmailManager, unresolvable_errors: Tuple
+        self, email_manager: EmailManager, unresolvable_errors: tuple
     ) -> None:
         self.email = email_manager
         self.unresolvable_errors = unresolvable_errors
 
-    def _extract_error_info(self, e: Exception) -> Tuple[int, str]:
+    def _extract_error_info(self, e: Exception) -> tuple[int, str]:
         """Extracts error code and message from a potential API exception."""
         try:
             if response := getattr(e, "response", None):
@@ -48,14 +49,14 @@ class APIErrorHandler(ErrorManager):
         if self._is_unresolvable_error(e, error_code, error_message):
             end_app = UnresolvableErrorHandler(self.email)
             end_app.kill_app(e)
-        else:
-            retry_handler = RetryHandler()
-            return retry_handler.increment_retry_count(retry_count)
+        retry_handler = RetryHandler(self.email)
+        return retry_handler.increment_retry_count(retry_count)
 
 
 class RetryHandler:
-    def __init__(self) -> None:
+    def __init__(self, email_handler: EmailManager) -> None:
         self.max_retries = 5
+        self.email_handler = email_handler
 
     def _calculate_sleep_time(self) -> int:
         """
@@ -86,18 +87,18 @@ class RetryHandler:
             self.retry_count += 1
             if self.retry_count == self.max_retries:
                 raise MaxRetryError("Maximum retry count reached")
-            self._sleep(retry_count)
-            return self.retry_count
+            self._sleep()
         except MaxRetryError as e:
-            end_app = UnresolvableErrorHandler()
+            end_app = UnresolvableErrorHandler(self.email_handler)
             end_app.kill_app(e)
+        return self.retry_count
 
 
 class UnresolvableErrorHandler:
-    def __init__(self, email_manager: EmailManager) -> None:
-        self.email = email_manager
+    def __init__(self, email_handler: EmailManager) -> None:
+        self.email = email_handler
 
-    def _get_frame_info(self) -> Tuple[str, str, str]:
+    def _get_frame_info(self) -> tuple[str, str, str]:
         """
         Retrieve information about the exception frame, including the file
         name, line number, function name, and binder name if available.
@@ -133,12 +134,9 @@ class UnresolvableErrorHandler:
     @staticmethod
     def _save_data(book_name: str) -> None:
         try:
-            book: Book = globals().get(book_name)
-            if book is None:
-                raise ValueError(f"Book {book_name} not found.")
-
+            book: Book = globals()[book_name]
             metadata: BookDict = book.metadata
-            user_folder: str = metadata.user_folder
+            user_folder: str = metadata.user_folder or ""
             names_file = os.path.join(user_folder, "names.json")
             analysis_file = os.path.join(user_folder, "analysis.json")
 
@@ -146,8 +144,8 @@ class UnresolvableErrorHandler:
                 file_handling.append_json_file(chapter.names, names_file)
                 file_handling.append_json_file(chapter.analysis, analysis_file)
 
-        except Exception as e:
-            logging.error(f"Error saving data: {e}")
+        except KeyError:
+            logging.exception(f"Book {book_name} not found.")
 
     def _build_error_msg(self, e: Exception) -> str:
         """

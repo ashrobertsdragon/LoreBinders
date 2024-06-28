@@ -1,7 +1,8 @@
-from abc import ABC, abstractmethod
-from typing import List, Optional, Tuple
+from __future__ import annotations
 
-from ai.ai_models._model_schema import (
+from abc import ABC, abstractmethod
+
+from .ai.ai_models._model_schema import (
     AIModelRegistry,
     APIProvider,
     Model,
@@ -14,8 +15,8 @@ class EmailManager(ABC):
     def send_mail(
         self,
         user_email: str,
-        attachment: Optional[Tuple[str, str, str]] = None,
-        error_msg: Optional[str] = None,
+        attachment: tuple[str, str, str] | None = None,
+        error_msg: str | None = None,
     ) -> None:
         raise NotImplementedError("subclass must implement send_mail")
 
@@ -41,7 +42,7 @@ class RateLimitManager(ABC):
 
 
 class AIProviderManager(ABC):
-    _registry: Optional[AIModelRegistry] = None
+    _registry: AIModelRegistry | None = None
 
     @property
     def registry(self) -> AIModelRegistry:
@@ -54,7 +55,7 @@ class AIProviderManager(ABC):
         raise NotImplementedError("Must be implemented by child class")
 
     @abstractmethod
-    def get_all_providers(self) -> List[APIProvider]:
+    def get_all_providers(self) -> list[APIProvider]:
         raise NotImplementedError("Must be implemented by child class")
 
     @abstractmethod
@@ -88,7 +89,9 @@ class AIProviderManager(ABC):
         raise NotImplementedError("Must be implemented by child class")
 
     @abstractmethod
-    def replace_model(self, provider: str, family: str, model: Model) -> None:
+    def replace_model(
+        self, model: Model, model_id: int, family: str, provider: str
+    ) -> None:
         raise NotImplementedError("Must be implemented by child class")
 
     @abstractmethod

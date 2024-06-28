@@ -1,8 +1,14 @@
-from typing import Optional
+from __future__ import annotations
 
-from _types import AIModels, Book, BookDict, Chapter
-from attributes import NameAnalyzer, NameExtractor, NameSummarizer
-from file_handling import write_json_file
+from typing import TYPE_CHECKING
+
+from .ai.ai_models._model_schema import APIProvider
+
+if TYPE_CHECKING:
+    from ._types import Book, BookDict, Chapter
+
+from .attributes import NameAnalyzer, NameExtractor, NameSummarizer
+from .file_handling import write_json_file
 
 
 class Binder:
@@ -10,12 +16,12 @@ class Binder:
     Class representing the book analysis binder.
     """
 
-    def __init__(self, book: Book, ai_model: AIModels) -> None:
+    def __init__(self, book: Book, ai_model: APIProvider) -> None:
         self.book = book
         self.ai_models = ai_model
         self.binder_type = __name__.lower()
-        self._book_name: Optional[str] = None
-        self._temp_file: Optional[str] = None
+        self._book_name: str | None = None
+        self._temp_file: str | None = None
 
     def __str__(self) -> str:
         return f"Binder for {self.book_name} - {self.book.author}"
@@ -40,7 +46,7 @@ class Binder:
         if not isinstance(binder, dict):
             raise TypeError("Binder must be a dictionary")
         self._binder = binder
-        write_json_file(self._binder, self._temp_file)
+        write_json_file(self._binder, self.binder_tempfile)
 
     def update_binder(self, binder: dict) -> None:
         if not isinstance(binder, dict):

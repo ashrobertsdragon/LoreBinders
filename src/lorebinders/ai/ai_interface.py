@@ -1,17 +1,21 @@
+from __future__ import annotations
+
 import importlib
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING
 
 from .ai_factory import AIType
+from .ai_models._model_schema import APIProvider
 from .exceptions import MissingAIProviderError
 
-from lorebinders._types import AIModels
+if TYPE_CHECKING:
+    from lorebinders._types import RateLimitManager
 
 
 class AIModelConfig:
-    def __init__(self, models: AIModels) -> None:
+    def __init__(self, models: APIProvider) -> None:
         self.provider_models = models
-        self.provider = self.provider_models.provider
+        self.provider = self.provider_models.name
 
     def initialize_api(self):
         """
@@ -54,28 +58,37 @@ class AIInterface:
         ValueError: If the provider is invalid.
     """
 
-    def __init__(self, ai_implementation: AIType):
+    def __init__(
+        self, ai_implementation: AIType, rate_limiter: RateLimitManager
+    ) -> None:
         self._ai = ai_implementation
+        self._rate_limiter = rate_limiter
 
-    def set_model(self, model_config: AIModelConfig, model_id: int) -> None:
+    def set_family(self, model_config: AIModelConfig, family: str) -> None:
+        """
+        Set the model family for the AI implementation.
+        """
+        self._family = model_config.provider_models.get_model_family(family)
+
+    def set_model(self, model_id: int) -> None:
         """
         Retrieve model dictionary from configuration and pass it to
         implementation class.
         """
-        model = model_config.provider_models.models.get_model_by_id(model_id)
-        return self.ai_implementation.set_model(model)
+        model = self._family.get_model_by_id(model_id)
+        return self._ai.set_model(model, self._rate_limiter)
 
     def call_api(
         self,
         api_payload: dict,
         json_response: bool = False,
         retry_count: int = 0,
-        assistant_message: Optional[str] = None,
+        assistant_message: str | None = None,
     ) -> str:
         """
         Calls the 'call_api method of the actual AI API class.
         """
-        return self.ai_implementation.call_api(
+        return self._ai.call_api(
             api_payload, json_response, retry_count, assistant_message
         )
 
@@ -113,6 +126,6 @@ class AIInterface:
             ValueError: If the model name is not set.
 
         """
-        return self.ai_implementation.create_payload(
+        return self._ai.create_payload(
             prompt, role_script, temperature, max_tokens
         )

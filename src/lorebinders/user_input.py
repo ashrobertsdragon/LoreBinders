@@ -1,8 +1,10 @@
-import os
-from typing import Callable, List, Optional
+from __future__ import annotations
 
-from _decorators import required_string
-from book_dict import BookDict
+import os
+from typing import Callable
+
+from ._decorators import required_string
+from .book_dict import BookDict
 
 
 @required_string
@@ -55,14 +57,14 @@ def get_narrator() -> str:
         )
 
 
-def set_input_label(attribute_type: Optional[str] = None) -> str:
+def set_input_label(attribute_type: str | None = None) -> str:
     """
     Sets the input label based on the attribute type
     """
     return "category" if attribute_type is None else f"{attribute_type} trait"
 
 
-def get_attributes(attribute_type: Optional[str] = None) -> list:
+def get_attributes(attribute_type: str | None = None) -> list:
     """
     Asks for additional attributes and returns them as a list.
 
@@ -75,7 +77,7 @@ def get_attributes(attribute_type: Optional[str] = None) -> list:
         A list of user inputted attributes.
     """
     input_label = set_input_label(attribute_type)
-    attribute_list: List[str] = []
+    attribute_list: list[str] = []
     while True:
         attribute = input(
             f"Enter additional {input_label} or press D for done > "

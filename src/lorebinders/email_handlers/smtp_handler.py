@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import pathlib
 import smtplib
@@ -5,7 +7,6 @@ from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import Optional, Tuple
 
 from lorebinders._managers import EmailManager
 
@@ -25,7 +26,7 @@ class SMTPHandler(EmailManager):
         html_path: str = os.path.join("ProsePal", "email_content.html")
         return pathlib.Path(html_path).read_text()
 
-    def _get_attachment(self, attachment: Tuple[str, str, str]) -> str:
+    def _get_attachment(self, attachment: tuple[str, str, str]) -> str:
         """
         Unpack the tuple 'attachment' to retrieve the path to the Binder to
         email.
@@ -44,8 +45,8 @@ class SMTPHandler(EmailManager):
     def send_mail(
         self,
         user_email: str,
-        attachment: Optional[Tuple[str, str, str]] = None,
-        error_msg: Optional[str] = None,
+        attachment: tuple[str, str, str] | None = None,
+        error_msg: str | None = None,
     ) -> None:
         """
         Send user the pdf of their story bible.
@@ -85,7 +86,7 @@ class SMTPHandler(EmailManager):
         return part
 
     def _create_email_object(
-        self, user_email, subject, email_body, file_path: Optional[str] = None
+        self, user_email, subject, email_body, file_path: str | None = None
     ):
         s = smtplib.SMTP_SSL(host=self.server, port=self.port)
         s.login(self.admin_email, self.password)

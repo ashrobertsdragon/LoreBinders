@@ -1,10 +1,12 @@
-import os
-from typing import List
+from __future__ import annotations
 
-from _managers import AIProviderManager
-from _types import AIModelRegistry, APIProvider, Model, ModelFamily
-from ai.exceptions import MissingModelFamilyError
-from file_handling import read_json_file, write_json_file
+import os
+
+from ._model_schema import AIModelRegistry, APIProvider, Model, ModelFamily
+
+from lorebinders._managers import AIProviderManager
+from lorebinders.ai.exceptions import MissingModelFamilyError
+from lorebinders.file_handling import read_json_file, write_json_file
 
 
 class JSONFileProviderHandler(AIProviderManager):
@@ -23,7 +25,7 @@ class JSONFileProviderHandler(AIProviderManager):
         data = read_json_file(self.model_file)
         return AIModelRegistry.model_validate(data)
 
-    def get_all_providers(self) -> List[APIProvider]:
+    def get_all_providers(self) -> list[APIProvider]:
         return self.registry.providers
 
     def get_provider(self, provider: str) -> APIProvider:
@@ -58,7 +60,7 @@ class JSONFileProviderHandler(AIProviderManager):
     def delete_model_family(self, provider: str, family: str) -> None:
         api_provider = self.get_provider(provider)
         api_provider.model_families = [
-            f for f in api_provider.model_families if f.name != family
+            f for f in api_provider.model_families if f.family != family
         ]
         self._write_registry_to_file()
 

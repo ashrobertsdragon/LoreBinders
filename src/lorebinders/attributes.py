@@ -1,85 +1,19 @@
+from __future__ import annotations
+
 import json
 import os
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Generator, List, Tuple, Union, cast
+from typing import Generator, cast
 
-import file_handling
-from _types import AIModels, BookDict, Chapter
-from ai.ai_interface import AIModelConfig
-from json_tools import RepairJSON
-from sort_names import SortNames
+from ._types import BookDict, Chapter
+from .abstract_name_tools import NameTools
+from .ai.ai_models._model_schema import APIProvider
+from .json_tools import RepairJSON
+from .role_script import RoleScript
+from .sort_names import SortNames
+
+import lorebinders.file_handling as file_handling
 
 json_repair_tool = RepairJSON()
-
-
-@dataclass
-class RoleScript:
-    """
-    Holds the AI system role script and max tokens for an API call
-    """
-
-    script: str
-    max_tokens: int
-
-
-class NameTools(ABC):
-    """
-    Abstract class for name classes
-    """
-
-    def initialize_api(self, ai_models: AIModels) -> None:
-        """
-        Initialize the NameTools class an AIModels dataclass object.
-
-        Args:
-            ai_models (AIModels): A dataclass of the AI API information.
-        """
-
-        self._ai_config = AIModelConfig(ai_models)
-        self._ai = self._ai_config.initialize_api()
-
-        self._categories_base: List[str] = ["Characters", "Settings"]
-        self.temperature: float = 0.7
-        self._json_mode: bool = False
-
-    def _get_ai_response(
-        self, role_script: RoleScript, prompt, model_id: int
-    ) -> str:
-        """
-        Create the payload to send to the AI and send it.
-        """
-        self._ai.set_model(self._ai_config, model_id)
-        payload = self._ai.create_payload(
-            prompt, role_script.script, role_script.max_tokens
-        )
-        return self._ai.call_api(payload, self._json_mode)
-
-    @abstractmethod
-    def _parse_response(self, response: str) -> dict:
-        """
-        Abstract method to parse the AI response.
-
-        Raises:
-            NotImplementedError: If the method is not implemented in the child
-                class.
-        """
-        raise NotImplementedError(
-            "Method _parse_response must be implemented in child class."
-        )
-
-    @abstractmethod
-    def build_role_script(self) -> None:
-        """
-        Abstract method to build the role script
-
-        Raises:
-            NotImplementedError: If the method is not implemented in the child
-                class.
-        """
-        raise NotImplementedError(
-            "Method _build_role_script must be implemented in child class."
-        )
 
 
 class NameExtractor(NameTools):
@@ -88,7 +22,7 @@ class NameExtractor(NameTools):
     the chapter text using Named Entity Recognition (NER).
     """
 
-    def __init__(self, ai_models: AIModels) -> None:
+    def __init__(self, ai_models: APIProvider) -> None:
         self.initialize_api(ai_models)
         self.max_tokens: int = 1000
         self.temperature: float = 0.2
@@ -196,7 +130,7 @@ class NameAnalyzer(NameTools):
 
     def __init__(
         self,
-        ai_models: AIModels,
+        ai_models: APIProvider,
     ) -> None:
         """
         Initializes a NameAnalyzer object.
@@ -231,9 +165,9 @@ class NameAnalyzer(NameTools):
         }
 
         self.max_tokens = 0
-        self._attributes_batch: List[Tuple[str, int, str]] = []
+        self._attributes_batch: list[tuple[str, int, str]] = []
         self._to_batch: list = []
-        self._role_scripts: List[RoleScript] = []
+        self._role_scripts: list[RoleScript] = []
 
         self._base_instructions = self._get_instruction_text(
             "name_analyzer_base_instructions.txt"
@@ -277,7 +211,7 @@ class NameAnalyzer(NameTools):
         if self.character_traits:
             character_traits.extend(self.character_traits)
 
-        schema_stub: Union[dict, str]
+        schema_stub: dict | str
 
         if category in self._categories_base:
             settings_attributes = [
@@ -330,7 +264,7 @@ class NameAnalyzer(NameTools):
                     self._base_instructions + self._character_instructions
                 )
             if category == "Settings":
-                instructions += self._setting_instructions
+                instructions += self._settings_instructions
             else:
                 other_category_list = [
                     cat
@@ -458,7 +392,7 @@ class NameAnalyzer(NameTools):
             role_script = RoleScript(system_message, max_tokens)
             self._role_scripts.append(role_script)
 
-    def _combine_responses(self, responses: List[str]) -> str:
+    def _combine_responses(self, responses: list[str]) -> str:
         """Combine AI responses
 
         Args:
@@ -476,7 +410,7 @@ class NameAnalyzer(NameTools):
         )
 
     def analyze_names(self) -> dict:
-        responses: List[str] = []
+        responses: list[str] = []
         for script in self._role_scripts:
             response = self._get_ai_response(script, self._prompt, model_id=1)
             responses.append(response)
@@ -528,7 +462,7 @@ class NameSummarizer(NameTools):
             the generated summary.
     """
 
-    def __init__(self, ai_models: AIModels) -> None:
+    def __init__(self, ai_models: APIProvider) -> None:
         """
         Initialize the NameSummarizer class with a Book object.
 
@@ -563,9 +497,7 @@ class NameSummarizer(NameTools):
         """
         minimum_chapter_threshold = 3
 
-        def create_description(
-            category: str, details: Union[dict, list]
-        ) -> str:
+        def create_description(category: str, details: dict | list) -> str:
             if category in self._categories_base:
                 detail_dict: dict = cast(dict, details)  # Stupid MyPy
                 return ", ".join(

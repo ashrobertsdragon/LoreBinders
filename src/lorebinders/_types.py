@@ -12,7 +12,12 @@ from openai.types.chat import (
 from openai.types.chat.completion_create_params import ResponseFormat
 
 if TYPE_CHECKING:
-    from ._managers import AIProviderManager, EmailManager, ErrorManager
+    from ._managers import (
+        AIProviderManager,
+        EmailManager,
+        ErrorManager,
+        RateLimitManager
+    )
     from .ai.exceptions import KeyNotFoundError, MaxRetryError, NoMessageError
     from .binders import Binder
     from .book import Book, Chapter
@@ -39,6 +44,7 @@ __all__ = [
     "AIProviderManager",
     "EmailManager",
     "ErrorManager",
+    "RateLimitManager",
     "T",
     "MaxRetryError",
     "NoMessageError",

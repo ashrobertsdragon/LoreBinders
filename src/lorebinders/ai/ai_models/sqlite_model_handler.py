@@ -1,9 +1,11 @@
-import sqlite3
-from typing import List, Optional
+from __future__ import annotations
 
-from _managers import AIProviderManager
-from _types import AIModelRegistry, APIProvider, Model, ModelFamily
-from ai.exceptions import MissingModelFamilyError
+import sqlite3
+
+from ._model_schema import AIModelRegistry, APIProvider, Model, ModelFamily
+
+from lorebinders._managers import AIProviderManager
+from lorebinders.ai.exceptions import MissingModelFamilyError
 
 
 class SQLite:
@@ -23,7 +25,7 @@ class SQLite:
 class SQLiteProviderHandler(AIProviderManager):
     def __init__(self) -> None:
         self.db: str = "ai_models.db"
-        self._registry: Optional[dict] = None
+        self._registry: AIModelRegistry | None = None
         self._initialize_database()
 
     def _initialize_database(self):
@@ -56,9 +58,7 @@ class SQLiteProviderHandler(AIProviderManager):
                 )
             """)
 
-    def _execute_query(
-        self, query: str, params: Optional[tuple] = None
-    ) -> list:
+    def _execute_query(self, query: str, params: tuple | None = None) -> list:
         with SQLite(self.db) as cursor:
             if params:
                 cursor.execute(query, params)
@@ -66,7 +66,7 @@ class SQLiteProviderHandler(AIProviderManager):
                 cursor.execute(query)
             return cursor.fetchall()
 
-    def _registry_query(self) -> List[dict]:
+    def _registry_query(self) -> list[dict]:
         query = """
             SELECT
                 p.name as provider,
@@ -86,8 +86,8 @@ class SQLiteProviderHandler(AIProviderManager):
             """
         return self._execute_query(query)
 
-    def _process_db_response(self, data: List[dict]) -> List[dict]:
-        registry: List[dict] = []
+    def _process_db_response(self, data: list[dict]) -> list[dict]:
+        registry: list[dict] = []
         provider = {}
         for row in data:
             provider_name = row["provider"]
@@ -111,14 +111,14 @@ class SQLiteProviderHandler(AIProviderManager):
             }
             current_family["models"].append(model_data)
             registry.append(provider)
-            return registry
+        return registry
 
     def _load_registry(self) -> AIModelRegistry:
         db_response = self._registry_query()
         registry_data = self._process_db_response(db_response)
         return AIModelRegistry.model_validate(registry_data)
 
-    def get_all_providers(self) -> List[APIProvider]:
+    def get_all_providers(self) -> list[APIProvider]:
         return self.registry.providers
 
     def get_provider(self, provider: str) -> APIProvider:
@@ -154,8 +154,12 @@ class SQLiteProviderHandler(AIProviderManager):
         api_provider = self.get_provider(provider)
         api_provider.model_families.append(model_family)
         self._execute_query(
-            "INSERT INTO model_families (family, provider_name) VALUES (?, ?)",
-            (model_family.family, provider),
+            """
+            INSERT INTO model_families
+            (family, tokenizer, provider_name)
+            VALUES (?, ?, ?)
+            """,
+            (model_family.family, model_family.tokenizer, provider),
         )
         models = model_family.models
         for model in models:
@@ -164,7 +168,7 @@ class SQLiteProviderHandler(AIProviderManager):
     def delete_model_family(self, provider: str, family: str) -> None:
         api_provider = self.get_provider(provider)
         api_provider.model_families = [
-            f for f in provider.model_families if f.family != family
+            f for f in api_provider.model_families if f.family != family
         ]
         self._execute_query(
             "DELETE FROM model_families WHERE name = ? "
@@ -175,16 +179,14 @@ class SQLiteProviderHandler(AIProviderManager):
     def add_model(self, provider: str, family: str, model: Model) -> None:
         model_family = self.get_model_family(provider, family)
         model_family.models.append(model)
-        name, context_window, rate_limit, tokenizer, id = self.get_model_attr(
-            model
-        )
+        name, context_window, rate_limit, id = self.get_model_attr(model)
         self._execute_query(
             """
             INSERT INTO models (
-                id, name, context_window, rate_limit, tokenizer, family
+                id, name, context_window, rate_limit, family
             ) VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (id, name, context_window, rate_limit, tokenizer, family),
+            (id, name, context_window, rate_limit, family),
         )
 
     def replace_model(
@@ -195,21 +197,21 @@ class SQLiteProviderHandler(AIProviderManager):
         model_family.models = [
             model if m.id != model_id else m for m in model_family.models
         ]
-        name, context_window, rate_limit, tokenizer, id = self.get_model_attr(
-            model
-        )
+        name, context_window, rate_limit, id = self.get_model_attr(model)
         self._execute_query(
             """
             UPDATE models SET (
                 name = ?, context_window = ?, rate_limit = ?, tokenizer = ?
             ) WHERE id = ? AND family = ?
             """,
-            (name, context_window, rate_limit, tokenizer, id, family),
+            (name, context_window, rate_limit, id, family),
         )
 
     def delete_model(self, provider: str, family: str, model_id: int) -> None:
-        family = self.get_model_family(provider, family)
-        family.models = [m for m in family.models if m.id != model_id]
+        model_family = self.get_model_family(provider, family)
+        model_family.models = [
+            m for m in model_family.models if m.id != model_id
+        ]
         self._execute_query(
             "DELETE FROM models WHERE id = ? AND family = ?",
             (model_id, family),
@@ -220,6 +222,5 @@ class SQLiteProviderHandler(AIProviderManager):
         name = model.name
         context_window = model.context_window
         rate_limit = model.rate_limit
-        tokenizer = model.tokenizer
         model_id = model.id
-        return name, context_window, rate_limit, tokenizer, model_id
+        return name, context_window, rate_limit, model_id

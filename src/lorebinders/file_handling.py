@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 import json
 import os
 import pathlib
 import re
-from typing import Union
 
-from _types import T
+from ._types import T
 
 
 def read_text_file(file_path: str) -> str:
@@ -32,17 +33,17 @@ def separate_into_chapters(text: str) -> list:
     return re.split(r"\s*\*\*\s*", text)
 
 
-def write_json_file(content: Union[list, dict], file_path: str) -> None:
+def write_json_file(content: list | dict, file_path: str) -> None:
     "Writes JSON file"
 
     with open(file_path, "w") as f:
         json.dump(content, f, indent=2)
 
 
-def append_json_file(content: Union[list, dict], file_path: str) -> None:
+def append_json_file(content: list | dict, file_path: str) -> None:
     "Reads JSON file, and adds content to datatype before overwriting"
 
-    read_file: Union[list, dict] = {} if isinstance(content, dict) else []
+    read_file: list | dict = {} if isinstance(content, dict) else []
     if os.path.exists(file_path):
         read_file = read_json_file(file_path)
         if isinstance(content, list) and not isinstance(read_file, list):

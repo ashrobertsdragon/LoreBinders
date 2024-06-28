@@ -1,15 +1,17 @@
+from __future__ import annotations
+
 import os
-from typing import Type
 
 from ebook2text.convert_file import convert_file  # type: ignore
 
-import make_pdf
-from _types import AIProviderManager
-from ai.ai_models._model_schema import AIModelRegistry
-from ai.ai_models.json_file_model_handler import JSONFileProviderHandler
-from binders import Binder
-from book import Book
-from book_dict import BookDict
+from ._types import AIProviderManager
+from .ai.ai_models._model_schema import AIModelRegistry
+from .ai.ai_models.json_file_model_handler import JSONFileProviderHandler
+from .binders import Binder
+from .book import Book
+from .book_dict import BookDict
+
+import lorebinders.make_pdf as make_pdf
 
 
 def create_book(book_dict: BookDict) -> Book:
@@ -68,7 +70,7 @@ def convert_book_file(book_dict: BookDict, work_dir: str) -> None:
 
 
 def initialize_ai_model_registry(
-    provider_registry: Type[AIProviderManager], *args, **kwargs
+    provider_registry: type[AIProviderManager], *args, **kwargs
 ) -> AIModelRegistry:
     """
     Initializes and returns an AIModelRegistry from the provided handler.

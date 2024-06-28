@@ -1,7 +1,7 @@
-from typing import List, Optional
+from __future__ import annotations
 
-from _types import BookDict
-from file_handling import read_text_file, separate_into_chapters
+from ._types import BookDict
+from .file_handling import read_text_file, separate_into_chapters
 
 
 class Book:
@@ -46,11 +46,11 @@ class Book:
         self.title: str = self.metadata.title
         self.author: str = self.metadata.author
         self._book_file: str = self.metadata.book_file
-        self.narrator: Optional[str] = self.metadata.narrator
-        self.character_attributes: Optional[List[str]] = (
+        self.narrator: str | None = self.metadata.narrator
+        self.character_attributes: list[str] | None = (
             self.metadata.character_traits
         )
-        self.custom_categories: Optional[List[str]] = (
+        self.custom_categories: list[str] | None = (
             self.metadata.custom_categories
         )
 
@@ -63,7 +63,7 @@ class Book:
         """
         Returns a list of Chapter objects
         """
-        chapters: List[Chapter] = [
+        chapters: list[Chapter] = [
             Chapter(number, text)
             for number, text in enumerate(
                 separate_into_chapters(self.file), start=1
