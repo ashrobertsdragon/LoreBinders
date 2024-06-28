@@ -1,17 +1,20 @@
-import json
+from __future__ import annotations
+
 import logging
 import os
 
 from json_repair import repair_json
 
-from file_handling import read_json_file
+import lorebinders.file_handling as file_handling
 
 
 def is_valid_json_file(file_path: str) -> bool:
     "Checks to see if JSON file exists and is non-empty"
 
     return (
-        bool(read_json_file(file_path)) if os.path.exists(file_path) else False
+        bool(file_handling.read_json_file(file_path))
+        if os.path.exists(file_path)
+        else False
     )
 
 
@@ -48,25 +51,31 @@ class MergeJSON:
             failure.
     """
 
-    def __init__(self, first_half: str, second_half: str):
+    def __init__(self):
+        self.first_end = 0
+        self.second_start = 0
+
+    def set_ends(self, first_half: str, second_half: str) -> None:
+        """
+        Sets the end indices of the first and second JSON objects in the
+        first and second segments, respectively.
+        """
         self.first_half = first_half
         self.second_half = second_half
 
         self.repair_stub = (
             f"First response:\n{first_half}\nSecond response:\n{second_half}"
         )
-        self.first_end: int = 0
-        self.second_start: int = 0
 
     def _find_ends(self) -> None:
         """
         Finds the end index of the first JSON object in the first segment and
         the start index of the second JSON object in the second segment.
         """
-        self.first_end: int = self._find_full_object(
+        self.first_end = self._find_full_object(
             self.first_half[::-1], forward=False
         )
-        self.second_start: int = self._find_full_object(self.second_half)
+        self.second_start = self._find_full_object(self.second_half)
 
     def _find_full_object(self, string: str, forward: bool = True) -> int:
         """
@@ -82,6 +91,7 @@ class MergeJSON:
             elif char == "}":
                 count -= 1
             return i if i != 0 and count == balanced else 0
+        return 0
 
     def merge(self) -> str:
         """
@@ -109,27 +119,6 @@ class MergeJSON:
             log = f"Could not combine.\n{self.repair_stub}"
             logging.warning(log)
             return ""
-
-    def is_valid_json_str(self, combined_str: str) -> bool:
-        """
-        Validates the combined JSON string by attempting to load it as JSON.
-
-        Args:
-            combined_str (str): The combined string of two partial JSON
-                objects.
-
-        Returns:
-            bool: True if the combined string is valid JSON, False otherwise.
-        """
-        try:
-            json.loads(combined_str)
-            return True
-        except json.JSONDecodeError:
-            logging.error(
-                f"Did not properly repair.\n{self.repair_stub}\n"
-                f"Combined is:\n{combined_str}"
-            )
-            return False
 
 
 class RepairJSON:
