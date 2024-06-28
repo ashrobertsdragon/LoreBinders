@@ -3,7 +3,7 @@ from collections import ChainMap, defaultdict
 from itertools import combinations
 from typing import Callable, Dict, List, Tuple, Union, cast
 
-from _titles import TITLES
+from ._titles import TITLES
 
 
 class Data:
@@ -370,7 +370,7 @@ class DeduplicateKeys(CleanData):
                 else:
                     merged_list.append(item)
             for key, value in value2.items():
-                if not any(key in d for d in merged_list):
+                if all(key not in d for d in merged_list):
                     merged_list.append({key: value})
             return merged_list
         elif isinstance(value1, dict) and isinstance(value2, list):

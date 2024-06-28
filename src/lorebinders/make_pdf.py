@@ -13,9 +13,7 @@ from reportlab.platypus import (
 )
 from reportlab.platypus.tableofcontents import TableOfContents
 
-from file_handling import FileHandler
-
-file_handler = FileHandler()
+import lorebinders.file_handling as file_handling
 
 
 def create_pdf(folder_name: str, title: str) -> None:
@@ -35,7 +33,7 @@ def create_pdf(folder_name: str, title: str) -> None:
     folder_split = folder_name.split("/")
     user_name = folder_split[0]
 
-    chapter_summaries = file_handler.read_json_file(input_path)
+    chapter_summaries = file_handling.read_json_file(input_path)
 
     doc = SimpleDocTemplate(
         output_path, pagesize=letter, author=user_name, title=title

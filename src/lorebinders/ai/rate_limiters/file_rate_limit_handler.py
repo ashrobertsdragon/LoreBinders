@@ -1,5 +1,7 @@
-from file_handling import read_json_file, write_json_file
+from __future__ import annotations
+
 from lorebinders._managers import RateLimitManager
+from lorebinders.file_handling import read_json_file, write_json_file
 
 
 class FileRateLimitHandler(RateLimitManager):
