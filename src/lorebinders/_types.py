@@ -12,16 +12,17 @@ from openai.types.chat import (
 from openai.types.chat.completion_create_params import ResponseFormat
 
 if TYPE_CHECKING:
-    from ._managers import (
+    from .ai.exceptions import KeyNotFoundError, MaxRetryError, NoMessageError
+
+    from lorebinders._managers import (
         AIProviderManager,
         EmailManager,
         ErrorManager,
         RateLimitManager
     )
-    from .ai.exceptions import KeyNotFoundError, MaxRetryError, NoMessageError
-    from .binders import Binder
-    from .book import Book, Chapter
-    from .book_dict import BookDict
+    from lorebinders.binders import Binder
+    from lorebinders.book import Book, Chapter
+    from lorebinders.book_dict import BookDict
 
 T = TypeVar("T", dict, list, str)
 
