@@ -1,15 +1,17 @@
+from __future__ import annotations
+
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple
 
 from pydantic import BaseModel, ValidationError
 
+from .ai_models._model_schema import Model
 from .api_error_handler import APIErrorHandler
 
-from email_handlers.smtp_handler import SMTPHandler
 from lorebinders._managers import RateLimitManager
-from lorebinders._types import ChatCompletion, FinishReason, Model
+from lorebinders._types import ChatCompletion, FinishReason
+from lorebinders.email_handlers.smtp_handler import SMTPHandler
 
 email_handler = SMTPHandler()
 
@@ -51,14 +53,14 @@ class AIType:
         api_payload: dict,
         json_response: bool = False,
         retry_count: int = 0,
-        assistant_message: Optional[str] = None,
+        assistant_message: str | None = None,
     ) -> str:
         """
         Dummy method. Do not use.
         """
         return "Do not use this method"
 
-    def set_model(self, model_dict: dict) -> None:
+    def set_model(self, model: Model, rate_handler: RateLimitManager) -> None:
         """
         Dummy method. Do not use.
         """
@@ -66,21 +68,24 @@ class AIType:
 
 
 class RateLimit:
-    def __init__(self, model: str, rate_handler: RateLimitManager) -> None:
-        self.model = model
+    def __init__(
+        self, model_name: str, rate_limit: int, rate_handler: RateLimitManager
+    ) -> None:
+        self.model_name = model_name
+        self.rate_limit = rate_limit
         self._rate_handler = rate_handler
-        self.rate_limit_dict = self.read_rate_limit_dict(self.model)
+        self.read_rate_limit_dict()
 
     def read_rate_limit_dict(self) -> None:
-        self.rate_limit_dict: dict = self._rate_handler.read(self.model)
+        self.rate_limit_dict: dict = self._rate_handler.read(self.model_name)
 
     def update_rate_limit_dict(self) -> None:
-        self._rate_handler.write(self.model, self.rate_limit_dict)
+        self._rate_handler.write(self.model_name, self.rate_limit_dict)
 
     def reset_rate_limit_dict(self) -> None:
         self._reset_minute()
         self._reset_tokens_used()
-        self.write_rate_limit_dict()
+        self.update_rate_limit_dict()
 
     def _reset_minute(self) -> None:
         self.rate_limit_dict["minute"] = time.time()
@@ -103,15 +108,17 @@ class AIFactory(AIType, ABC):
     def __init__(self) -> None:
         self.unresolvable_errors = self._set_unresolvable_errors()
         self.error_handler = APIErrorHandler(
-            email_manager=email_handler, unresolvable=self.unresolvable_errors
+            email_manager=email_handler,
+            unresolvable_errors=self.unresolvable_errors,
         )
 
     def set_model(self, model: Model, rate_handler: RateLimitManager) -> None:
         self.model = model
 
-        self.model_name = self.model.model
-        self.rate_limiter = RateLimit(self.model_name, rate_handler)
-        self.tokenizer_class = self.model.tokenizer
+        self.model_name = self.model.name
+        self.rate_limiter = RateLimit(
+            self.model_name, self.model.rate_limit, rate_handler
+        )
 
     @abstractmethod
     def _count_tokens(self, text: str) -> int:
@@ -174,16 +181,16 @@ class AIFactory(AIType, ABC):
             The updated rate limit data is then written to a JSON file named
                 'rate_limit_dict.json'.
         """
-        self.rate_limit_dict["tokens_used"] += tokens
-        self.rate_limiter.update_rate_limit_dict(self.rate_limit_dict)
+        self.rate_limiter.rate_limit_dict["tokens_used"] += tokens
+        self.rate_limiter.update_rate_limit_dict()
 
     @abstractmethod
     def create_message_payload(
         self,
         role_script: str,
         prompt: str,
-        assistant_message: Optional[str] = None,
-    ) -> Tuple[list, int]:
+        assistant_message: str | None = None,
+    ) -> tuple[list, int]:
         raise NotImplementedError("Must be implemented in child class")
 
     def modify_payload(self, api_payload: dict, **kwargs) -> dict:
@@ -201,7 +208,7 @@ class AIFactory(AIType, ABC):
         api_payload |= kwargs
         return api_payload
 
-    def _error_handle(self, e: Exception, retry_count: int) -> int:
+    def _error_handle(self, e: Exception, retry_count: int = 0) -> int:
         """
         Calls the 'handle_error' method of the error handler class which
         determines if the exception is recoverable or not. If it is, an
@@ -267,7 +274,7 @@ class AIFactory(AIType, ABC):
         api_payload: dict,
         json_response: bool = False,
         retry_count: int = 0,
-        assistant_message: Optional[str] = None,
+        assistant_message: str | None = None,
     ) -> str:
         """
         Makes API calls to the AI engine.
@@ -279,17 +286,17 @@ class AIFactory(AIType, ABC):
     @abstractmethod
     def preprocess_response(
         self, response: ChatCompletion
-    ) -> Tuple[str, int, FinishReason]:
+    ) -> tuple[str, int, FinishReason]:
         raise NotImplementedError("Must be implemented in child class")
 
     @abstractmethod
     def process_response(
         self,
-        content_tuple: Tuple[str, int, FinishReason],
-        assistant_message: Optional[str],
+        content_tuple: tuple[str, int, FinishReason],
         api_payload: dict,
         retry_count: int,
         json_response: bool,
+        assistant_message: str | None = None,
     ) -> str:
         raise NotImplementedError("Must be implemented in child class")
 

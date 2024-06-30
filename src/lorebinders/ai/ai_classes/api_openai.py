@@ -1,15 +1,13 @@
+from __future__ import annotations
+
 import logging
 import os
-from typing import Dict, Optional, Tuple
+from typing import cast
 
 import openai
 import tiktoken
 from openai import OpenAI
 
-from ai.ai_factory import AIFactory
-from ai.api_error_handler import APIErrorHandler
-from ai.exceptions import KeyNotFoundError
-from email_handlers.smtp_handler import SMTPHandler
 from lorebinders._types import (
     ChatCompletion,
     ChatCompletionAssistantMessageParam,
@@ -19,10 +17,13 @@ from lorebinders._types import (
     NoMessageError,
     ResponseFormat
 )
-from lorebinders.json_tools import RepairJSON
+from lorebinders.ai.ai_factory import AIFactory
+from lorebinders.ai.api_error_handler import APIErrorHandler
+from lorebinders.ai.exceptions import KeyNotFoundError
+from lorebinders.email_handlers.smtp_handler import SMTPHandler
+from lorebinders.json_tools import MergeJSON, RepairJSON
 
 email_handler = SMTPHandler()
-errors = APIErrorHandler(email_manager=email_handler)
 
 
 class OpenaiAPI(AIFactory):
@@ -37,6 +38,11 @@ class OpenaiAPI(AIFactory):
         self._initialize_client()
 
         self.unresolvable_errors = self._set_unresolvable_errors()
+        self.error_handler = APIErrorHandler(
+            email_manager=email_handler,
+            unresolvable_errors=self.unresolvable_errors,
+        )
+        self.tokenizer = tiktoken.get_encoding("cl100k_base")
 
     def _initialize_client(self) -> None:
         """Create the OpenAI API client with the API key"""
@@ -48,11 +54,12 @@ class OpenaiAPI(AIFactory):
                     "OPENAI_API_KEY environment variable not set"
                 )
         except KeyNotFoundError as e:
-            errors.kill_app(e)
+            self._error_handle(e)
 
-    def _set_unresolvable_errors(self) -> Tuple:
+    def _set_unresolvable_errors(self) -> tuple:
         """Set the unresolvable errors for OpenAI's API"""
         return (
+            KeyNotFoundError,
             openai.BadRequestError,
             openai.AuthenticationError,
             openai.NotFoundError,
@@ -64,8 +71,8 @@ class OpenaiAPI(AIFactory):
         self,
         role_script: str,
         prompt: str,
-        assistant_message: Optional[str] = None,
-    ) -> Tuple[list, int]:
+        assistant_message: str | None = None,
+    ) -> tuple[list, int]:
         """
         Creates a payload for making API calls to the AI engine.
 
@@ -94,12 +101,14 @@ class OpenaiAPI(AIFactory):
             "role": "user",
             "content": prompt,
         }
-        messages = [role_dict, prompt_dict]
+        messages: list = [role_dict, prompt_dict]
 
         if assistant_message is not None:
             messages = self._add_assistant_message(messages, assistant_message)
 
-        combined_text = "".join([msg["content"] for msg in messages])
+        combined_text = "".join([
+            cast(str, msg["content"]) for msg in messages
+        ])
         input_tokens = self._count_tokens(combined_text)
         return messages, input_tokens
 
@@ -126,20 +135,20 @@ class OpenaiAPI(AIFactory):
         }
         messages.extend([assistant_dict, added_prompt_dict])
 
+        return messages
+
     def _count_tokens(self, text: str) -> int:
         """
         Counts tokens using the tokenizer for the AI model.
         """
-        if not self.tokenizer:
-            self.tokenizer = tiktoken.get_encoding("cl100k_base")
         return len(self.tokenizer.encode(text))
 
     def call_api(
         self,
-        api_payload: Dict[str, str],
+        api_payload: dict[str, str],
         json_response: bool = False,
         retry_count: int = 0,
-        assistant_message: Optional[str] = None,
+        assistant_message: str | None = None,
     ) -> str:
         """
         Process the response received from the OpenAI API.
@@ -172,22 +181,22 @@ class OpenaiAPI(AIFactory):
                 assistant_message,
             )
         except Exception as e:
-            retry_count = self.error_handle(e, retry_count)
+            retry_count = self._error_handle(e, retry_count)
             return self.call_api(
                 api_payload, json_response, retry_count, assistant_message
             )
 
     def _make_api_call(
         self,
-        api_payload: Dict[str, str],
+        api_payload: dict[str, str],
         messages: list,
         input_tokens: int,
         json_response: bool,
         retry_count: int,
-        assistant_message: Optional[str] = None,
+        assistant_message: str | None = None,
     ) -> str:
         """Performs the actual OpenAI API call."""
-        self.enforce_rate_limit(input_tokens, int(api_payload["max_tokens"]))
+        self._enforce_rate_limit(input_tokens, int(api_payload["max_tokens"]))
         model_name = api_payload["model_name"]
         max_tokens = int(api_payload["max_tokens"])
         temperature = float(api_payload["temperature"])
@@ -206,15 +215,15 @@ class OpenaiAPI(AIFactory):
         content_tuple = self.preprocess_response(response)
         return self.process_response(
             content_tuple,
-            assistant_message,
             api_payload,
             retry_count,
             json_response,
+            assistant_message,
         )
 
     def preprocess_response(
         self, response: ChatCompletion
-    ) -> Tuple[str, int, FinishReason]:
+    ) -> tuple[str, int, FinishReason]:
         """
         Process the response received from the OpenAI API.
 
@@ -239,7 +248,7 @@ class OpenaiAPI(AIFactory):
             tokens: int = response.usage.total_tokens
             completion_tokens: int = response.usage.completion_tokens
             finish_reason: FinishReason = response.choices[0].finish_reason
-            self.update_rate_limit_data(tokens)
+            self.update_rate_limit_dict(tokens)
         else:
             logging.exception("No message content found")
             raise NoMessageError("No message content found")
@@ -248,11 +257,11 @@ class OpenaiAPI(AIFactory):
 
     def process_response(
         self,
-        content_tuple: Tuple[str, int, FinishReason],
-        assistant_message: Optional[str],
+        content_tuple: tuple[str, int, FinishReason],
         api_payload: dict,
         retry_count: int,
         json_response: bool,
+        assistant_message: str | None = None,
     ) -> str:
         """
         Post-processes the response received from the OpenAI API.
@@ -322,11 +331,13 @@ class OpenaiAPI(AIFactory):
         Combine assistant message and new content based on response format.
         """
         if json_response:
+            merge = MergeJSON()
             repair = RepairJSON()
             new_part = content[1:]
-            return repair.merge(
-                assistant_message, new_part
-            ) or repair.repair_str(assistant_message + new_part)
+            merge.set_ends(assistant_message, new_part)
+            return merge.merge() or repair.repair_str(
+                assistant_message + new_part
+            )
         return assistant_message + content
 
     def _handle_length_limit(
