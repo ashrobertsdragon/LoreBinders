@@ -26,9 +26,25 @@ class EmailManager(ABC):
 
 
 class ErrorManager(ABC):
+    def __init__(
+        self, email_manager: EmailManager, unresolvable_errors: tuple
+    ) -> None:
+        self.email = email_manager
+        self.unresolvable_errors = unresolvable_errors
+
     @abstractmethod
-    def kill_app(cls, e: Exception) -> None:
-        raise NotImplementedError("subclass must implement kil_app")
+    def _extract_error_info(self, e: Exception) -> tuple[int, str]:
+        raise NotImplementedError("Must be implemented in child class")
+
+    @abstractmethod
+    def _is_unresolvable_error(
+        self, e: Exception, error_code: int, error_message: str
+    ) -> bool:
+        raise NotImplementedError("Must be implemented in child class")
+
+    @abstractmethod
+    def handle_error(self, e: Exception, retry_count: int = 0) -> int:
+        raise NotImplementedError("Must be implemented in child class")
 
 
 class RateLimitManager(ABC):
