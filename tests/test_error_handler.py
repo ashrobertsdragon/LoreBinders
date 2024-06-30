@@ -1,13 +1,15 @@
 import pytest
 from unittest.mock import patch, MagicMock
+from typing import TYPE_CHECKING
 
-from lorebinders._types import EmailManager
-from lorebinders.error_handler import (
+if TYPE_CHECKING:
+    from lorebinders._types import EmailManager
+from lorebinders.ai.api_error_handler import (
     APIErrorHandler,
     RetryHandler,
     UnresolvableErrorHandler,
 )
-from lorebinders.ai_classes.exceptions import MaxRetryError
+from lorebinders.ai.exceptions import MaxRetryError
 
 
 @pytest.fixture

@@ -12,13 +12,16 @@ from openai.types.chat import (
 from openai.types.chat.completion_create_params import ResponseFormat
 
 if TYPE_CHECKING:
-    from .ai.exceptions import KeyNotFoundError, MaxRetryError, NoMessageError
-
     from lorebinders._managers import (
         AIProviderManager,
         EmailManager,
         ErrorManager,
         RateLimitManager
+    )
+    from lorebinders.ai.exceptions import (
+        KeyNotFoundError,
+        MaxRetryError,
+        NoMessageError
     )
     from lorebinders.binders import Binder
     from lorebinders.book import Book, Chapter

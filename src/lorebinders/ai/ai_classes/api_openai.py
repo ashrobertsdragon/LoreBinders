@@ -2,21 +2,23 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import openai
 import tiktoken
 from openai import OpenAI
 
-from lorebinders._types import (
-    ChatCompletion,
-    ChatCompletionAssistantMessageParam,
-    ChatCompletionSystemMessageParam,
-    ChatCompletionUserMessageParam,
-    FinishReason,
-    NoMessageError,
-    ResponseFormat
-)
+if TYPE_CHECKING:
+    from lorebinders._types import (
+        ChatCompletion,
+        ChatCompletionAssistantMessageParam,
+        ChatCompletionSystemMessageParam,
+        ChatCompletionUserMessageParam,
+        FinishReason,
+        NoMessageError,
+        ResponseFormat,
+    )
+
 from lorebinders.ai.ai_factory import AIFactory
 from lorebinders.ai.api_error_handler import APIErrorHandler
 from lorebinders.ai.exceptions import KeyNotFoundError

@@ -2,8 +2,10 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
+from typing import TYPE_CHECKING
 
-from lorebinders._types import Book
+if TYPE_CHECKING:
+    from lorebinders._types import Book
 from lorebinders.build_lorebinder import (
     convert,
     convert_book_file,

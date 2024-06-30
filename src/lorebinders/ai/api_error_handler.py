@@ -6,12 +6,15 @@ import logging
 import os
 import time
 import traceback
+from typing import TYPE_CHECKING
 
 from .exceptions import MaxRetryError
 
 from lorebinders import file_handling
 from lorebinders._managers import EmailManager, ErrorManager
-from lorebinders._types import Book, BookDict
+
+if TYPE_CHECKING:
+    from lorebinders._types import Book, BookDict
 
 
 class APIErrorHandler(ErrorManager):

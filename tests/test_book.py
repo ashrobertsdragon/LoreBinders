@@ -1,7 +1,10 @@
 import pytest
 
 from lorebinders.book import Book, Chapter
-from lorebinders._types import BookDict
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from lorebinders._types import BookDict
 
 
 @pytest.fixture

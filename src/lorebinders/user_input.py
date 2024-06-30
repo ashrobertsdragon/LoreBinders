@@ -3,8 +3,8 @@ from __future__ import annotations
 import os
 from typing import Callable
 
-from ._decorators import required_string
-from .book_dict import BookDict
+from lorebinders._decorators import required_string
+from lorebinders.book_dict import BookDict
 
 
 @required_string

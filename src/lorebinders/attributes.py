@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Generator, cast
+from typing import TYPE_CHECKING, Generator, cast
 
-from ._types import BookDict, Chapter
+if TYPE_CHECKING:
+    from ._types import BookDict, Chapter
+
 from .abstract_name_tools import NameTools
 from .ai.ai_models._model_schema import APIProvider
 from .json_tools import RepairJSON

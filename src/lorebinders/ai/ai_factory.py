@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import time
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ValidationError
 
@@ -10,10 +11,11 @@ from .ai_models._model_schema import Model
 from .api_error_handler import APIErrorHandler
 
 from lorebinders._managers import RateLimitManager
-from lorebinders._types import ChatCompletion, FinishReason
-from lorebinders.email_handlers.smtp_handler import SMTPHandler
 
-email_handler = SMTPHandler()
+if TYPE_CHECKING:
+    from lorebinders._types import ChatCompletion, FinishReason
+
+from lorebinders.email_handlers.smtp_handler import SMTPHandler
 
 
 class Payload(BaseModel):
@@ -106,6 +108,7 @@ class RateLimit:
 
 class AIFactory(AIType, ABC):
     def __init__(self) -> None:
+        email_handler = SMTPHandler()
         self.unresolvable_errors = self._set_unresolvable_errors()
         self.error_handler = APIErrorHandler(
             email_manager=email_handler,

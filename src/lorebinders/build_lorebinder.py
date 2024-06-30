@@ -1,17 +1,21 @@
 from __future__ import annotations
 
 import os
+from typing import TYPE_CHECKING
 
 from ebook2text.convert_file import convert_file  # type: ignore
 
-from ._types import AIProviderManager
-from .ai.ai_models._model_schema import AIModelRegistry
-from .ai.ai_models.json_file_model_handler import JSONFileProviderHandler
-from .binders import Binder
-from .book import Book
-from .book_dict import BookDict
+if TYPE_CHECKING:
+    from lorebinders._types import AIProviderManager
 
 import lorebinders.make_pdf as make_pdf
+from lorebinders.ai.ai_models._model_schema import AIModelRegistry
+from lorebinders.ai.ai_models.json_file_model_handler import (
+    JSONFileProviderHandler
+)
+from lorebinders.binders import Binder
+from lorebinders.book import Book
+from lorebinders.book_dict import BookDict
 
 
 def create_book(book_dict: BookDict) -> Book:

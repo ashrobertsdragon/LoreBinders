@@ -1,8 +1,10 @@
 from dataclasses import dataclass
 from pydantic import Field
 
+from typing import TYPE_CHECKING
 
-from lorebinders._types import BookDict
+if TYPE_CHECKING:
+    from lorebinders._types import BookDict
 from lorebinders.ai.ai_interface import AIModelConfig
 from lorebinders.ai.ai_models._model_schema import ModelFamily
 from lorebinders.data_cleaner import ManipulateData

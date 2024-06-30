@@ -1,4 +1,7 @@
-from _types import AIModelRegistry, APIProvider, Model, ModelFamily
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from lorebinders._types import AIModelRegistry, APIProvider, Model, ModelFamily
 from lorebinders.ai.exceptions import MissingModelFamilyError
 from lorebinders.ai.ai_models.sqlite_model_handler import (
     SQLiteProviderHandler,
