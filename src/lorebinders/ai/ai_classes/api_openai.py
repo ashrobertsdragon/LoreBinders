@@ -25,8 +25,6 @@ from lorebinders.ai.exceptions import KeyNotFoundError
 from lorebinders.email_handlers.smtp_handler import SMTPHandler
 from lorebinders.json_tools import MergeJSON, RepairJSON
 
-email_handler = SMTPHandler()
-
 
 class OpenaiAPI(AIFactory):
     """
@@ -38,6 +36,7 @@ class OpenaiAPI(AIFactory):
         Initialize the OpenAI client and unresolvable errors.
         """
         self._initialize_client()
+        email_handler = SMTPHandler()
 
         self.unresolvable_errors = self._set_unresolvable_errors()
         self.error_handler = APIErrorHandler(
