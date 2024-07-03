@@ -1,19 +1,18 @@
 from __future__ import annotations
 
 import logging
-import time
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ValidationError
 
-from .ai_models._model_schema import Model
 from .api_error_handler import APIErrorHandler
-
-from lorebinders._managers import RateLimitManager
+from .rate_limit import RateLimit
 
 if TYPE_CHECKING:
     from lorebinders._types import ChatCompletion, FinishReason
+    from lorebinders._managers import RateLimitManager
+    from .ai_models._model_schema import Model
 
 from lorebinders.email_handlers.smtp_handler import SMTPHandler
 
@@ -24,88 +23,6 @@ class Payload(BaseModel):
     prompt: str
     temperature: float
     max_tokens: int
-
-
-class AIType(Protocol):
-    """
-    Defines the interface used by the facade class to interact with the
-    concrete AI classes.
-    """
-
-    def create_payload(
-        self,
-        prompt: str,
-        role_script: str,
-        temperature: float,
-        max_tokens: int,
-    ) -> dict: ...
-
-    def call_api(
-        self,
-        api_payload: dict,
-        json_response: bool = False,
-        retry_count: int = 0,
-        assistant_message: str | None = None,
-    ) -> str: ...
-
-    def modify_payload(self, api_payload: dict, **kwargs) -> dict: ...
-
-    def preprocess_response(
-        self, response: ChatCompletion
-    ) -> tuple[str, int, FinishReason]: ...
-
-    def process_response(
-        self,
-        content_tuple: tuple[str, int, FinishReason],
-        api_payload: dict,
-        retry_count: int,
-        json_response: bool,
-        assistant_message: str | None = None,
-    ) -> str: ...
-
-    def set_model(
-        self, model: Model, rate_handler: RateLimitManager
-    ) -> None: ...
-
-
-class RateLimit:
-    def __init__(
-        self,
-        model_name: str,
-        rate_limit: int,
-        rate_handler: RateLimitManager,
-    ) -> None:
-        self.model_name = model_name
-        self.rate_limit = rate_limit
-        self._rate_handler = rate_handler
-        self.read_rate_limit_dict()
-
-    def read_rate_limit_dict(self) -> None:
-        self.rate_limit_dict: dict = self._rate_handler.read(self.model_name)
-
-    def update_rate_limit_dict(self) -> None:
-        self._rate_handler.write(self.model_name, self.rate_limit_dict)
-
-    def reset_rate_limit_dict(self) -> None:
-        self._reset_minute()
-        self._reset_tokens_used()
-        self.update_rate_limit_dict()
-
-    def _reset_minute(self) -> None:
-        self.rate_limit_dict["minute"] = time.time()
-
-    def _reset_tokens_used(self) -> None:
-        self.rate_limit_dict["tokens_used"] = 0
-
-    @property
-    def minute(self) -> float:
-        self.read_rate_limit_dict()
-        return self.rate_limit_dict["minute"]
-
-    @property
-    def tokens_used(self) -> int:
-        self.read_rate_limit_dict()
-        return self.rate_limit_dict["tokens_used"]
 
 
 class AIManager(ABC):
@@ -119,12 +36,18 @@ class AIManager(ABC):
 
     @abstractmethod
     def _set_unresolvable_errors(self) -> tuple:
+        """
+        Set a tuple of errors that are unrecoverable in the API.
+        This method must be implemented in the child class for specific API.
+        """
         raise NotImplementedError("Must be implemented in child class")
 
     @abstractmethod
     def _count_tokens(self, text: str) -> int:
         """
         Counts tokens using the tokenizer for the AI model.
+        This method must be implemented in the child class for specific API
+        implementations.
         """
         raise NotImplementedError("Must be implemented in child class")
 
@@ -135,6 +58,11 @@ class AIManager(ABC):
         prompt: str,
         assistant_message: str | None = None,
     ) -> tuple[list, int]:
+        """
+        Creates the message payload for the API call.
+        This method must be implemented in the child class for specific API
+        implementations.
+        """
         raise NotImplementedError("Must be implemented in child class")
 
     @abstractmethod
@@ -156,6 +84,11 @@ class AIManager(ABC):
     def preprocess_response(
         self, response: ChatCompletion
     ) -> tuple[str, int, FinishReason]:
+        """
+        Create a tuple from the response from the API call.
+        This method must be implemented in the child class for specific API
+        implementations.
+        """
         raise NotImplementedError("Must be implemented in child class")
 
     @abstractmethod
@@ -167,6 +100,11 @@ class AIManager(ABC):
         json_response: bool,
         assistant_message: str | None = None,
     ) -> str:
+        """
+        Processes the response from the API call.
+        This method must be implemented in the child class for specific API
+        implementations.
+        """
         raise NotImplementedError("Must be implemented in child class")
 
     def create_payload(
@@ -230,21 +168,6 @@ class AIManager(ABC):
             self.model_name, self.model.rate_limit, rate_handler
         )
 
-    def _cool_down(self, minute: float):
-        """
-        Pause the application thread while the rate limit is in danger of
-        being exceeded.
-
-        Args:
-            minute (float): The timestamp of the last rate limit reset
-        """
-
-        logging.warning("Rate limit in danger of being exceeded")
-        sleep_time = 60 - (time.time() - minute)
-        logging.info(f"Sleeping {sleep_time} seconds")
-        time.sleep(sleep_time)
-        self.rate_limiter.reset_rate_limit_dict()
-
     def _enforce_rate_limit(self, input_tokens: int, max_tokens: int) -> None:
         """
         Handles rate limiting for API calls to the AI engine.
@@ -261,17 +184,8 @@ class AIManager(ABC):
             max_tokens (int): The maximum number of tokens allowed for the API
                 call.
         """
-        minute = self.rate_limiter.minute
-        tokens_used = self.rate_limiter.tokens_used
-
-        if time.time() > minute + 60:
-            self.rate_limiter.reset_rate_limit_dict()
-
-        if (
-            tokens_used + input_tokens + max_tokens
-            > self.rate_limiter.rate_limit
-        ):
-            self._cool_down(minute)
+        if self.rate_limiter.is_rate_limit_exceeded(input_tokens, max_tokens):
+            self.rate_limiter.cool_down()
 
     def _error_handle(self, e: Exception, retry_count: int = 0) -> int:
         """
