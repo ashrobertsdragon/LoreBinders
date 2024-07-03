@@ -249,7 +249,7 @@ class OpenaiAPI(AIManager):
             tokens: int = response.usage.total_tokens
             completion_tokens: int = response.usage.completion_tokens
             finish_reason: FinishReason = response.choices[0].finish_reason
-            self.update_rate_limit_dict(tokens)
+            self.rate_limiter.update_tokens_used(tokens)
         else:
             logging.exception("No message content found")
             raise NoMessageError("No message content found")
