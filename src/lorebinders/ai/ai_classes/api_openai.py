@@ -19,16 +19,16 @@ if TYPE_CHECKING:
         ResponseFormat,
     )
 
-from lorebinders.ai.ai_factory import AIFactory
+from lorebinders.ai.ai_factory import AIManager
 from lorebinders.ai.api_error_handler import APIErrorHandler
 from lorebinders.ai.exceptions import KeyNotFoundError
 from lorebinders.email_handlers.smtp_handler import SMTPHandler
 from lorebinders.json_tools import MergeJSON, RepairJSON
 
 
-class OpenaiAPI(AIFactory):
+class OpenaiAPI(AIManager):
     """
-    Child class of AIInterface.
+    Child class of AIManager that implements the OpenAI API.
     """
 
     def __init__(self) -> None:
