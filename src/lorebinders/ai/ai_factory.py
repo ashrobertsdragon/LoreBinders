@@ -10,11 +10,10 @@ from .api_error_handler import APIErrorHandler
 from .rate_limit import RateLimit
 
 if TYPE_CHECKING:
-    from lorebinders._types import ChatCompletion, FinishReason
-    from lorebinders._managers import RateLimitManager
     from .ai_models._model_schema import Model
 
-from lorebinders.email_handlers.smtp_handler import SMTPHandler
+    from lorebinders._managers import EmailManager, RateLimitManager
+    from lorebinders._types import ChatCompletion, FinishReason
 
 
 class Payload(BaseModel):
@@ -26,8 +25,7 @@ class Payload(BaseModel):
 
 
 class AIManager(ABC):
-    def __init__(self) -> None:
-        email_handler = SMTPHandler()
+    def __init__(self, email_handler: EmailManager) -> None:
         self.unresolvable_errors = self._set_unresolvable_errors()
         self.error_handler = APIErrorHandler(
             email_manager=email_handler,

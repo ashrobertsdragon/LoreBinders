@@ -10,6 +10,7 @@ from openai import OpenAI
 
 if TYPE_CHECKING:
     from lorebinders._types import (
+        EmailManager,
         ChatCompletion,
         ChatCompletionAssistantMessageParam,
         ChatCompletionSystemMessageParam,
@@ -22,7 +23,6 @@ if TYPE_CHECKING:
 from lorebinders.ai.ai_factory import AIManager
 from lorebinders.ai.api_error_handler import APIErrorHandler
 from lorebinders.ai.exceptions import KeyNotFoundError
-from lorebinders.email_handlers.smtp_handler import SMTPHandler
 from lorebinders.json_tools import MergeJSON, RepairJSON
 
 
@@ -31,12 +31,11 @@ class OpenaiAPI(AIManager):
     Child class of AIManager that implements the OpenAI API.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, email_handler: EmailManager) -> None:
         """
         Initialize the OpenAI client and unresolvable errors.
         """
         self._initialize_client()
-        email_handler = SMTPHandler()
 
         self.unresolvable_errors = self._set_unresolvable_errors()
         self.error_handler = APIErrorHandler(
