@@ -3,10 +3,16 @@ from __future__ import annotations
 import os
 import sqlite3
 
+from loguru import logger
+
 from ._model_schema import AIModelRegistry, APIProvider, Model, ModelFamily
 
 from lorebinders._managers import AIProviderManager
 from lorebinders.ai.exceptions import MissingModelFamilyError
+
+
+class DatabaseOperationError(Exception):
+    pass
 
 
 class SQLite:
@@ -14,20 +20,31 @@ class SQLite:
         self.file = file
 
     def __enter__(self):
-        self.connection = sqlite3.connect(self.file)
-        self.connection.row_factory = sqlite3.Row
-        return self.connection.cursor()
+        try:
+            self.connection = sqlite3.connect(self.file)
+            self.connection.row_factory = sqlite3.Row
+            return self.connection.cursor()
+        except sqlite3.Error as e:
+            logger.error(e)
+            raise DatabaseOperationError from e
 
     def __exit__(self, type, value, traceback):
-        self.connection.commit()
+        if type is not None:
+            self.connection.rollback()
+            logger.error(f"An error occurred: {value}")
+        else:
+            self.connection.commit()
         self.connection.close()
 
 
 class SQLiteProviderHandler(AIProviderManager):
-    def __init__(self, schema_directory, schema_filename="ai_models.db"):
+    def __init__(self, schema_directory: str, schema_filename="ai_models.db"):
         self.db = os.path.join(schema_directory, schema_filename)
         self._registry = None
-        self._initialize_database()
+        try:
+            self._initialize_database()
+        except DatabaseOperationError as e:
+            logger.exception(f"Failed to initialize database: {e}")
 
     def _initialize_database(self):
         with SQLite(self.db) as cursor:
@@ -50,23 +67,30 @@ class SQLiteProviderHandler(AIProviderManager):
                 CREATE TABLE IF NOT EXISTS models (
                     id INTEGER NOT NULL,
                     name TEXT NOT NULL,
+                    api_str TEXT NOT NULL,
                     context_window INTEGER NOT NULL,
                     rate_limit INTEGER NOT NULL,
                     family TEXT NOT NULL,
-                    PRIMARY KEY(id, family_name),
-                    FOREIGN KEY(family_name) REFERENCES ai_families(family)
+                    PRIMARY KEY(id, family),
+                    FOREIGN KEY(family) REFERENCES ai_families(family)
                 )
             """)
+        logger.info("Database initialized")
 
     def _execute_query(self, query: str, params: tuple | None = None) -> list:
-        with SQLite(self.db) as cursor:
-            if params:
-                cursor.execute(query, params)
-            else:
-                cursor.execute(query)
-            return cursor.fetchall()
+        try:
+            with SQLite(self.db) as cursor:
+                if params:
+                    cursor.execute(query, params)
+                else:
+                    cursor.execute(query)
+                return cursor.fetchall()
+        except DatabaseOperationError as e:
+            logger.exception(e)
+            raise
 
     def _registry_query(self) -> list[dict]:
+        """Returns the list of AI models in the database"""
         query = """
             SELECT
                 p.api as provider,
@@ -74,7 +98,7 @@ class SQLiteProviderHandler(AIProviderManager):
                 af.family as family,
                 af.tokenizer,
                 m.id,
-                m.name
+                m.name,
                 m.api_str,
                 m.context_window,
                 m.rate_limit,
@@ -85,7 +109,11 @@ class SQLiteProviderHandler(AIProviderManager):
             JOIN models m
             ON m.family = family
             """
-        return self._execute_query(query)
+        try:
+            return self._execute_query(query)
+        except DatabaseOperationError as e:
+            logger.exception(e)
+            raise
 
     def _process_db_response(self, data: list[dict]) -> list[dict]:
         registry: list[dict] = []
@@ -147,9 +175,11 @@ class SQLiteProviderHandler(AIProviderManager):
         api_provider = self.get_provider(provider)
         if ai_family := api_provider.get_ai_family(family):
             return ai_family
-        raise MissingModelFamilyError(
+        missing_family_error_msg = (
             f"No family {family} found for provider {provider}"
         )
+        logger.error(missing_family_error_msg)
+        raise MissingModelFamilyError(missing_family_error_msg)
 
     def add_ai_family(self, provider: str, ai_family: ModelFamily) -> None:
         api_provider = self.get_provider(provider)
@@ -186,7 +216,7 @@ class SQLiteProviderHandler(AIProviderManager):
             """
             INSERT INTO models (
                 id, name, api_str, context_window, rate_limit, family
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?)
             """,
             (id, api_str, name, context_window, rate_limit, family),
         )
@@ -197,19 +227,19 @@ class SQLiteProviderHandler(AIProviderManager):
         ai_family = self.get_ai_family(provider, family)
         model.id = model_id
         ai_family.models = [
-            model if m.id != model_id else m for m in ai_family.models
+            model if m.id == model_id else m for m in ai_family.models
         ]
         name, api_str, context_window, rate_limit, id = self.get_model_attr(
             model
         )
         self._execute_query(
             """
-            UPDATE models SET (
+            UPDATE models SET
                 name = ?,
                 api_str = ?,
                 context_window = ?,
                 rate_limit = ?,
-            ) WHERE id = ? AND family = ?
+            WHERE id = ? AND family = ?
             """,
             (name, api_str, context_window, rate_limit, id, family),
         )
