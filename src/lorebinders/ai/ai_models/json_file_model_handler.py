@@ -11,9 +11,9 @@ from lorebinders.file_handling import read_json_file, write_json_file
 
 class JSONFileProviderHandler(AIProviderManager):
     def __init__(
-        self, models_directory: str, models_filename: str = "ai_models.json"
+        self, schema_directory: str, schema_filename: str = "ai_models.json"
     ) -> None:
-        self.model_file = os.path.join(models_directory, models_filename)
+        self.schema_path = os.path.join(schema_directory, schema_filename)
 
         self._registry: AIModelRegistry | None = None
 
@@ -24,7 +24,7 @@ class JSONFileProviderHandler(AIProviderManager):
         return self._registry
 
     def _load_registry(self) -> AIModelRegistry:
-        data = read_json_file(self.model_file)
+        data = read_json_file(self.schema_path)
         return AIModelRegistry.model_validate(data)
 
     def get_all_providers(self) -> list[APIProvider]:
@@ -86,4 +86,4 @@ class JSONFileProviderHandler(AIProviderManager):
 
     def _write_registry_to_file(self) -> None:
         json_data = self.registry.model_dump()
-        write_json_file(json_data, self.model_file)
+        write_json_file(json_data, self.schema_path)
