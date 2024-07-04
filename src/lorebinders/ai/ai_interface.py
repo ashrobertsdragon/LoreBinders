@@ -4,8 +4,8 @@ import importlib
 import logging
 from typing import TYPE_CHECKING
 
-from .ai_factory import AIType
 from .ai_models._model_schema import APIProvider
+from .ai_type import AIType
 from .exceptions import MissingAIProviderError
 
 if TYPE_CHECKING:
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 class AIModelConfig:
     def __init__(self, models: APIProvider) -> None:
         self.provider_models = models
-        self.provider = self.provider_models.name
+        self.provider = self.provider_models.api
 
     def initialize_api(self):
         """
@@ -68,7 +68,7 @@ class AIInterface:
         """
         Set the model family for the AI implementation.
         """
-        self._family = model_config.provider_models.get_model_family(family)
+        self._family = model_config.provider_models.get_ai_family(family)
 
     def set_model(self, model_id: int) -> None:
         """
