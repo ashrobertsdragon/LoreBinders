@@ -24,3 +24,7 @@ class MissingAIProviderError(MissingAIError):
 
 class MissingModelFamilyError(MissingAIError):
     pass
+
+
+class MissingModelError(MissingAIError):
+    pass
