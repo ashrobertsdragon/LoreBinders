@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import inspect
 import json
 import logging
@@ -28,11 +29,10 @@ class APIErrorHandler(ErrorManager):
 
     def _extract_error_info(self, e: Exception) -> tuple[int, str]:
         """Extracts error code and message from a potential API exception."""
-        try:
+        error_details = {}
+        with contextlib.suppress(AttributeError, json.JSONDecodeError):
             if response := getattr(e, "response", None):
-                error_details = response.json().get("error", {})
-        except (AttributeError, json.JSONDecodeError):
-            error_details = {}
+                error_details = response.json().get("error")
         return getattr(e, "status_code", 0), error_details.get(
             "message", "Unknown error"
         )
