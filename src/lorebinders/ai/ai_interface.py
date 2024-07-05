@@ -17,7 +17,7 @@ class AIModelConfig:
         self.provider_models = models
         self.provider = self.provider_models.api
 
-    def initialize_api(self):
+    def initialize_api(self, rate_limiter: RateLimitManager):
         """
         Load the AI implementation based on the provider.
 
@@ -36,7 +36,7 @@ class AIModelConfig:
             )
             provider_class = f"{self.provider.capitalize()}API"
             implementation_class = getattr(module, provider_class)
-            return AIInterface(implementation_class)
+            return AIInterface(implementation_class, rate_limiter)
         except (ImportError, AttributeError) as e:
             error_msg = f"Invalid AI provider: {self.provider}"
             logging.error(error_msg)
