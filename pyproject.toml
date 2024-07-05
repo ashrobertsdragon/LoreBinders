@@ -69,3 +69,12 @@ addopts = "-v --cov=lorebinders --cov-report=html --html=test-results/report.htm
 pythonpath = [
   "src"
 ]
+
+[tool.coverage.run]
+omit = ["*/_types.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:"
+]
