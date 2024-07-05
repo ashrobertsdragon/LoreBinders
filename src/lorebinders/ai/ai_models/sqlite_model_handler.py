@@ -67,7 +67,7 @@ class SQLiteProviderHandler(AIProviderManager):
                 CREATE TABLE IF NOT EXISTS models (
                     id INTEGER NOT NULL,
                     name TEXT NOT NULL,
-                    api_str TEXT NOT NULL,
+                    api_model TEXT NOT NULL,
                     context_window INTEGER NOT NULL,
                     rate_limit INTEGER NOT NULL,
                     family TEXT NOT NULL,
@@ -99,7 +99,7 @@ class SQLiteProviderHandler(AIProviderManager):
                 af.tokenizer,
                 m.id,
                 m.name,
-                m.api_str,
+                m.api_model,
                 m.context_window,
                 m.rate_limit,
                 m.family
@@ -138,7 +138,7 @@ class SQLiteProviderHandler(AIProviderManager):
             model_data = {
                 "id": row["id"],
                 "name": row["name"],
-                "api_str": row["api_str"],
+                "api_model": row["api_model"],
                 "context_window": row["context_window"],
                 "rate_limit": row["rate_limit"],
             }
@@ -209,16 +209,16 @@ class SQLiteProviderHandler(AIProviderManager):
     def add_model(self, provider: str, family: str, model: Model) -> None:
         ai_family = self.get_ai_family(provider, family)
         ai_family.models.append(model)
-        name, api_str, context_window, rate_limit, id = self.get_model_attr(
+        name, api_model, context_window, rate_limit, id = self.get_model_attr(
             model
         )
         self._execute_query(
             """
             INSERT INTO models (
-                id, name, api_str, context_window, rate_limit, family
+                id, name, api_model, context_window, rate_limit, family
             ) VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (id, api_str, name, context_window, rate_limit, family),
+            (id, api_model, name, context_window, rate_limit, family),
         )
 
     def replace_model(
@@ -229,19 +229,19 @@ class SQLiteProviderHandler(AIProviderManager):
         ai_family.models = [
             model if m.id == model_id else m for m in ai_family.models
         ]
-        name, api_str, context_window, rate_limit, id = self.get_model_attr(
+        name, api_model, context_window, rate_limit, id = self.get_model_attr(
             model
         )
         self._execute_query(
             """
             UPDATE models SET
                 name = ?,
-                api_str = ?,
+                api_model = ?,
                 context_window = ?,
                 rate_limit = ?,
             WHERE id = ? AND family = ?
             """,
-            (name, api_str, context_window, rate_limit, id, family),
+            (name, api_model, context_window, rate_limit, id, family),
         )
 
     def delete_model(self, provider: str, family: str, model_id: int) -> None:
@@ -255,8 +255,8 @@ class SQLiteProviderHandler(AIProviderManager):
     @staticmethod
     def get_model_attr(model: Model):
         name = model.name
-        api_str = model.api_str
+        api_model = model.api_model
         context_window = model.context_window
         rate_limit = model.rate_limit
         model_id = model.id
-        return name, api_str, context_window, rate_limit, model_id
+        return name, api_model, context_window, rate_limit, model_id

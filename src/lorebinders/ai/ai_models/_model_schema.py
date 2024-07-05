@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 class Model(BaseModel):
     id: int = Field(default_factory=lambda: Model._id_counter)
     name: str
-    api_str: str
+    api_model: str
     context_window: int
     rate_limit: int
 

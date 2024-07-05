@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 
 class Payload(BaseModel):
-    model_name: str
+    api_model: str
     role_script: str
     prompt: str
     temperature: float
@@ -132,7 +132,7 @@ class AIManager(ABC):
 
         try:
             payload = Payload(
-                model_name=self.model_name,
+                api_model=self.api_model,
                 role_script=role_script,
                 prompt=prompt,
                 temperature=temperature,
@@ -161,7 +161,7 @@ class AIManager(ABC):
     def set_model(self, model: Model, rate_handler: RateLimitManager) -> None:
         self.model = model
 
-        self.model_name = self.model.name
+        self.api_model = self.model.api_model
         self.rate_limiter = RateLimit(
             self.model_name, self.model.rate_limit, rate_handler
         )
