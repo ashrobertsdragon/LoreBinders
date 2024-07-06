@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import logging
 import os
 from typing import TYPE_CHECKING, cast
 
 import openai
 import tiktoken
+from loguru import logger
 from openai import OpenAI
 
 if TYPE_CHECKING:
@@ -16,13 +16,12 @@ if TYPE_CHECKING:
         ChatCompletionSystemMessageParam,
         ChatCompletionUserMessageParam,
         FinishReason,
-        NoMessageError,
         ResponseFormat,
     )
 
 from lorebinders.ai.ai_factory import AIManager
 from lorebinders.ai.api_error_handler import APIErrorHandler
-from lorebinders.ai.exceptions import KeyNotFoundError
+from lorebinders.ai.exceptions import KeyNotFoundError, NoMessageError
 from lorebinders.json_tools import MergeJSON, RepairJSON
 
 
@@ -35,13 +34,13 @@ class OpenaiAPI(AIManager):
         """
         Initialize the OpenAI client and unresolvable errors.
         """
-        self._initialize_client()
-
         self.unresolvable_errors = self._set_unresolvable_errors()
         self.error_handler = APIErrorHandler(
             email_manager=email_handler,
             unresolvable_errors=self.unresolvable_errors,
         )
+
+        self._initialize_client()
         self.tokenizer = tiktoken.get_encoding("cl100k_base")
 
     def _initialize_client(self) -> None:
@@ -197,7 +196,7 @@ class OpenaiAPI(AIManager):
     ) -> str:
         """Performs the actual OpenAI API call."""
         self._enforce_rate_limit(input_tokens, int(api_payload["max_tokens"]))
-        model_name = api_payload["model_name"]
+        model = api_payload["api_model"]
         max_tokens = int(api_payload["max_tokens"])
         temperature = float(api_payload["temperature"])
 
@@ -207,7 +206,7 @@ class OpenaiAPI(AIManager):
 
         response: ChatCompletion = self.client.chat.completions.create(
             messages=messages,
-            model=model_name,
+            model=model,
             max_tokens=max_tokens,
             response_format=response_format,
             temperature=temperature,
@@ -250,7 +249,7 @@ class OpenaiAPI(AIManager):
             finish_reason: FinishReason = response.choices[0].finish_reason
             self.rate_limiter.update_tokens_used(tokens)
         else:
-            logging.exception("No message content found")
+            logger.exception("No message content found")
             raise NoMessageError("No message content found")
 
         return content, completion_tokens, finish_reason
@@ -315,11 +314,11 @@ class OpenaiAPI(AIManager):
 
         if finish_reason == "length":
             return self._handle_length_limit(
-                answer,
-                api_payload,
-                retry_count,
-                json_response,
-                completion_tokens,
+                answer=answer,
+                api_payload=api_payload,
+                retry_count=retry_count,
+                json_response=json_response,
+                completion_tokens=completion_tokens,
             )
 
         return answer
@@ -350,7 +349,7 @@ class OpenaiAPI(AIManager):
     ) -> str:
         """Handle cases where the response exceeds the maximum token limit."""
         MAX_TOKENS = 500
-        logging.warning(
+        logger.warning(
             f"Max tokens exceeded.\n"
             f"Used {completion_tokens} of {api_payload.get("max_tokens")}"
         )
