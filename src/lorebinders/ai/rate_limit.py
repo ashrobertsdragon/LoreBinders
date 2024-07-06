@@ -1,5 +1,6 @@
-import logging
 import time
+
+from loguru import logger
 
 from lorebinders._managers import RateLimitManager
 
@@ -7,11 +8,11 @@ from lorebinders._managers import RateLimitManager
 class RateLimit:
     def __init__(
         self,
-        model_name: str,
+        name: str,
         rate_limit: int,
         rate_handler: RateLimitManager,
     ) -> None:
-        self.model_name = model_name
+        self.name = name
         self.rate_limit = rate_limit
         self._rate_handler = rate_handler
         self.read_rate_limit_dict()
@@ -21,9 +22,9 @@ class RateLimit:
         Pause the application thread while the rate limit is in danger of
         being exceeded.
         """
-        logging.warning("Rate limit in danger of being exceeded")
+        logger.warning("Rate limit in danger of being exceeded")
         sleep_time = 60 - (time.time() - self.minute)
-        logging.info(f"Sleeping {sleep_time} seconds")
+        logger.info(f"Sleeping {sleep_time} seconds")
         time.sleep(sleep_time)
         self.reset_rate_limit_dict()
 
@@ -47,7 +48,7 @@ class RateLimit:
         """
         Read the rate limit dictionary from the rate limit manager.
         """
-        self.rate_limit_dict: dict = self._rate_handler.read(self.model_name)
+        self.rate_limit_dict: dict = self._rate_handler.read(self.name)
 
     def reset_rate_limit_dict(self) -> None:
         """
@@ -62,7 +63,7 @@ class RateLimit:
         """
         Write the rate limit dictionary to the rate limit manager.
         """
-        self._rate_handler.write(self.model_name, self.rate_limit_dict)
+        self._rate_handler.write(self.name, self.rate_limit_dict)
 
     def update_tokens_used(self, tokens: int) -> None:
         """
