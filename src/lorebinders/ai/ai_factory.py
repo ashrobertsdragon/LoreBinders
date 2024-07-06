@@ -159,23 +159,27 @@ class AIManager(ABC):
         return api_payload
 
     def set_model(self, model: Model, rate_handler: RateLimitManager) -> None:
+        """
+        Sets the specific AI model to be used in the API and initializes the
+        rate limiter for the model.
+
+        Args:
+            model (Model): The model object to use for the AI engine.
+            rate_handler (RateLimitManager): The rate limit manager to use.
+        """
         self.model = model
 
         self.api_model = self.model.api_model
         self.rate_limiter = RateLimit(
-            self.model_name, self.model.rate_limit, rate_handler
+            self.model.name, self.model.rate_limit, rate_handler
         )
 
     def _enforce_rate_limit(self, input_tokens: int, max_tokens: int) -> None:
         """
         Handles rate limiting for API calls to the AI engine.
 
-        This method checks the rate limit for the API calls and handles the
-        rate limiting logic. It ensures that the number of tokens used in the
-        API call, along with the maximum tokens allowed, does not exceed the
-        rate limit set for the model. If the rate limit is exceeded, the
-        method will log a warning and sleep for a certain period of time
-        before retrying the API call.
+        This method uses the RateLimit class to self-police the API rate limit
+        by executing a cool down period when approaching the rate limit.
 
         Args:
             input_tokens (int): The number of tokens used in the API call.
@@ -199,7 +203,6 @@ class AIManager(ABC):
         Returns:
             retry_count: the number of attempts so far
         """
-
         return self.error_handler.handle_error(e, retry_count)
 
     def _update_rate_limit_dict(self, tokens: int) -> None:
@@ -208,13 +211,6 @@ class AIManager(ABC):
 
         Args:
             tokens (int): The number of tokens used in the API call.
-
-        Returns:
-            None
-
-        Notes:
-            The rate limit data dictionary is updated by adding the number of
-            tokens used to the 'tokens_used' key.
         """
         self.rate_limiter.rate_limit_dict["tokens_used"] += tokens
         self.rate_limiter.update_rate_limit_dict()
