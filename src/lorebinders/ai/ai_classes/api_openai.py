@@ -167,22 +167,27 @@ class OpenaiAPI(AIManager):
         prompt = api_payload["prompt"]
         role_script = api_payload["role_script"]
         messages, input_tokens = self.create_message_payload(
-            role_script, prompt, assistant_message
+            role_script=role_script,
+            prompt=prompt,
+            assistant_message=assistant_message,
         )
 
         try:
             return self._make_api_call(
-                api_payload,
-                messages,
-                input_tokens,
-                json_response,
-                retry_count,
-                assistant_message,
+                api_payload=api_payload,
+                messages=messages,
+                input_tokens=input_tokens,
+                json_response=json_response,
+                retry_count=retry_count,
+                assistant_message=assistant_message,
             )
         except Exception as e:
             retry_count = self._error_handle(e, retry_count)
             return self.call_api(
-                api_payload, json_response, retry_count, assistant_message
+                api_payload=api_payload,
+                json_response=json_response,
+                retry_count=retry_count,
+                assistant_message=assistant_message,
             )
 
     def _make_api_call(
@@ -213,11 +218,11 @@ class OpenaiAPI(AIManager):
         )
         content_tuple = self.preprocess_response(response)
         return self.process_response(
-            content_tuple,
-            api_payload,
-            retry_count,
-            json_response,
-            assistant_message,
+            content_tuple=content_tuple,
+            api_payload=api_payload,
+            retry_count=retry_count,
+            json_response=json_response,
+            assistant_message=assistant_message,
         )
 
     def preprocess_response(
@@ -307,7 +312,9 @@ class OpenaiAPI(AIManager):
 
         if assistant_message:
             answer = self._combine_answer(
-                assistant_message, content, json_response
+                assistant_message=assistant_message,
+                content=content,
+                json_response=json_response,
             )
         else:
             answer = content
@@ -364,5 +371,8 @@ class OpenaiAPI(AIManager):
 
         api_payload = self.modify_payload(api_payload, max_tokens=MAX_TOKENS)
         return self.call_api(
-            api_payload, json_response, retry_count, assistant_message
+            api_payload=api_payload,
+            json_response=json_response,
+            retry_count=retry_count,
+            assistant_message=assistant_message,
         )
