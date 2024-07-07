@@ -90,11 +90,9 @@ def get_attributes(attribute_type: str | None = None) -> list:
 
 def parse_file_path(path: str) -> str:
     """
-    Extract the individual parts of the path.
+    Normalize the file path
     """
-    path_parts = path.split("/") if "/" in path else path.split("\\")
-    parts_tuple = tuple(path_parts)
-    return os.path.join(*parts_tuple)
+    return os.path.normpath(path)
 
 
 @required_string
