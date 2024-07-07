@@ -1,3 +1,4 @@
+import os
 from unittest.mock import patch
 
 import pytest
@@ -18,6 +19,30 @@ from lorebinders.user_input import (
     parse_file_path,
 )
 
+
+
+@pytest.fixture
+def book_dict():
+    return BookDict(
+        title="The Great Gatsby",
+        author="F. Scott Fitzgerald",
+        book_file="/home/user/book.epub",
+        narrator="Nick Carraway",
+        character_traits=["Wealth", "Social Status"],
+        custom_categories=["Social Classes", "Themes"],
+    )
+
+
+@pytest.fixture
+def key_name_map() -> dict:
+    return {
+        "book_file": "Book File Path",
+        "title": "Title",
+        "author": "Author",
+        "narrator": "Narrator",
+        "character_traits": "Character Traits (List)",
+        "custom_categories": "Other Categories (List)",
+    }
 
 def test_get_narrator_third_person():
     with patch("builtins.input", side_effect=["Y"]):
@@ -53,12 +78,14 @@ def test_get_attributes_invalid_input():
 
 def test_parse_file_path_unix():
     path = "/home/user/book.epub"
-    assert parse_file_path(path) == "/home/user/book.epub"
+    expected = os.path.normpath("/home/user/book.epub")
+    assert parse_file_path(path) == expected
 
 
 def test_parse_file_path_windows():
-    path = "C:\\Users\\User\\book.epub"
-    assert parse_file_path(path) == "C:\\Users\\User\\book.epub"
+    path = r"C:\Users\User\book.epub"
+    expected = os.path.normpath(r"C:\Users\User\book.epub")
+    assert parse_file_path(path) == expected
 
 
 def test_input_title():
@@ -73,7 +100,8 @@ def test_input_author():
 
 def test_input_book_path():
     with patch("builtins.input", side_effect=["/home/user/book.epub"]):
-        assert input_book_path() == "/home/user/book.epub"
+        expected = os.path.normpath("/home/user/book.epub")
+        assert input_book_path() == expected
 
 
 def test_get_inputs():
@@ -94,34 +122,10 @@ def test_get_inputs():
         book_dict = get_inputs()
         assert book_dict.title == "The Great Gatsby"
         assert book_dict.author == "F. Scott Fitzgerald"
-        assert book_dict.book_file == "/home/user/book.epub"
+        assert book_dict.book_file == os.path.normpath("/home/user/book.epub")
         assert book_dict.narrator == "Nick Carraway"
         assert book_dict.character_traits == ["Wealth", "Social Status"]
         assert book_dict.custom_categories == ["Social Classes", "Locations"]
-
-
-@pytest.fixture
-def book_dict():
-    return BookDict(
-        title="The Great Gatsby",
-        author="F. Scott Fitzgerald",
-        book_file="/home/user/book.epub",
-        narrator="Nick Carraway",
-        character_traits=["Wealth", "Social Status"],
-        custom_categories=["Social Classes", "Themes"],
-    )
-
-
-@pytest.fixture
-def key_name_map() -> dict:
-    return {
-        "book_file": "Book File Path",
-        "title": "Title",
-        "author": "Author",
-        "narrator": "Narrator",
-        "character_traits": "Character Traits (List)",
-        "custom_categories": "Other Categories (List)",
-    }
 
 
 def test_display_book_metadata(book_dict, key_name_map, capsys):
@@ -141,7 +145,7 @@ def test_display_book_metadata(book_dict, key_name_map, capsys):
 
 def test_get_user_choice_edit():
     with patch("builtins.input", return_value="title"):
-        assert get_user_choice(key_name_map()) == "title"
+        assert get_user_choice(key_name_map) == "title"
 
 
 def test_edit_book_dict(book_dict):
@@ -181,7 +185,7 @@ def test_get_book():
         book_dict = get_book()
         assert book_dict.title == "The Great Gatsby"
         assert book_dict.author == "F. Scott Fitzgerald"
-        assert book_dict.book_file == "/home/user/book.epub"
+        assert book_dict.book_file == os.path.normpath("/home/user/book.epub")
         assert book_dict.narrator == "Nick Carraway"
         assert book_dict.character_traits == ["Wealth", "Social Status"]
         assert book_dict.custom_categories == ["Social Classes", "Locations"]
