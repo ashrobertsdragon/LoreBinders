@@ -210,10 +210,10 @@ class OpenaiAPI(AIManager):
         )
 
         response: ChatCompletion = self.client.chat.completions.create(
-            messages=messages,
             model=model,
-            max_tokens=max_tokens,
+            messages=messages,
             response_format=response_format,
+            max_tokens=max_tokens,
             temperature=temperature,
         )
         content_tuple = self.preprocess_response(response)
