@@ -4,9 +4,13 @@ import os
 
 from loguru import logger
 
-from ._model_schema import AIModelRegistry, APIProvider, Model, ModelFamily
-
 from lorebinders._managers import AIProviderManager
+from lorebinders.ai.ai_models._model_schema import (
+    AIModelRegistry,
+    APIProvider,
+    Model,
+    ModelFamily
+)
 from lorebinders.ai.exceptions import (
     MissingAIProviderError,
     MissingModelError,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from .ai.ai_models._model_schema import (
+from lorebinders.ai.ai_models._model_schema import (
     AIModelRegistry,
     APIProvider,
     Model,
@@ -87,17 +87,15 @@ class AIProviderManager(ABC):
         raise NotImplementedError("Must be implemented by child class")
 
     @abstractmethod
-    def get_model_family(self, provider: str, family: str) -> ModelFamily:
+    def get_ai_family(self, provider: str, family: str) -> ModelFamily:
         raise NotImplementedError("Must be implemented by child class")
 
     @abstractmethod
-    def add_model_family(
-        self, provider: str, model_family: ModelFamily
-    ) -> None:
+    def add_ai_family(self, provider: str, model_family: ModelFamily) -> None:
         raise NotImplementedError("Must be implemented by child class")
 
     @abstractmethod
-    def delete_model_family(self, provider: str, family: str) -> None:
+    def delete_ai_family(self, provider: str, family: str) -> None:
         raise NotImplementedError("Must be implemented by child class")
 
     @abstractmethod
