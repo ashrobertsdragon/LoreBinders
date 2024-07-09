@@ -1,482 +1,188 @@
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from lorebinders._types import AIModelRegistry, APIProvider, Model, ModelFamily
-from lorebinders.ai.exceptions import MissingModelFamilyError
-from lorebinders.ai.ai_models.sqlite_model_handler import (
-    SQLiteProviderHandler,
-)
-import pytest
+import os
+import sqlite3
+import shutil
+import tempfile
 from unittest.mock import patch, MagicMock
 
+import pytest
+
+from lorebinders.ai.exceptions import MissingModelFamilyError
+from lorebinders.ai.ai_models._model_schema import AIModelRegistry, APIProvider, Model, ModelFamily
+from lorebinders.ai.ai_models.sqlite_model_handler import (
+    SQLiteProviderHandler, SQLite, DatabaseOperationError
+)
 
 @pytest.fixture
 def mock_ai_model_registry():
     return MagicMock(spec=AIModelRegistry)
 
+@pytest.fixture
+def mock_sqlite3():
+    with patch("lorebinders.ai.ai_models.sqlite_model_handler.sqlite3") as mock:
+        yield mock
 
 @pytest.fixture
-def sqlite_provider_handler(mock_ai_model_registry):
-    handler = SQLiteProviderHandler()
-    handler._registry = mock_ai_model_registry
+def mock_os_path():
+    with patch("lorebinders.ai.ai_models.sqlite_model_handler.os.path") as mock:
+        mock.join.side_effect = os.path.join
+        yield mock
+
+@pytest.fixture
+def mock_initialize_database():
+    with patch.object(SQLiteProviderHandler, "_initialize_database") as mock:
+        yield mock
+
+@pytest.fixture
+def mock_sqlite():
+    with patch("lorebinders.ai.ai_models.sqlite_model_handler.SQLite") as mock:
+        yield mock
+
+@pytest.fixture
+def mock_handler():
+    handler = MagicMock(spec=SQLiteProviderHandler)
+    handler.db = "/path/to/mock.db"
     return handler
 
-
-@patch("sqlite3.connect")
-def test_initialize_database(mock_connect, sqlite_provider_handler):
-    sqlite_provider_handler._initialize_database()
-    mock_connect.assert_called_once_with("ai_models.db")
-    mock_connect.return_value.cursor.return_value.execute.assert_has_calls([
-        pytest.approx(
-            """
-                CREATE TABLE IF NOT EXISTS providers (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL UNIQUE
-                )
-            """
-        ),
-        pytest.approx(
-            """
-                CREATE TABLE IF NOT EXISTS model_families (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    family TEXT NOT NULL,
-                    provider_name TEXT NOT NULL,
-                    FOREIGN KEY(provider_name) REFERENCES providers(name)
-                )
-            """
-        ),
-        pytest.approx(
-            """
-                CREATE TABLE IF NOT EXISTS models (
-                    id INTEGER NOT NULL,
-                    name TEXT NOT NULL,
-                    context_window INTEGER NOT NULL,
-                    rate_limit INTEGER NOT NULL,
-                    tokenizer TEXT NOT NULL,
-                    family TEXT NOT NULL,
-                    PRIMARY KEY(id, family_name),
-                    FOREIGN KEY(family_name) REFERENCES model_families(family)
-                )
-            """
-        ),
-    ])
-
-
-@patch("sqlite3.connect")
-def test_execute_query(mock_connect, sqlite_provider_handler):
+def test_successful_operation(mock_sqlite3):
+    mock_connection = MagicMock()
     mock_cursor = MagicMock()
-    mock_connect.return_value.cursor.return_value = mock_cursor
-    mock_cursor.fetchall.return_value = [{"test": "data"}]
-    result = sqlite_provider_handler._execute_query("SELECT * FROM test_table")
-    assert result == [{"test": "data"}]
-    mock_cursor.execute.assert_called_once_with("SELECT * FROM test_table")
+    mock_sqlite3.connect.return_value = mock_connection
+    mock_connection.cursor.return_value = mock_cursor
 
+    with SQLite("test.db") as cursor:
+        assert cursor == mock_cursor
 
-@patch("sqlite3.connect")
-def test_execute_query_with_params(mock_connect, sqlite_provider_handler):
+    mock_sqlite3.connect.assert_called_once_with("test.db")
+    mock_connection.commit.assert_called_once()
+    mock_connection.close.assert_called_once()
+
+def test_database_operation_error(mock_sqlite3):
+    mock_sqlite3.connect.side_effect = sqlite3.Error("Database error")
+
+    with pytest.raises(DatabaseOperationError):
+        with SQLite("test.db"):
+            pass
+
+def test_exception_in_context(mock_sqlite3):
+    mock_connection = MagicMock()
     mock_cursor = MagicMock()
-    mock_connect.return_value.cursor.return_value = mock_cursor
-    mock_cursor.fetchall.return_value = [{"test": "data"}]
-    result = sqlite_provider_handler._execute_query(
-        "SELECT * FROM test_table WHERE id = ?", (1,)
-    )
-    assert result == [{"test": "data"}]
-    mock_cursor.execute.assert_called_once_with(
-        "SELECT * FROM test_table WHERE id = ?", (1,)
-    )
+    mock_sqlite3.connect.return_value = mock_connection
+    mock_connection.cursor.return_value = mock_cursor
 
+    with pytest.raises(ValueError):
+        with SQLite("test.db") as cursor:
+            raise ValueError("Test exception")
 
-@patch("sqlite3.connect")
-def test_registry_query(mock_connect, sqlite_provider_handler):
+    mock_connection.rollback.assert_called_once()
+    mock_connection.close.assert_called_once()
+
+def test_row_factory_set(mock_sqlite3):
+    mock_connection = MagicMock()
+    mock_sqlite3.connect.return_value = mock_connection
+
+    with SQLite("test.db"):
+        pass
+
+    assert mock_connection.row_factory == sqlite3.Row
+
+def test_connection_closed_on_success(mock_sqlite3):
+    mock_connection = MagicMock()
+    mock_sqlite3.connect.return_value = mock_connection
+
+    with SQLite("test.db"):
+        pass
+
+    mock_connection.close.assert_called_once()
+
+def test_connection_closed_on_exception(mock_sqlite3):
+    mock_connection = MagicMock()
+    mock_sqlite3.connect.return_value = mock_connection
+
+    with pytest.raises(ValueError):
+        with SQLite("test.db"):
+            raise ValueError("Test exception")
+
+    mock_connection.close.assert_called_once()
+
+def test_init_with_default_filename(mock_os_path, mock_initialize_database):
+    schema_directory = "/path/to/schema"
+    handler = SQLiteProviderHandler(schema_directory)
+
+    mock_os_path.join.assert_called_once_with(schema_directory, "ai_models.db")
+    assert handler.db == os.path.join(schema_directory, "ai_models.db")
+    assert handler._registry is None
+    mock_initialize_database.assert_called_once()
+
+def test_init_with_custom_filename(mock_os_path, mock_initialize_database):
+    schema_directory = "/path/to/schema"
+    custom_filename = "custom.db"
+    handler = SQLiteProviderHandler(schema_directory, schema_filename=custom_filename)
+
+    mock_os_path.join.assert_called_once_with(schema_directory, custom_filename)
+    assert handler.db == os.path.join(schema_directory, custom_filename)
+    assert handler._registry is None
+    mock_initialize_database.assert_called_once()
+
+def test_init_with_database_operation_error(mock_os_path, mock_initialize_database):
+    schema_directory = "/path/to/schema"
+    mock_initialize_database.side_effect = DatabaseOperationError("Test error")
+
+    with patch("lorebinders.ai.ai_models.sqlite_model_handler.logger") as mock_logger:
+        handler = SQLiteProviderHandler(schema_directory)
+
+        mock_logger.exception.assert_called_once()
+        assert "Failed to initialize database" in mock_logger.exception.call_args[0][0]
+
+def test_init_with_other_exception(mock_os_path, mock_initialize_database):
+    schema_directory = "/path/to/schema"
+    mock_initialize_database.side_effect = ValueError("Unexpected error")
+
+    with pytest.raises(ValueError):
+        SQLiteProviderHandler(schema_directory)
+
+def test_initialize_database_success(mock_handler, mock_sqlite):
     mock_cursor = MagicMock()
-    mock_connect.return_value.cursor.return_value = mock_cursor
-    mock_cursor.fetchall.return_value = [
-        {
-            "provider": "test_provider",
-            "provider_name": "test_provider",
-            "family": "test_family",
-            "id": 123,
-            "name": "test_model",
-            "context_window": 1000,
-            "rate_limit": 10,
-            "tokenizer": "gpt2",
-        }
-    ]
-    result = sqlite_provider_handler._registry_query()
-    assert result == [
-        {
-            "provider": "test_provider",
-            "provider_name": "test_provider",
-            "family": "test_family",
-            "id": 123,
-            "name": "test_model",
-            "context_window": 1000,
-            "rate_limit": 10,
-            "tokenizer": "gpt2",
-        }
-    ]
+    mock_sqlite.return_value.__enter__.return_value = mock_cursor
 
+    SQLiteProviderHandler._initialize_database(mock_handler)
 
-@patch("sqlite3.connect")
-def test_process_db_response(mock_connect, sqlite_provider_handler):
+    mock_sqlite.assert_called_once_with(mock_handler.db)
+    assert mock_cursor.execute.call_count == 3
+
+    # Check if the correct SQL statements are executed
+    calls = mock_cursor.execute.call_args_list
+    assert "CREATE TABLE IF NOT EXISTS providers" in calls[0][0][0]
+    assert "CREATE TABLE IF NOT EXISTS ai_families" in calls[1][0][0]
+    assert "CREATE TABLE IF NOT EXISTS models" in calls[2][0][0]
+
+def test_initialize_database_sqlite_error(mock_handler, mock_sqlite):
+    mock_sqlite.side_effect = DatabaseOperationError("SQLite error")
+
+    with pytest.raises(DatabaseOperationError):
+        SQLiteProviderHandler._initialize_database(mock_handler)
+
+def test_initialize_database_execution_error(mock_handler, mock_sqlite):
     mock_cursor = MagicMock()
-    mock_connect.return_value.cursor.return_value = mock_cursor
-    mock_cursor.fetchall.return_value = [
-        {
-            "provider": "test_provider",
-            "provider_name": "test_provider",
-            "family": "test_family",
-            "id": 123,
-            "name": "test_model",
-            "context_window": 1000,
-            "rate_limit": 10,
-            "tokenizer": "gpt2",
-        }
-    ]
-    result = sqlite_provider_handler._process_db_response(
-        sqlite_provider_handler._registry_query()
-    )
-    assert result == [
-        {
-            "name": "test_provider",
-            "model_families": [
-                {
-                    "family": "test_family",
-                    "models": [
-                        {
-                            "id": 123,
-                            "name": "test_model",
-                            "context_window": 1000,
-                            "rate_limit": 10,
-                            "tokenizer": "gpt2",
-                        }
-                    ],
-                }
-            ],
-        }
-    ]
+    mock_cursor.execute.side_effect = Exception("Execution error")
+    mock_sqlite.return_value.__enter__.return_value = mock_cursor
 
+    with pytest.raises(Exception):
+        SQLiteProviderHandler._initialize_database(mock_handler)
 
-@patch("sqlite3.connect")
-def test_load_registry(mock_connect, sqlite_provider_handler):
+@patch("lorebinders.ai.ai_models.sqlite_model_handler.logger")
+def test_initialize_database_logs_success(mock_logger, mock_handler, mock_sqlite):
     mock_cursor = MagicMock()
-    mock_connect.return_value.cursor.return_value = mock_cursor
-    mock_cursor.fetchall.return_value = [
-        {
-            "provider": "test_provider",
-            "provider_name": "test_provider",
-            "family": "test_family",
-            "id": 123,
-            "name": "test_model",
-            "context_window": 1000,
-            "rate_limit": 10,
-            "tokenizer": "gpt2",
-        }
-    ]
-    registry = sqlite_provider_handler._load_registry()
-    assert registry == mock_ai_model_registry
-    mock_ai_model_registry.model_validate.assert_called_once_with([
-        {
-            "name": "test_provider",
-            "model_families": [
-                {
-                    "family": "test_family",
-                    "models": [
-                        {
-                            "id": 123,
-                            "name": "test_model",
-                            "context_window": 1000,
-                            "rate_limit": 10,
-                            "tokenizer": "gpt2",
-                        }
-                    ],
-                }
-            ],
-        }
-    ])
+    mock_sqlite.return_value.__enter__.return_value = mock_cursor
 
+    SQLiteProviderHandler._initialize_database(mock_handler)
 
-def test_get_all_providers(sqlite_provider_handler):
-    sqlite_provider_handler.registry.providers = ["provider1", "provider2"]
-    providers = sqlite_provider_handler.get_all_providers()
-    assert providers == ["provider1", "provider2"]
+    mock_logger.info.assert_called_once_with("Database initialized")
 
+@patch("lorebinders.ai.ai_models.sqlite_model_handler.logger")
+def test_initialize_database_logs_error(mock_logger, mock_handler, mock_sqlite):
+    mock_sqlite.side_effect = DatabaseOperationError("SQLite error")
 
-def test_get_provider(sqlite_provider_handler):
-    provider_name = "test_provider"
-    sqlite_provider_handler.registry.get_provider.return_value = (
-        "test_provider_object"
-    )
-    provider = sqlite_provider_handler.get_provider(provider_name)
-    assert provider == "test_provider_object"
-    sqlite_provider_handler.registry.get_provider.assert_called_once_with(
-        provider_name
-    )
+    with pytest.raises(DatabaseOperationError):
+        SQLiteProviderHandler._initialize_database(mock_handler)
 
-
-@patch("sqlite3.connect")
-def test_add_provider(mock_connect, sqlite_provider_handler):
-    mock_cursor = MagicMock()
-    mock_connect.return_value.cursor.return_value = mock_cursor
-    provider = MagicMock(
-        spec=APIProvider, name="test_provider", model_families=[]
-    )
-    sqlite_provider_handler.add_provider(provider)
-    mock_cursor.execute.assert_has_calls([
-        pytest.approx(
-            "INSERT INTO providers (name) VALUES (?)", ("test_provider",)
-        )
-    ])
-    sqlite_provider_handler.registry.providers.append.assert_called_once_with(
-        provider
-    )
-
-
-@patch("sqlite3.connect")
-def test_delete_provider(mock_connect, sqlite_provider_handler):
-    mock_cursor = MagicMock()
-    mock_connect.return_value.cursor.return_value = mock_cursor
-    provider_name = "test_provider"
-    sqlite_provider_handler.registry.providers = [
-        MagicMock(name="test_provider"),
-        MagicMock(name="another_provider"),
-    ]
-    sqlite_provider_handler.delete_provider(provider_name)
-    mock_cursor.execute.assert_called_once_with(
-        "DELETE FROM providers WHERE name = ?", ("test_provider",)
-    )
-    assert len(sqlite_provider_handler.registry.providers) == 1
-    assert (
-        sqlite_provider_handler.registry.providers[0].name
-        == "another_provider"
-    )
-
-
-@patch("sqlite3.connect")
-def test_get_model_family(mock_connect, sqlite_provider_handler):
-    mock_cursor = MagicMock()
-    mock_connect.return_value.cursor.return_value = mock_cursor
-    provider_name = "test_provider"
-    family_name = "test_family"
-    model_family = MagicMock(spec=ModelFamily)
-    mock_provider = MagicMock(
-        spec=APIProvider,
-        get_model_family=lambda family: model_family
-        if family == family_name
-        else None,
-    )
-    sqlite_provider_handler.registry.get_provider.return_value = mock_provider
-    result = sqlite_provider_handler.get_model_family(
-        provider_name, family_name
-    )
-    assert result == model_family
-    sqlite_provider_handler.registry.get_provider.assert_called_once_with(
-        provider_name
-    )
-
-
-def test_get_model_family_not_found(sqlite_provider_handler):
-    provider_name = "test_provider"
-    family_name = "test_family"
-    mock_provider = MagicMock(
-        spec=APIProvider, get_model_family=lambda family: None
-    )
-    sqlite_provider_handler.registry.get_provider.return_value = mock_provider
-    with pytest.raises(MissingModelFamilyError) as excinfo:
-        sqlite_provider_handler.get_model_family(provider_name, family_name)
-    assert (
-        str(excinfo.value)
-        == f"No family {family_name} found for provider {provider_name}"
-    )
-
-
-@patch("sqlite3.connect")
-def test_add_model_family(mock_connect, sqlite_provider_handler):
-    mock_cursor = MagicMock()
-    mock_connect.return_value.cursor.return_value = mock_cursor
-    provider_name = "test_provider"
-    model_family = MagicMock(spec=ModelFamily, family="test_family", models=[])
-    mock_provider = MagicMock(
-        spec=APIProvider, model_families=[], name="test_provider"
-    )
-    sqlite_provider_handler.registry.get_provider.return_value = mock_provider
-    sqlite_provider_handler.add_model_family(provider_name, model_family)
-    mock_cursor.execute.assert_has_calls([
-        pytest.approx(
-            "INSERT INTO model_families (family, provider_name) VALUES (?, ?)",
-            ("test_family", "test_provider"),
-        )
-    ])
-    mock_provider.model_families.append.assert_called_once_with(model_family)
-
-
-@patch("sqlite3.connect")
-def test_delete_model_family(mock_connect, sqlite_provider_handler):
-    mock_cursor = MagicMock()
-    mock_connect.return_value.cursor.return_value = mock_cursor
-    provider_name = "test_provider"
-    family_name = "test_family"
-    mock_family = MagicMock(family="test_family")
-    mock_provider = MagicMock(
-        spec=APIProvider,
-        model_families=[mock_family, MagicMock(family="another_family")],
-        name="test_provider",
-    )
-    sqlite_provider_handler.registry.get_provider.return_value = mock_provider
-    sqlite_provider_handler.delete_model_family(provider_name, family_name)
-    mock_cursor.execute.assert_called_once_with(
-        "DELETE FROM model_families WHERE name = ? AND provider_name = ?",
-        ("test_family", "test_provider"),
-    )
-    assert len(mock_provider.model_families) == 1
-    assert mock_provider.model_families[0].family == "another_family"
-
-
-@patch("sqlite3.connect")
-def test_add_model(mock_connect, sqlite_provider_handler):
-    mock_cursor = MagicMock()
-    mock_connect.return_value.cursor.return_value = mock_cursor
-    provider_name = "test_provider"
-    family_name = "test_family"
-    model = MagicMock(
-        spec=Model,
-        name="test_model",
-        context_window=1000,
-        rate_limit=10,
-        tokenizer="gpt2",
-        id=123,
-    )
-    mock_family = MagicMock(spec=ModelFamily, family="test_family", models=[])
-    mock_provider = MagicMock(
-        spec=APIProvider,
-        get_model_family=lambda family: mock_family
-        if family == family_name
-        else None,
-        name="test_provider",
-    )
-    sqlite_provider_handler.registry.get_provider.return_value = mock_provider
-    sqlite_provider_handler.add_model(provider_name, family_name, model)
-    mock_cursor.execute.assert_has_calls([
-        pytest.approx(
-            """
-            INSERT INTO models (
-                id, name, context_window, rate_limit, tokenizer, family
-            ) VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (
-                123,
-                "test_model",
-                1000,
-                10,
-                "gpt2",
-                "test_family",
-            ),
-        )
-    ])
-    mock_family.models.append.assert_called_once_with(model)
-
-
-@patch("sqlite3.connect")
-def test_replace_model(mock_connect, sqlite_provider_handler):
-    mock_cursor = MagicMock()
-    mock_connect.return_value.cursor.return_value = mock_cursor
-    provider_name = "test_provider"
-    family_name = "test_family"
-    model_id = 123
-    model = MagicMock(
-        spec=Model,
-        name="test_model",
-        context_window=1000,
-        rate_limit=10,
-        tokenizer="gpt2",
-        id=None,
-    )
-    mock_model1 = MagicMock(id=1)
-    mock_model2 = MagicMock(id=123)
-    mock_model3 = MagicMock(id=2)
-    mock_family = MagicMock(
-        spec=ModelFamily,
-        family="test_family",
-        models=[mock_model1, mock_model2, mock_model3],
-    )
-    mock_provider = MagicMock(
-        spec=APIProvider,
-        get_model_family=lambda family: mock_family
-        if family == family_name
-        else None,
-        name="test_provider",
-    )
-    sqlite_provider_handler.registry.get_provider.return_value = mock_provider
-    sqlite_provider_handler.replace_model(
-        model, model_id, family_name, provider_name
-    )
-    mock_cursor.execute.assert_has_calls([
-        pytest.approx(
-            """
-            UPDATE models SET (
-                name = ?, context_window = ?, rate_limit = ?, tokenizer = ?
-            ) WHERE id = ? AND family = ?
-            """,
-            (
-                "test_model",
-                1000,
-                10,
-                "gpt2",
-                123,
-                "test_family",
-            ),
-        )
-    ])
-    assert mock_family.models[1] == model
-    assert model.id == model_id
-
-
-@patch("sqlite3.connect")
-def test_delete_model(mock_connect, sqlite_provider_handler):
-    mock_cursor = MagicMock()
-    mock_connect.return_value.cursor.return_value = mock_cursor
-    provider_name = "test_provider"
-    family_name = "test_family"
-    model_id = 123
-    mock_model1 = MagicMock(id=1)
-    mock_model2 = MagicMock(id=123)
-    mock_model3 = MagicMock(id=2)
-    mock_family = MagicMock(
-        spec=ModelFamily,
-        family="test_family",
-        models=[mock_model1, mock_model2, mock_model3],
-    )
-    mock_provider = MagicMock(
-        spec=APIProvider,
-        get_model_family=lambda family: mock_family
-        if family == family_name
-        else None,
-        name="test_provider",
-    )
-    sqlite_provider_handler.registry.get_provider.return_value = mock_provider
-    sqlite_provider_handler.delete_model(provider_name, family_name, model_id)
-    mock_cursor.execute.assert_called_once_with(
-        "DELETE FROM models WHERE id = ? AND family = ?",
-        (123, "test_family"),
-    )
-    assert len(mock_family.models) == 2
-    assert all(m.id != model_id for m in mock_family.models)
-
-
-@patch("sqlite3.connect")
-def test_get_model_attr(mock_connect, sqlite_provider_handler):
-    model = MagicMock(
-        name="test_model",
-        context_window=1000,
-        rate_limit=10,
-        tokenizer="gpt2",
-        id=123,
-    )
-    name, context_window, rate_limit, tokenizer, model_id = (
-        sqlite_provider_handler.get_model_attr(model)
-    )
-    assert name == "test_model"
-    assert context_window == 1000
-    assert rate_limit == 10
-    assert tokenizer == "gpt2"
-    assert model_id == 123
+    mock_logger.exception.assert_not_called()
