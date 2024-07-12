@@ -2,7 +2,7 @@ import re
 from collections import defaultdict
 from typing import Callable, List, Optional, Tuple
 
-from .data_cleaner import ManipulateData
+from lorebinders.data_cleaner import ManipulateData
 
 data = ManipulateData()
 
