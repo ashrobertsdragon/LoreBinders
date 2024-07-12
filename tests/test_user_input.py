@@ -1,5 +1,5 @@
 import os
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import pytest
 
@@ -189,3 +189,30 @@ def test_get_book():
         assert book_dict.narrator == "Nick Carraway"
         assert book_dict.character_traits == ["Wealth", "Social Status"]
         assert book_dict.custom_categories == ["Social Classes", "Locations"]
+
+@patch('builtins.print')
+def test_confirm_inputs_invalid_then_valid_choice(mock_print, book_dict):
+
+    inputs = ['invalid_choice', 'Y']
+    with patch("builtins.input", side_effect=inputs):
+        result = confirm_inputs(book_dict)
+        assert result == book_dict
+        expected_calls = [
+            call('\nBook metadata:'),
+            call('  - Book File Path: /home/user/book.epub'),
+            call('  - Title: The Great Gatsby'),
+            call('  - Author: F. Scott Fitzgerald'),
+            call('  - Narrator: Nick Carraway'),
+            call('  - Character Traits (List): [\'Wealth\', \'Social Status\']'),
+            call('  - Other Categories (List): [\'Social Classes\', \'Themes\']'),
+            call('Please enter a valid number or key name.'),
+            call('\nBook metadata:'),
+            call('  - Book File Path: /home/user/book.epub'),
+            call('  - Title: The Great Gatsby'),
+            call('  - Author: F. Scott Fitzgerald'),
+            call('  - Narrator: Nick Carraway'),
+            call('  - Character Traits (List): [\'Wealth\', \'Social Status\']'),
+            call('  - Other Categories (List): [\'Social Classes\', \'Themes\']'),
+        ]
+        mock_print.assert_has_calls(expected_calls)
+        assert mock_print.call_count == len(expected_calls)
