@@ -2,9 +2,15 @@ from functools import wraps
 from typing import Callable
 
 
-def required_string(func: Callable):
+def required_string(
+    func: Callable,
+):
+    """
+    Ensures that the result is a non-empty string.
+    """
+
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args, **kwargs) -> str:
         input_type = func.__name__.replace("input_", "")
         while True:
             result = func(*args, **kwargs)
