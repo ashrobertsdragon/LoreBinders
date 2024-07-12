@@ -35,7 +35,8 @@ def is_third_person() -> bool:
         else:
             print("Invalid input, please try again.")
             continue
-    return False  # shut MyPy up
+    # Not needed but to shut MyPy up
+    return False  # pragma: no cover
 
 
 def get_narrator() -> str:
