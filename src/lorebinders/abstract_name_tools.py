@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from .ai.ai_interface import AIModelConfig
-from .ai.ai_models._model_schema import APIProvider
-from .role_script import RoleScript
+from lorebinders._managers import RateLimitManager
+from lorebinders.ai.ai_interface import AIModelConfig
+from lorebinders.ai.ai_models._model_schema import APIProvider
+from lorebinders.role_script import RoleScript
 
 
 class NameTools(ABC):
@@ -12,7 +13,9 @@ class NameTools(ABC):
     Abstract class for name classes
     """
 
-    def initialize_api(self, ai_models: APIProvider) -> None:
+    def initialize_api(
+        self, ai_models: APIProvider, rate_limiter: RateLimitManager
+    ) -> None:
         """
         Initialize the NameTools class an ModelFamily dataclass object.
 
@@ -21,7 +24,7 @@ class NameTools(ABC):
         """
 
         self._ai_config = AIModelConfig(ai_models)
-        self._ai = self._ai_config.initialize_api()
+        self._ai = self._ai_config.initialize_api(rate_limiter)
 
         self._categories_base: list[str] = ["Characters", "Settings"]
         self.temperature: float = 0.7

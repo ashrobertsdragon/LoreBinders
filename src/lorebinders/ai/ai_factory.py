@@ -6,14 +6,13 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ValidationError
 
-from .api_error_handler import APIErrorHandler
-from .rate_limit import RateLimit
+from lorebinders.ai.api_error_handler import APIErrorHandler
+from lorebinders.ai.rate_limit import RateLimit
 
 if TYPE_CHECKING:
-    from .ai_models._model_schema import Model
-
     from lorebinders._managers import EmailManager, RateLimitManager
     from lorebinders._types import ChatCompletion, FinishReason
+    from lorebinders.ai.ai_models._model_schema import Model
 
 
 class Payload(BaseModel):

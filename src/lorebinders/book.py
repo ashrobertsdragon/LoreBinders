@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ._types import BookDict
-from .file_handling import read_text_file, separate_into_chapters
+    from lorebinders._types import BookDict
+from lorebinders.file_handling import read_text_file, separate_into_chapters
 
 
 class Book:

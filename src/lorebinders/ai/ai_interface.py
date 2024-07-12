@@ -4,9 +4,9 @@ import importlib
 import logging
 from typing import TYPE_CHECKING
 
-from .ai_models._model_schema import APIProvider
-from .ai_type import AIType
-from .exceptions import MissingAIProviderError
+from lorebinders.ai.ai_models._model_schema import APIProvider
+from lorebinders.ai.ai_type import AIType
+from lorebinders.ai.exceptions import MissingAIProviderError
 
 if TYPE_CHECKING:
     from lorebinders._types import RateLimitManager

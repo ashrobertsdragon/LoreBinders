@@ -5,15 +5,14 @@ import os
 from typing import TYPE_CHECKING, Generator, cast
 
 if TYPE_CHECKING:
-    from ._types import BookDict, Chapter
-
-from .abstract_name_tools import NameTools
-from .ai.ai_models._model_schema import APIProvider
-from .json_tools import RepairJSON
-from .role_script import RoleScript
-from .sort_names import SortNames
+    from lorebinders._types import BookDict, Chapter
 
 import lorebinders.file_handling as file_handling
+from lorebinders.abstract_name_tools import NameTools
+from lorebinders.ai.ai_models._model_schema import APIProvider
+from lorebinders.json_tools import RepairJSON
+from lorebinders.role_script import RoleScript
+from lorebinders.sort_names import SortNames
 
 json_repair_tool = RepairJSON()
 

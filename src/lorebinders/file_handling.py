@@ -5,7 +5,7 @@ import os
 import pathlib
 import re
 
-from ._types import T
+from lorebinders._types import T
 
 
 def read_text_file(file_path: str) -> str:

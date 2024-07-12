@@ -3,7 +3,7 @@ from collections import ChainMap, defaultdict
 from itertools import combinations
 from typing import Callable, Dict, List, Tuple, Union, cast
 
-from ._titles import TITLES
+from lorebinders._titles import TITLES
 
 
 class Data:

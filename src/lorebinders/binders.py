@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .ai.ai_models._model_schema import APIProvider
+from lorebinders.ai.ai_models._model_schema import APIProvider
 
 if TYPE_CHECKING:
-    from ._types import Book, BookDict, Chapter
+    from lorebinders._types import Book, BookDict, Chapter
 
-from .attributes import NameAnalyzer, NameExtractor, NameSummarizer
-from .file_handling import write_json_file
+from lorebinders.attributes import NameAnalyzer, NameExtractor, NameSummarizer
+from lorebinders.file_handling import write_json_file
 
 
 class Binder:
