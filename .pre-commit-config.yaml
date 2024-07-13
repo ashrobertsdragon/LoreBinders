@@ -46,7 +46,7 @@ repos:
     rev: 5.13.2
     hooks:
       - id: isort
-        args: [--py=39, --gitignore, --multi-line=VERTICAL_HANGING_INDENT, --use-parentheses, --filter-files]
+        args: [--py=310, --gitignore, --multi-line=VERTICAL_HANGING_INDENT, --use-parentheses, --filter-files]
         additional_dependencies: [toml]
         exclude: ^ebook2text/ebooklib/|^tests|^stubs|^to_refactor
 
@@ -55,10 +55,10 @@ repos:
     hooks:
       - id: ruff
         exclude: ^ebook2text/ebooklib/|^tests|^stubs|cache|work|json|temp|^|to_refactor
-        args: [ --fix, --force-exclude, --target-version=39]
+        args: [ --fix, --force-exclude, --target-version=310]
       - id: ruff-format
         exclude: ^ebook2text/ebooklib/|^tests|^stubs|cache|work|json|temp|^|to_refactor
-        args: [--force-exclude, --target-version=39, --line-length=79]
+        args: [--force-exclude, --target-version=310, --line-length=79]
 
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.15.2
