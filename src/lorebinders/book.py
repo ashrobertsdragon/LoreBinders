@@ -62,6 +62,9 @@ class Book:
         self.file = read_text_file(self._book_file)
         self._build_chapters()
 
+    def __repr__(self) -> str:
+        return f"Book({self.name!r})"
+
     def _build_chapters(self) -> list:
         """
         Returns a list of Chapter objects
@@ -75,24 +78,9 @@ class Book:
         self._chapters = chapters
         return self._chapters
 
-    def add_binder(self, binder: dict) -> None:
-        if not isinstance(binder, dict):
-            raise TypeError("Binder must be a dictionary")
-        self._binder = binder
-
-    def update_binder(self, binder: dict) -> None:
-        if not isinstance(binder, dict):
-            raise TypeError("binder data must be a dictionary")
-        if self._binder != binder:
-            self.add_binder(binder)
-
     @property
     def chapters(self) -> list:
         return self._chapters
-
-    @property
-    def binder(self) -> dict:
-        return self._binder
 
 
 class Chapter:
