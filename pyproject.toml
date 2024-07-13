@@ -54,7 +54,7 @@ force-exclude = true
 exclude = [".git", ".__pycache__", ".venv", ".tests", ".to_refactor", "temp.py", ".*cache", ".work", "*.json"]
 
 [tool.isort]
-py_version=39
+py_version=310
 src_paths = ["src/lorebinders"]
 sections = ["FUTURE","STDLIB","THIRDPARTY","LOCALFOLDER", "FIRSTPARTY"]
 skip_gitignore = false
