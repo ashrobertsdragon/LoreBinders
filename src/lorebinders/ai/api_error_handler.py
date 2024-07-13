@@ -122,9 +122,9 @@ class UnresolvableErrorHandler:
 
             locals_ = frame.f_locals
             if "binder" in locals_:
-                binder_name = str(locals_["binder"])
+                binder_name = repr(locals_["binder"])
             if "book" in locals_:
-                book_name = str(locals_["book"])
+                book_name = repr(locals_["book"])
                 self._save_data(book_name)
             if binder_name != "Unknown" or book_name != "Unknown":
                 break
@@ -136,7 +136,8 @@ class UnresolvableErrorHandler:
     @staticmethod
     def _save_data(book_name: str) -> None:
         try:
-            book: Book = globals()[book_name]
+            title = book_name.split("'")[1]
+            book: Book = globals()[title]
             metadata: BookDict = book.metadata
             user_folder: str = metadata.user_folder or ""
             names_file = os.path.join(user_folder, "names.json")
@@ -147,7 +148,7 @@ class UnresolvableErrorHandler:
                 file_handling.append_json_file(chapter.analysis, analysis_file)
 
         except KeyError:
-            logging.exception(f"Book {book_name} not found.")
+            logging.exception(f"Book {title} not found.")
 
     def _build_error_msg(self, e: Exception) -> str:
         """
