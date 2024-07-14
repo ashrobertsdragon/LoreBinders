@@ -92,6 +92,63 @@ def test_chapter_add_names_invalid_type(mock_chapter):
         mock_chapter.add_names(["Not", "a", "dict"])
 
 def test_chapter_add_analysis_invalid_type(mock_chapter):
-
     with pytest.raises(TypeError, match="Analysis must be a dictionary"):
         mock_chapter.add_analysis(["Not", "a", "dict"])
+
+
+def test_add_valid_binder_dictionary(sample_book):
+    binder = {"key": "value"}
+    sample_book.add_binder(binder)
+    assert sample_book.binder == binder
+
+
+def test_ensure_binder_assigned_correctly(sample_book):
+    binder = {"key": "value"}
+    sample_book.add_binder(binder)
+    assert sample_book._binder == binder
+
+def test_add_binder_valid_dictionary(sample_book):
+    valid_binder = {"key": "value"}
+    assert sample_book.add_binder(valid_binder) is None
+
+
+def test_update_binder_when_different(sample_book):
+    binder = {"key1": "value1", "key2": "value2"}
+    new_binder = {"key1": "new_value1", "key2": "value2"}
+
+    sample_book.add_binder(binder)
+    sample_book.update_binder(new_binder)
+
+    assert sample_book._binder == new_binder
+
+def test_update_binder_does_not_change_binder_when_not_different(sample_book):
+    binder = {"key": "value"}
+    sample_book.add_binder(binder)
+    assert sample_book._binder == binder
+
+    sample_book.update_binder(binder)
+    assert sample_book._binder == binder
+
+    different_binder = {"another_key": "another_value"}
+    sample_book.update_binder(different_binder)
+    assert sample_book._binder == different_binder
+
+
+def test_update_binder_no_errors_for_valid_dict(sample_book):
+    valid_dict = {"key": "value"}
+    assert sample_book.update_binder(valid_dict) is None
+
+
+def test_retrieving_binder_dictionary(sample_book):
+    binder_dict = {"key": "value"}
+    sample_book.add_binder(binder_dict)
+    assert sample_book.binder == binder_dict
+
+
+def test_add_binder_non_dictionary_binder_raises_type_error(sample_book):
+    with pytest.raises(TypeError, match="Binder must be a dictionary"):
+        sample_book.add_binder("Not a dictionary")
+
+def test_update_binder_non_dictionary_binder_raises_type_error(sample_book):
+    with pytest.raises(TypeError, match="Binder must be a dictionary"):
+        sample_book.update_binder("Not a dictionary")
