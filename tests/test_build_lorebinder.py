@@ -3,22 +3,106 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from lorebinders.book import Book
+from lorebinders.book import Book, Chapter
+from lorebinders.book_dict import BookDict
 from lorebinders.ai.ai_models.json_file_model_handler import JSONFileProviderHandler
+from lorebinders.ai.rate_limiters.file_rate_limit_handler import FileRateLimitHandler
 from lorebinders.build_lorebinder import (
     convert,
     convert_book_file,
     create_book,
     create_folder,
     create_limited_metadata,
-    create_lorebinder,
     add_txt_filename,
     create_user,
     create_user_folder,
     build_binder,
+    initialize_name_tools,
     start,
-    initialize_ai_model_registry
+    initialize_ai_model_registry,
+    summarize_names,
+    perform_ner,
+    analyze_names,
+    summarize,
+    make_pdf
 )
+@pytest.fixture
+def mock_ner():
+    return MagicMock()
+
+@pytest.fixture
+def mock_analyzer():
+    return MagicMock()
+
+@pytest.fixture
+def mock_summarizer():
+    return MagicMock()
+
+@pytest.fixture
+def mock_metadata():
+    return BookDict(author="Test Author", title="Test Book", book_file="test.txt")
+
+@pytest.fixture
+def mock_chapter():
+    return MagicMock(spec=Chapter)
+
+@pytest.fixture
+def mock_book():
+    return MagicMock(spec=Book)
+
+def test_perform_ner(mock_ner, mock_metadata, mock_chapter):
+    perform_ner(mock_ner, mock_metadata, mock_chapter)
+
+    mock_ner.initialize_chapter.assert_called_once_with(mock_metadata, mock_chapter)
+    mock_ner.build_role_script.assert_called_once()
+    mock_ner.extract_names.assert_called_once()
+    mock_chapter.add_names.assert_called_once()
+
+def test_analyze_names(mock_analyzer, mock_metadata, mock_chapter):
+    analyze_names(mock_analyzer, mock_metadata, mock_chapter)
+
+    mock_analyzer.initialize_chapter.assert_called_once_with(mock_metadata, mock_chapter)
+    mock_analyzer.build_role_script.assert_called_once()
+    mock_analyzer.analyze_names.assert_called_once()
+    mock_chapter.add_analysis.assert_called_once()
+
+def test_summarize_names(mock_summarizer):
+    mock_binder = {"test": "data"}
+    mock_summarizer.summarize_names.return_value = {"summary": "test"}
+
+    result = summarize_names(mock_summarizer, mock_binder)
+
+    mock_summarizer.build_role_script.assert_called_once()
+    mock_summarizer.summarize_names.assert_called_once_with(mock_binder)
+    assert result == {"summary": "test"}
+
+@patch('lorebinders.build_lorebinder.NameExtractor')
+@patch('lorebinders.build_lorebinder.NameAnalyzer')
+@patch('lorebinders.build_lorebinder.NameSummarizer')
+def test_initialize_name_tools(mock_NameSummarizer, mock_NameAnalyzer, mock_NameExtractor):
+    mock_provider = MagicMock()
+    mock_rate_limit_handler = MagicMock()
+
+    ner, analyzer, summarizer = initialize_name_tools(mock_provider, mock_rate_limit_handler)
+
+    mock_NameExtractor.assert_called_once_with(mock_provider, mock_rate_limit_handler)
+    mock_NameAnalyzer.assert_called_once_with(mock_provider, mock_rate_limit_handler)
+    mock_NameSummarizer.assert_called_once_with(mock_provider, mock_rate_limit_handler)
+
+    assert isinstance(ner, MagicMock)
+    assert isinstance(analyzer, MagicMock)
+    assert isinstance(summarizer, MagicMock)
+
+def test_summarize(mock_book, mock_summarizer):
+    mock_binder = {"test": "data"}
+    mock_summarizer.summarize_names.return_value = {"summary": "test"}
+    mock_book.binder = mock_binder
+
+    summarize(mock_book, mock_summarizer)
+
+    mock_summarizer.summarize_names.assert_called_once_with(mock_binder)
+    mock_book.update_binder.assert_called_once_with({"summary": "test"})
+
 
 @patch('os.path.exists')
 @patch('os.makedirs')
@@ -104,17 +188,6 @@ def test_create_limited_metadata():
     }
 
 
-@patch('lorebinders.build_lorebinder.Binder')
-def test_create_lorebinder(MockBinder):
-    book = MagicMock()
-    ai_model = MagicMock()
-
-    mock_binder_instance = MockBinder.return_value
-    result = create_lorebinder(book, ai_model)
-
-    MockBinder.assert_called_once_with(book, ai_model)
-    assert result == mock_binder_instance
-
 
 @patch('lorebinders.build_lorebinder.create_user_folder')
 @patch('lorebinders.build_lorebinder.convert')
@@ -156,11 +229,6 @@ def test_create_book(mock_read_text_file):
     mock_read_text_file.assert_called_once_with(book_dict.book_file)
 
 
-def test_build_binder():
-    mock_binder = MagicMock()
-    build_binder(mock_binder)
-    mock_binder.build_binder.assert_called_once()
-
 def test_initialize_ai_model_registry():
     mock_provider_registry = MagicMock()
     mock_provider_registry.return_value.registry = "mock_registry"
@@ -173,10 +241,12 @@ def test_initialize_ai_model_registry():
 @patch("lorebinders.build_lorebinder.convert_book_file")
 @patch("lorebinders.build_lorebinder.create_book")
 @patch("lorebinders.build_lorebinder.initialize_ai_model_registry")
-@patch("lorebinders.build_lorebinder.create_lorebinder")
+@patch("lorebinders.build_lorebinder.initialize_name_tools")
 @patch("lorebinders.build_lorebinder.build_binder")
+@patch("lorebinders.build_lorebinder.summarize")
 @patch("lorebinders.build_lorebinder.make_pdf.create_pdf")
-def test_start(mock_create_pdf, mock_build_binder, mock_create_lorebinder,
+@patch("lorebinders.build_lorebinder.FileRateLimitHandler")
+def test_start(mock_FileRateLimitHandler, mock_create_pdf, mock_summarize, mock_build_binder, mock_initialize_name_tools,
                mock_initialize_ai_model_registry, mock_create_book, mock_convert_book_file):
     book_dict = MagicMock()
     book_dict.user_folder = "test_folder"
@@ -188,11 +258,12 @@ def test_start(mock_create_pdf, mock_build_binder, mock_create_lorebinder,
 
     mock_ai_registry = MagicMock()
     mock_initialize_ai_model_registry.return_value = mock_ai_registry
-    mock_ai_models = MagicMock()
-    mock_ai_registry.get_provider.return_value = mock_ai_models
-
-    mock_lorebinder = MagicMock()
-    mock_create_lorebinder.return_value = mock_lorebinder
+    mock_provider = MagicMock()
+    mock_ai_registry.get_provider.return_value = mock_provider
+    mock_rate_handler = MagicMock(spec=FileRateLimitHandler)
+    mock_FileRateLimitHandler.return_value = mock_rate_handler
+    mock_ner, mock_analyzer, mock_summarizer = MagicMock(), MagicMock(), MagicMock()
+    mock_initialize_name_tools.return_value = (mock_ner, mock_analyzer, mock_summarizer)
 
     start(book_dict, work_base_dir)
 
@@ -200,22 +271,21 @@ def test_start(mock_create_pdf, mock_build_binder, mock_create_lorebinder,
     mock_create_book.assert_called_once_with(book_dict)
     mock_initialize_ai_model_registry.assert_called_once_with(JSONFileProviderHandler, "json_files")
     mock_ai_registry.get_provider.assert_called_once_with("OpenAI")
-    mock_create_lorebinder.assert_called_once_with(mock_book, mock_ai_models)
-    mock_build_binder.assert_called_once_with(mock_lorebinder)
+    mock_initialize_name_tools.assert_called_once_with(mock_provider, mock_rate_handler)
+    mock_build_binder.assert_called_once_with(mock_book, mock_ner, mock_analyzer)
+    mock_summarize.assert_called_once_with(mock_book, mock_summarizer)
+
     mock_create_pdf.assert_called_once_with("test_folder", "Test Book")
 
-def test_start_no_user_folder():
-    book_dict = MagicMock()
-    book_dict.user_folder = None
-    work_base_dir = "/test/work/dir"
 
-    with patch("lorebinders.build_lorebinder.convert_book_file"), \
-         patch("lorebinders.build_lorebinder.create_book"), \
-         patch("lorebinders.build_lorebinder.initialize_ai_model_registry"), \
-         patch("lorebinders.build_lorebinder.create_lorebinder"), \
-         patch("lorebinders.build_lorebinder.build_binder"), \
-         patch("lorebinders.build_lorebinder.make_pdf.create_pdf") as mock_create_pdf:
+def test_build_binder(mock_book, mock_ner, mock_analyzer):
+    mock_book.chapters = [MagicMock(spec=Chapter) for _ in range(3)]
+    mock_book.metadata = MagicMock(spec=BookDict)
+    mock_perform_ner = MagicMock()
+    mock_analyze_names = MagicMock()
 
-        start(book_dict, work_base_dir)
+    with patch("lorebinders.build_lorebinder.perform_ner", mock_perform_ner), patch("lorebinders.build_lorebinder.analyze_names", mock_analyze_names):
+        build_binder(mock_book, mock_ner, mock_analyzer)
 
-        mock_create_pdf.assert_not_called()
+        assert mock_perform_ner.call_count == 3
+        assert mock_analyze_names.call_count == 3
