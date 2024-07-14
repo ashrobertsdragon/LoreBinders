@@ -13,9 +13,9 @@ if TYPE_CHECKING:
 
 
 class AIModelConfig:
-    def __init__(self, models: APIProvider) -> None:
-        self.provider_models = models
-        self.provider = self.provider_models.api
+    def __init__(self, api_provider: APIProvider) -> None:
+        self.api_provider = api_provider
+        self.provider = self.api_provider.api
 
     def initialize_api(self, rate_limiter: RateLimitManager):
         """
@@ -68,7 +68,7 @@ class AIInterface:
         """
         Set the model family for the AI implementation.
         """
-        self._family = model_config.provider_models.get_ai_family(family)
+        self._family = model_config.api_provider.get_ai_family(family)
 
     def set_model(self, model_id: int) -> None:
         """
