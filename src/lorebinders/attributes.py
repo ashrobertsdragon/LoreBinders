@@ -185,7 +185,7 @@ class NameAnalyzer(NameTools):
         self.temperature: float = 0.4
         self._json_mode = self.instruction_type == "json"
 
-        self.set_tokens(provider, family, model_id)
+        self.set_token_rules(family, model_id)
 
         # Initialize variables for batch processing
         self.max_tokens = 0
@@ -193,11 +193,10 @@ class NameAnalyzer(NameTools):
         self._to_batch: list = []
         self._role_scripts: list[RoleScript] = []
 
-    def set_tokens(self, provider, family, model_id) -> None:
-        ai_family = provider.get_ai_family(family)
-        model = ai_family.get_model(model_id)
-
+    def set_token_rules(self, family: str, model_id: int) -> None:
+        model = get_model(family, model_id)
         self.absolute_max_tokens = model.absolute_max_tokens
+
         if self.instruction_type == "json":
             self.tokens_per: dict = {
                 "Characters": 200,
