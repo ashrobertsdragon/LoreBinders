@@ -8,9 +8,9 @@ if TYPE_CHECKING:
     from lorebinders._types import BookDict, Chapter, RateLimitManager
 
 import lorebinders.file_handling as file_handling
-from lorebinders.abstract_name_tools import NameTools
 from lorebinders.ai.ai_models._model_schema import APIProvider
 from lorebinders.json_tools import RepairJSON
+from lorebinders.name_tools import NameTools
 from lorebinders.role_script import RoleScript
 from lorebinders.sort_names import SortNames
 
@@ -24,9 +24,14 @@ class NameExtractor(NameTools):
     """
 
     def __init__(
-        self, ai_models: APIProvider, rate_limiter: RateLimitManager
+        self,
+        provider: APIProvider,
+        rate_limiter: RateLimitManager,
+        family: str,
     ) -> None:
-        self.initialize_api(ai_models, rate_limiter)
+        self.set_variables()
+        self.initialize_api(provider, rate_limiter)
+        self.set_family(family)
         self.max_tokens: int = 1000
         self.temperature: float = 0.2
 
@@ -36,6 +41,28 @@ class NameExtractor(NameTools):
         self._prompt = f"Text: {self.chapter.text}"
         self.narrator = self.metadata.narrator
         self.custom_categories = self.metadata.custom_categories
+        self._base_instructions, self._further_instructions = (
+            self._create_instructions()
+        )
+
+    def _create_instructions(self) -> tuple[str, str]:
+        # TODO: Pass in instructions file path from config?
+        base_instructions_file = os.path.join(
+            "instructions",
+            "name_extractor_sys_prompt.txt",
+        )
+        further_instructions_file = os.path.join(
+            "instructions",
+            "name_extractor_instructions.txt",
+        )
+        base_instructions: str = file_handling.read_text_file(
+            base_instructions_file
+        )
+        further_instructions: str = file_handling.read_text_file(
+            further_instructions_file
+        )
+
+        return base_instructions, further_instructions
 
     def _build_custom_role(self) -> str:
         """
@@ -69,27 +96,16 @@ class NameExtractor(NameTools):
             None
         """
         role_categories: str = self._build_custom_role()
-        base_instructions_file = os.path.join(
-            "instructions", "name_extractor_sys_prompt.txt"
-        )
-        further_instructions_file = os.path.join(
-            "instructions", "name_extractor_instructions.txt"
-        )
-        base_instructions: str = file_handling.read_text_file(
-            base_instructions_file
-        )
-        further_instructions: str = file_handling.read_text_file(
-            further_instructions_file
-        )
+
         system_message = (
-            f"{base_instructions}\n{self.custom_categories}.\n"
-            f"{further_instructions}\n{role_categories}"
+            f"{self._base_instructions}\n{self.custom_categories}.\n"
+            f"{self._further_instructions}\n{role_categories}"
         )
         self._single_role_script = RoleScript(system_message, self.max_tokens)
 
     def extract_names(self) -> dict:
         response = self._get_ai_response(
-            self._single_role_script, self._prompt, model_id=1
+            self._single_role_script, self._prompt
         )
         return self._parse_response(response)
 
@@ -107,7 +123,7 @@ class NameExtractor(NameTools):
             response (str): The response from the AI model.
 
         Returns:
-            None
+            dict: A dictionary containing the extracted names.
         """
         sorter = SortNames(response, self.narrator or "")
         return sorter.sort()
@@ -132,7 +148,12 @@ class NameAnalyzer(NameTools):
     """
 
     def __init__(
-        self, ai_models: APIProvider, rate_limiter: RateLimitManager
+        self,
+        provider: APIProvider,
+        rate_limiter: RateLimitManager,
+        family: str,
+        model_id: int,
+        instruction_type: str,
     ) -> None:
         """
         Initializes a NameAnalyzer object.
@@ -155,31 +176,54 @@ class NameAnalyzer(NameTools):
         Returns:
             None
         """
-        self.initialize_api(ai_models, rate_limiter)
+        self.set_variables()
+        self.initialize_api(provider, rate_limiter)
+        self.set_family(family)
+        self.set_model(model_id)
+
+        self.instruction_type = instruction_type
         self.temperature: float = 0.4
-        self._json_mode = True
+        self._json_mode = self.instruction_type == "json"
 
-        self.ABSOLUTE_MAX_TOKENS: int = 4096
-        self.tokens_per: dict = {
-            "Characters": 200,
-            "Settings": 150,
-            "Other": 100,
-        }
+        self.set_tokens(provider, family, model_id)
 
+        # Initialize variables for batch processing
         self.max_tokens = 0
         self._attributes_batch: list[tuple[str, int, str]] = []
         self._to_batch: list = []
         self._role_scripts: list[RoleScript] = []
 
-        self._base_instructions = self._get_instruction_text(
+    def set_tokens(self, provider, family, model_id) -> None:
+        ai_family = provider.get_ai_family(family)
+        model = ai_family.get_model(model_id)
+
+        self.absolute_max_tokens = model.absolute_max_tokens
+        if self.instruction_type == "json":
+            self.tokens_per: dict = {
+                "Characters": 200,
+                "Settings": 150,
+                "Other": 100,
+            }
+        elif self.instruction_type == "markdown":
+            self.tokens_per = {
+                "Characters": 170,
+                "Settings": 130,
+                "Other": 85,
+            }
+
+    def _initialize_instructions(self) -> tuple[str, str, str]:
+        # TODO: Pass in instructions file path from config?
+        base_instructions = self._get_instruction_text(
             "name_analyzer_base_instructions.txt"
         )
-        self._character_instructions = self._get_instruction_text(
+        character_instructions = self._get_instruction_text(
             "character_instructions.txt"
         )
-        self._settings_instructions = self._get_instruction_text(
+        settings_instructions = self._get_instruction_text(
             "settings_instructions.txt"
         )
+
+        return base_instructions, character_instructions, settings_instructions
 
     def initialize_chapter(self, metadata: BookDict, chapter: Chapter) -> None:
         self.metadata = metadata
@@ -191,17 +235,17 @@ class NameAnalyzer(NameTools):
 
     def _generate_schema(self, category: str) -> str:
         """
-        Generates a string representation of the JSON schema for the AI to
+        Generates a string representation of the schema for the AI to
         follow.
 
-        This method is used to generate a JSON schema string that defines the
+        This method is used to generate a schema string that defines the
         structure and format of the data that the AI model will analyze for a
         given category.
 
         Args:
-            category (str): The category to form the JSON schema for.
+            category (str): The category to form the schema for.
         Returns:
-            str: The JSON schema string.
+            str: The schema string.
         """
 
         character_traits = [
@@ -239,7 +283,9 @@ class NameAnalyzer(NameTools):
         """
         Reads the instructions file and returns the text.
         """
-        file_path = os.path.join("instructions", file_name)
+        file_path = os.path.join(
+            "instructions", self.instruction_type, file_name
+        )
         return file_handling.read_text_file(file_path)
 
     def _create_instructions(self) -> str:
@@ -250,8 +296,7 @@ class NameAnalyzer(NameTools):
         This method generates instructions for the AI model based on the
         categories that are going to be analyzed. The instructions provide
         guidance on how to describe characters and settings in the chapter. It
-        also specifies the format in which the information should be provided,
-        which is a JSON object.
+        also specifies the format in which the information should be provided.
 
         Args:
             to_batch (list): A list of categories to be analyzed.
@@ -259,14 +304,15 @@ class NameAnalyzer(NameTools):
         Returns:
             str: The instructions for the AI.
         """
+        base_instructions, character_instructions, settings_instructions = (
+            self._initialize_instructions()
+        )
 
         for category in self._to_batch:
             if category == "Characters":
-                instructions = (
-                    self._base_instructions + self._character_instructions
-                )
+                instructions = base_instructions + character_instructions
             if category == "Settings":
-                instructions += self._settings_instructions
+                instructions += settings_instructions
             else:
                 other_category_list = [
                     cat
@@ -280,37 +326,36 @@ class NameAnalyzer(NameTools):
                 )
 
         instructions += (
-            "\nYou will format this information as a JSON object using the "
-            'following schema where "description" is replaced with the '
-            "actual information.\n"
+            "\nYou will format this information using the following schema "
+            'where "description" is replaced with the actual information.\n'
         )
         return instructions
 
     def _form_schema(self) -> str:
         """
-        Forms the JSON schema for the categories to be analyzed.
+        Forms the schema for the categories to be analyzed.
 
         This method takes a list of categories to be analyzed and generates a
-        JSON schema string that defines the structure and format of the data
+        schema string that defines the structure and format of the data
         that the AI model will analyze. It iterates over each category in the
         list and calls the `_generate_schema` method to generate the schema
         for that category. The generated schema strings are then concatenated
-        together to form the final JSON schema.
+        together to form the final schema.
 
         Args:
             to_batch (list): A list of categories to be analyzed.
 
         Returns:
-            str: The JSON schema string.
+            str: The schema string.
 
         """
-        attributes_json = ""
+        attributes_str = ""
 
         for category in self._to_batch:
-            schema_json = self._generate_schema(category)
-            attributes_json += schema_json
+            schema_str = self._generate_schema(category)
+            attributes_str += schema_str
 
-        return attributes_json
+        return attributes_str
 
     def _reset_variables(self, category: str, token_count: int) -> None:
         """
@@ -370,10 +415,10 @@ class NameAnalyzer(NameTools):
                 category, self.tokens_per["Other"]
             )
             token_count = min(
-                len(names) * token_value, self.ABSOLUTE_MAX_TOKENS
+                len(names) * token_value, self.absolute_max_tokens
             )
             instructions = self._create_instructions()
-            if self.max_tokens + token_count > self.ABSOLUTE_MAX_TOKENS:
+            if self.max_tokens + token_count > self.absolute_max_tokens:
                 instructions = self._create_instructions()
                 self._append_attributes_batch(instructions)
                 self._reset_variables(category, token_count)
@@ -411,10 +456,10 @@ class NameAnalyzer(NameTools):
             else "".join(responses)
         )
 
-    def analyze_names(self) -> dict:
+    def analyze_names(self, model_id) -> dict:
         responses: list[str] = []
         for script in self._role_scripts:
-            response = self._get_ai_response(script, self._prompt, model_id=1)
+            response = self._get_ai_response(script, self._prompt)
             responses.append(response)
         combined_response = self._combine_responses(responses)
         return self._parse_response(combined_response)
@@ -465,7 +510,11 @@ class NameSummarizer(NameTools):
     """
 
     def __init__(
-        self, ai_models: APIProvider, rate_limiter: RateLimitManager
+        self,
+        provider: APIProvider,
+        family: str,
+        model_id: int,
+        rate_limiter: RateLimitManager,
     ) -> None:
         """
         Initialize the NameSummarizer class with a Book object.
@@ -480,7 +529,11 @@ class NameSummarizer(NameTools):
             None
         """
 
-        self.initialize_api(ai_models, rate_limiter)
+        self.set_variables()
+        self.initialize_api(provider, rate_limiter)
+        self.set_family(family)
+        self.set_model(model_id)
+
         self.temperature: float = 0.4
         self.max_tokens: int = 200
 
@@ -538,9 +591,7 @@ class NameSummarizer(NameTools):
         for category, name, prompt in self._create_prompts():
             self._current_category = category
             self._current_name = name
-            response = self._get_ai_response(
-                self._single_role_script, prompt, model_id=1
-            )
+            response = self._get_ai_response(self._single_role_script, prompt)
             self.lorebinder = self._parse_response(response)
         return self.lorebinder
 
