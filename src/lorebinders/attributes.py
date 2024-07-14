@@ -5,7 +5,7 @@ import os
 from typing import TYPE_CHECKING, Generator, cast
 
 if TYPE_CHECKING:
-    from lorebinders._types import BookDict, Chapter
+    from lorebinders._types import BookDict, Chapter, RateLimitManager
 
 import lorebinders.file_handling as file_handling
 from lorebinders.abstract_name_tools import NameTools
@@ -23,8 +23,10 @@ class NameExtractor(NameTools):
     the chapter text using Named Entity Recognition (NER).
     """
 
-    def __init__(self, ai_models: APIProvider) -> None:
-        self.initialize_api(ai_models)
+    def __init__(
+        self, ai_models: APIProvider, rate_limiter: RateLimitManager
+    ) -> None:
+        self.initialize_api(ai_models, rate_limiter)
         self.max_tokens: int = 1000
         self.temperature: float = 0.2
 
@@ -130,8 +132,7 @@ class NameAnalyzer(NameTools):
     """
 
     def __init__(
-        self,
-        ai_models: APIProvider,
+        self, ai_models: APIProvider, rate_limiter: RateLimitManager
     ) -> None:
         """
         Initializes a NameAnalyzer object.
@@ -154,7 +155,7 @@ class NameAnalyzer(NameTools):
         Returns:
             None
         """
-        self.initialize_api(ai_models)
+        self.initialize_api(ai_models, rate_limiter)
         self.temperature: float = 0.4
         self._json_mode = True
 
@@ -463,7 +464,9 @@ class NameSummarizer(NameTools):
             the generated summary.
     """
 
-    def __init__(self, ai_models: APIProvider) -> None:
+    def __init__(
+        self, ai_models: APIProvider, rate_limiter: RateLimitManager
+    ) -> None:
         """
         Initialize the NameSummarizer class with a Book object.
 
@@ -477,7 +480,7 @@ class NameSummarizer(NameTools):
             None
         """
 
-        self.initialize_api(ai_models)
+        self.initialize_api(ai_models, rate_limiter)
         self.temperature: float = 0.4
         self.max_tokens: int = 200
 
