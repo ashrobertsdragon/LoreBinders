@@ -43,6 +43,13 @@ class NameTools:
         """
         self._ai.set_model(self._ai_config, model_id)
 
+    def get_model(self, family: str, model_id: int) -> Model:
+        """
+        Retrieve the Model object for the given family and model_id.
+        """
+        ai_family = ai_config.api_provider.get_ai_family(family)
+        return ai_family.get_model_by_id(model_id)
+
     def _get_ai_response(self, role_script: RoleScript, prompt: str) -> str:
         """
         Create the payload to send to the AI and send it.
