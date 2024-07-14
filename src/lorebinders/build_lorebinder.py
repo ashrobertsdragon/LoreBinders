@@ -9,12 +9,16 @@ if TYPE_CHECKING:
     from lorebinders._types import AIProviderManager
 
 import lorebinders.make_pdf as make_pdf
-from lorebinders.ai.ai_models._model_schema import AIModelRegistry
+from lorebinders._managers import RateLimitManager
+from lorebinders.ai.ai_models._model_schema import AIModelRegistry, APIProvider
 from lorebinders.ai.ai_models.json_file_model_handler import (
     JSONFileProviderHandler
 )
-from lorebinders.binders import Binder
-from lorebinders.book import Book
+from lorebinders.ai.rate_limiters.file_rate_limit_handler import (
+    FileRateLimitHandler
+)
+from lorebinders.attributes import NameAnalyzer, NameExtractor, NameSummarizer
+from lorebinders.book import Book, Chapter
 from lorebinders.book_dict import BookDict
 
 
@@ -22,12 +26,57 @@ def create_book(book_dict: BookDict) -> Book:
     return Book(book_dict)
 
 
-def create_lorebinder(book: Book, ai_model) -> Binder:
-    return Binder(book, ai_model)
+def perform_ner(
+    ner: NameExtractor,
+    metadata: BookDict,
+    chapter: Chapter,
+) -> None:
+    ner.initialize_chapter(metadata, chapter)
+    ner.build_role_script()
+    names = ner.extract_names()
+    chapter.add_names(names)
 
 
-def build_binder(lorebinder: Binder) -> None:
-    lorebinder.build_binder()
+def analyze_names(
+    analyzer: NameAnalyzer,
+    metadata: BookDict,
+    chapter: Chapter,
+) -> None:
+    analyzer.initialize_chapter(metadata, chapter)
+    analyzer.build_role_script()
+    analysis = analyzer.analyze_names()
+    chapter.add_analysis(analysis)
+
+
+def summarize_names(
+    summarizer: NameSummarizer,
+    binder: dict,
+) -> dict:
+    summarizer.build_role_script()
+    return summarizer.summarize_names(binder)
+
+
+def initialize_name_tools(
+    provider: APIProvider, rate_limit_handler: RateLimitManager
+) -> tuple[NameExtractor, NameAnalyzer, NameSummarizer]:
+    ner = NameExtractor(provider, rate_limit_handler)
+    analyzer = NameAnalyzer(provider, rate_limit_handler)
+    summarizer = NameSummarizer(provider, rate_limit_handler)
+
+    return ner, analyzer, summarizer
+
+
+def build_binder(
+    book: Book, ner: NameExtractor, analyzer: NameAnalyzer
+) -> None:
+    for chapter in book.chapters:
+        perform_ner(ner, book.metadata, chapter)
+        analyze_names(analyzer, book.metadata, chapter)
+
+
+def summarize(book: Book, summarizer: NameSummarizer) -> None:
+    binder = summarize_names(summarizer, book.binder)
+    book.update_binder(binder)
 
 
 def create_folder(folder: str, base_dir: str) -> str:
@@ -99,13 +148,16 @@ def start(book_dict: BookDict, work_base_dir: str) -> None:
     convert_book_file(book_dict, work_base_dir)
 
     book = create_book(book_dict)
+
     ai_registry = initialize_ai_model_registry(
         JSONFileProviderHandler, "json_files"
     )
-    ai_models = ai_registry.get_provider("OpenAI")
+    provider = ai_registry.get_provider("OpenAI")
+    rate_handler = FileRateLimitHandler()
+    ner, analyzer, summarizer = initialize_name_tools(provider, rate_handler)
 
-    lorebinder = create_lorebinder(book, ai_models)
-    build_binder(lorebinder)
+    build_binder(book, ner, analyzer)
+    summarize(book, summarizer)
 
     if book_dict.user_folder is not None:
         make_pdf.create_pdf(book_dict.user_folder, book_dict.title)
