@@ -1,20 +1,15 @@
 from __future__ import annotations
 
 import json
-import os
 from typing import TYPE_CHECKING, Generator, cast
 
 if TYPE_CHECKING:
     from lorebinders._types import BookDict, Chapter, RateLimitManager
 
-import lorebinders.file_handling as file_handling
 from lorebinders.ai.ai_models._model_schema import APIProvider
-from lorebinders.json_tools import RepairJSON
 from lorebinders.name_tools import NameTools
 from lorebinders.role_script import RoleScript
 from lorebinders.sort_names import SortNames
-
-json_repair_tool = RepairJSON()
 
 
 class NameExtractor(NameTools):
@@ -26,12 +21,12 @@ class NameExtractor(NameTools):
     def __init__(
         self,
         provider: APIProvider,
-        rate_limiter: RateLimitManager,
         family: str,
+        model_id: int,
+        rate_limiter: RateLimitManager,
     ) -> None:
-        self.set_variables()
-        self.initialize_api(provider, rate_limiter)
-        self.set_family(family)
+        super().__init__(provider, family, model_id, rate_limiter)
+
         self.max_tokens: int = 1000
         self.temperature: float = 0.2
 
@@ -47,22 +42,13 @@ class NameExtractor(NameTools):
 
     def _create_instructions(self) -> tuple[str, str]:
         # TODO: Pass in instructions file path from config?
-        base_instructions_file = os.path.join(
-            "instructions",
-            "name_extractor_sys_prompt.txt",
+        base_instruction = self._get_instruction_text(
+            "name_extractor_sys_prompt.txt"
         )
-        further_instructions_file = os.path.join(
-            "instructions",
-            "name_extractor_instructions.txt",
+        further_instructions = self._get_instruction_text(
+            "name_extractor_instructions.txt"
         )
-        base_instructions: str = file_handling.read_text_file(
-            base_instructions_file
-        )
-        further_instructions: str = file_handling.read_text_file(
-            further_instructions_file
-        )
-
-        return base_instructions, further_instructions
+        return base_instruction, further_instructions
 
     def _build_custom_role(self) -> str:
         """
@@ -176,14 +162,11 @@ class NameAnalyzer(NameTools):
         Returns:
             None
         """
-        self.set_variables()
-        self.initialize_api(provider, rate_limiter)
-        self.set_family(family)
-        self.set_model(model_id)
+        super().__init__(provider, family, model_id, rate_limiter)
 
         self.instruction_type = instruction_type
         self.temperature: float = 0.4
-        self._json_mode = self.instruction_type == "json"
+        self.json_mode = self.instruction_type == "json"
 
         self.set_token_rules(family, model_id)
 
@@ -193,33 +176,29 @@ class NameAnalyzer(NameTools):
         self._to_batch: list = []
         self._role_scripts: list[RoleScript] = []
 
+    def _get_tokens_per(self) -> dict[str, int]:
+        json_tokens = {"Characters": 200, "Settings": 150, "Other": 100}
+        if self.instruction_type == "markdown":
+            # markdown is 15% more token efficient than JSON
+            return {k: int(v * 0.85) for k, v in json_tokens.items()}
+        return json_tokens
+
     def set_token_rules(self, family: str, model_id: int) -> None:
-        model = get_model(family, model_id)
+        model = self.get_model(family, model_id)
         self.absolute_max_tokens = model.absolute_max_tokens
 
-        if self.instruction_type == "json":
-            self.tokens_per: dict = {
-                "Characters": 200,
-                "Settings": 150,
-                "Other": 100,
-            }
-        elif self.instruction_type == "markdown":
-            self.tokens_per = {
-                "Characters": 170,
-                "Settings": 130,
-                "Other": 85,
-            }
+        self.tokens_per = self._get_tokens_per()
 
     def _initialize_instructions(self) -> tuple[str, str, str]:
         # TODO: Pass in instructions file path from config?
         base_instructions = self._get_instruction_text(
-            "name_analyzer_base_instructions.txt"
+            "name_analyzer_base_instructions.txt", prompt_type="markdown"
         )
         character_instructions = self._get_instruction_text(
-            "character_instructions.txt"
+            "character_instructions.txt", prompt_type="markdown"
         )
         settings_instructions = self._get_instruction_text(
-            "settings_instructions.txt"
+            "settings_instructions.txt", prompt_type="markdown"
         )
 
         return base_instructions, character_instructions, settings_instructions
@@ -277,15 +256,6 @@ class NameAnalyzer(NameTools):
             schema_stub = "Description"
         schema: dict = {category: schema_stub}
         return json.dumps(schema)
-
-    def _get_instruction_text(self, file_name: str) -> str:
-        """
-        Reads the instructions file and returns the text.
-        """
-        file_path = os.path.join(
-            "instructions", self.instruction_type, file_name
-        )
-        return file_handling.read_text_file(file_path)
 
     def _create_instructions(self) -> str:
         """
@@ -445,13 +415,14 @@ class NameAnalyzer(NameTools):
             responses (List[str]): A list of the AI responses as JSON strings.
 
         Returns:
-            str: A stringified JSON array of the combined AI responses.
+            str: A stringified JSON array of the combined AI responses if JSON
+            mode, or a string of the combined responses otherwise.
         """
         return (
             "{"
             + ",".join(part.lstrip("{").rstrip("}") for part in responses)
             + "}"
-            if self._json_mode
+            if self.json_mode
             else "".join(responses)
         )
 
@@ -475,9 +446,17 @@ class NameAnalyzer(NameTools):
             response (str): The AI response as a string.
 
         Returns:
-            T
+            dict: The parsed response as a dictionary.
         """
-        return json_repair_tool.json_str_to_dict(response)
+        if self.instruction_type == "json":
+            from lorebinders.json_tools import RepairJSON
+
+            json_repair_tool = RepairJSON()
+            return json_repair_tool.json_str_to_dict(response)
+        else:
+            from lorebinders.markdown_parser import markdown_to_dict
+
+            return markdown_to_dict(response)
 
 
 class NameSummarizer(NameTools):
@@ -528,10 +507,7 @@ class NameSummarizer(NameTools):
             None
         """
 
-        self.set_variables()
-        self.initialize_api(provider, rate_limiter)
-        self.set_family(family)
-        self.set_model(model_id)
+        super().__init__(provider, family, model_id, rate_limiter)
 
         self.temperature: float = 0.4
         self.max_tokens: int = 200
