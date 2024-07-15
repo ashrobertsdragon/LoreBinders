@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import os
+
+import lorebinders.file_handling as file_handling
 from lorebinders._managers import RateLimitManager
 from lorebinders.ai.ai_interface import AIModelConfig
-from lorebinders.ai.ai_models._model_schema import APIProvider
+from lorebinders.ai.ai_models._model_schema import APIProvider, Model
 from lorebinders.role_script import RoleScript
 
 
@@ -11,7 +14,17 @@ class NameTools:
     Mixin class for providing interface for AI to Name classes.
     """
 
-    def set_variables(self) -> None:
+    def __init__(
+        self,
+        provider: APIProvider,
+        family: str,
+        model_id: int,
+        rate_limiter: RateLimitManager,
+    ) -> None:
+        self.initialize_api(provider, rate_limiter)
+        self.set_family(family)
+        self.set_model(model_id)
+
         self._categories_base: list[str] = ["Characters", "Settings"]
         self.temperature: float = 0.7
         self.json_mode: bool = False
@@ -47,8 +60,17 @@ class NameTools:
         """
         Retrieve the Model object for the given family and model_id.
         """
-        ai_family = ai_config.api_provider.get_ai_family(family)
+        ai_family = self._ai.api_provider.get_ai_family(family)
         return ai_family.get_model_by_id(model_id)
+
+    def _get_instruction_text(
+        self, file_name: str, *, prompt_type: str | None = None
+    ) -> str:
+        if prompt_type is not None:
+            os.path.join("instructions", prompt_type, file_name)
+        else:
+            file_path = os.path.join("instructions", file_name)
+        return file_handling.read_text_file(file_path)
 
     def _get_ai_response(self, role_script: RoleScript, prompt: str) -> str:
         """
