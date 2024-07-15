@@ -4,7 +4,7 @@ import importlib
 import logging
 from typing import TYPE_CHECKING
 
-from lorebinders.ai.ai_models._model_schema import APIProvider
+from lorebinders.ai.ai_models._model_schema import APIProvider, Model
 from lorebinders.ai.ai_type import AIType
 from lorebinders.ai.exceptions import MissingAIProviderError
 
@@ -76,7 +76,13 @@ class AIInterface:
         implementation class.
         """
         model = self._family.get_model_by_id(model_id)
-        return self._ai.set_model(model, self._rate_limiter)
+        self._ai.set_model(model, self._rate_limiter)
+
+    def get_model(self, model_id: int) -> Model:
+        """
+        Retrieve model dictionary from configuration.
+        """
+        return self._family.get_model_by_id(model_id)
 
     def call_api(
         self,

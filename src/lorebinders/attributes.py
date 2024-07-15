@@ -4,9 +4,9 @@ import json
 from typing import TYPE_CHECKING, Generator, cast
 
 if TYPE_CHECKING:
-    from lorebinders._types import BookDict, Chapter, RateLimitManager
+    from lorebinders._types import BookDict, Chapter
 
-from lorebinders.ai.ai_models._model_schema import APIProvider
+from lorebinders.ai.ai_interface import AIInterface
 from lorebinders.name_tools import NameTools
 from lorebinders.role_script import RoleScript
 from lorebinders.sort_names import SortNames
@@ -18,14 +18,8 @@ class NameExtractor(NameTools):
     the chapter text using Named Entity Recognition (NER).
     """
 
-    def __init__(
-        self,
-        provider: APIProvider,
-        family: str,
-        model_id: int,
-        rate_limiter: RateLimitManager,
-    ) -> None:
-        super().__init__(provider, family, model_id, rate_limiter)
+    def __init__(self, ai: AIInterface) -> None:
+        super().__init__(ai)
 
         self.max_tokens: int = 1000
         self.temperature: float = 0.2
@@ -134,12 +128,7 @@ class NameAnalyzer(NameTools):
     """
 
     def __init__(
-        self,
-        provider: APIProvider,
-        rate_limiter: RateLimitManager,
-        family: str,
-        model_id: int,
-        instruction_type: str,
+        self, ai: AIInterface, instruction_type: str, absolute_max_tokens: int
     ) -> None:
         """
         Initializes a NameAnalyzer object.
@@ -162,13 +151,14 @@ class NameAnalyzer(NameTools):
         Returns:
             None
         """
-        super().__init__(provider, family, model_id, rate_limiter)
+        super().__init__(ai)
 
         self.instruction_type = instruction_type
         self.temperature: float = 0.4
         self.json_mode = self.instruction_type == "json"
 
-        self.set_token_rules(family, model_id)
+        self.absolute_max_tokens = absolute_max_tokens
+        self.tokens_per = self._get_tokens_per()
 
         # Initialize variables for batch processing
         self.max_tokens = 0
@@ -182,12 +172,6 @@ class NameAnalyzer(NameTools):
             # markdown is 15% more token efficient than JSON
             return {k: int(v * 0.85) for k, v in json_tokens.items()}
         return json_tokens
-
-    def set_token_rules(self, family: str, model_id: int) -> None:
-        model = self.get_model(family, model_id)
-        self.absolute_max_tokens = model.absolute_max_tokens
-
-        self.tokens_per = self._get_tokens_per()
 
     def _initialize_instructions(self) -> tuple[str, str, str]:
         # TODO: Pass in instructions file path from config?
@@ -426,7 +410,7 @@ class NameAnalyzer(NameTools):
             else "".join(responses)
         )
 
-    def analyze_names(self, model_id) -> dict:
+    def analyze_names(self) -> dict:
         responses: list[str] = []
         for script in self._role_scripts:
             response = self._get_ai_response(script, self._prompt)
@@ -487,13 +471,7 @@ class NameSummarizer(NameTools):
             the generated summary.
     """
 
-    def __init__(
-        self,
-        provider: APIProvider,
-        family: str,
-        model_id: int,
-        rate_limiter: RateLimitManager,
-    ) -> None:
+    def __init__(self, ai: AIInterface) -> None:
         """
         Initialize the NameSummarizer class with a Book object.
 
@@ -507,7 +485,7 @@ class NameSummarizer(NameTools):
             None
         """
 
-        super().__init__(provider, family, model_id, rate_limiter)
+        super().__init__(ai)
 
         self.temperature: float = 0.4
         self.max_tokens: int = 200

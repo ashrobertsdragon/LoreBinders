@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 
 import lorebinders.make_pdf as make_pdf
 from lorebinders._managers import RateLimitManager
+from lorebinders.ai.ai_interface import AIInterface, AIModelConfig
 from lorebinders.ai.ai_models._model_schema import AIModelRegistry, APIProvider
 from lorebinders.ai.ai_models.json_file_model_handler import (
     JSONFileProviderHandler
@@ -56,14 +57,57 @@ def summarize_names(
     return summarizer.summarize_names(binder)
 
 
-def initialize_name_tools(
-    provider: APIProvider, rate_limit_handler: RateLimitManager
-) -> tuple[NameExtractor, NameAnalyzer, NameSummarizer]:
-    ner = NameExtractor(provider, rate_limit_handler)
-    analyzer = NameAnalyzer(provider, rate_limit_handler)
-    summarizer = NameSummarizer(provider, rate_limit_handler)
+def initialize_ai(
+    provider: APIProvider, family: str, model_id: int, rate_limiter
+) -> AIInterface:
+    ai_config = AIModelConfig(provider)
+    ai = ai_config.initialize_api(rate_limiter)
+    ai.set_family(ai_config, family)
+    ai.set_model(model_id)
+    return ai
 
-    return ner, analyzer, summarizer
+
+def initializer_ner(
+    provider: APIProvider, rate_limiter: RateLimitManager
+) -> NameExtractor:
+    ai = initialize_ai(
+        provider=provider,
+        family="openai",
+        model_id=1,
+        rate_limiter=rate_limiter,
+    )
+    return NameExtractor(ai)
+
+
+def initializer_analyzer(
+    provider: APIProvider, rate_limiter: RateLimitManager
+) -> NameAnalyzer:
+    model_id = 2
+    ai = initialize_ai(
+        provider=provider,
+        family="openai",
+        model_id=model_id,
+        rate_limiter=rate_limiter,
+    )
+    model = ai.get_model(model_id)
+    absolute_max_tokens = model.absolute_max_tokens
+    return NameAnalyzer(
+        ai,
+        instruction_type="markdown",
+        absolute_max_tokens=absolute_max_tokens,
+    )
+
+
+def initializer_summarizer(
+    provider: APIProvider, rate_limiter: RateLimitManager
+) -> NameSummarizer:
+    ai = initialize_ai(
+        provider=provider,
+        family="openai",
+        model_id=1,
+        rate_limiter=rate_limiter,
+    )
+    return NameSummarizer(ai)
 
 
 def build_binder(
@@ -154,7 +198,10 @@ def start(book_dict: BookDict, work_base_dir: str) -> None:
     )
     provider = ai_registry.get_provider("OpenAI")
     rate_handler = FileRateLimitHandler()
-    ner, analyzer, summarizer = initialize_name_tools(provider, rate_handler)
+
+    ner = initializer_ner(provider, rate_handler)
+    analyzer = initializer_analyzer(provider, rate_handler)
+    summarizer = initializer_summarizer(provider, rate_handler)
 
     build_binder(book, ner, analyzer)
     summarize(book, summarizer)
