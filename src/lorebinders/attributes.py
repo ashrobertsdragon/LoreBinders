@@ -361,7 +361,7 @@ class NameAnalyzer(NameTools):
         be used for each pass of the Chapter.
         """
 
-        chapter_data: dict = Chapter.names
+        chapter_data: dict = self.chapter.names
 
         for category, names in chapter_data.items():
             token_value = self.tokens_per.get(
