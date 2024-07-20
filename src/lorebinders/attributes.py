@@ -458,10 +458,15 @@ class NameSummarizer(NameTools):
         Initialize the NameSummarizer class with a Book object.
 
         Args:
-            book (Book): The Book object representing the book.
+            ai (AIInterface): The AIInterface object.
 
-        Raises:
-            TypeError: If book is not an instance of the Book class.
+        Attributes:
+            temperature (float): The temperature parameter for AI response
+                generation.
+            max_tokens (int): The maximum number of tokens for AI response
+                generation.
+            _single_role_script (str): The role script to be used for AI
+                response generation.
 
         Returns:
             None
@@ -471,6 +476,8 @@ class NameSummarizer(NameTools):
 
         self.temperature: float = 0.4
         self.max_tokens: int = 200
+
+        self._single_role_script: RoleScript | None = None
 
     def build_role_script(self) -> None:
         system_message = (
@@ -526,8 +533,11 @@ class NameSummarizer(NameTools):
         for category, name, prompt in self._create_prompts():
             self._current_category = category
             self._current_name = name
-            response = self._get_ai_response(self._single_role_script, prompt)
-            self.lorebinder = self._parse_response(response)
+            if self._single_role_script:
+                response = self._get_ai_response(
+                    self._single_role_script, prompt
+                )
+                self.lorebinder = self._parse_response(response)
         return self.lorebinder
 
     def _parse_response(self, response: str) -> dict:
