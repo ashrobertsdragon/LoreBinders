@@ -154,17 +154,18 @@ class NameAnalyzer(NameTools):
         super().__init__(ai)
 
         self.instruction_type = instruction_type
-        self.temperature: float = 0.4
-        self.json_mode = self.instruction_type == "json"
-
         self.absolute_max_tokens = absolute_max_tokens
+
+        self.json_mode = self.instruction_type == "json"
         self.tokens_per = self._get_tokens_per()
 
-        # Initialize variables for batch processing
-        self.max_tokens = 0
-        self._attributes_batch: list[tuple[str, int, str]] = []
-        self._to_batch: list = []
         self._role_scripts: list[RoleScript] = []
+        self.temperature: float = 0.4
+
+        # Variables for lazy-loading instructions
+        self._base_instructions: str | None = None
+        self._character_instructions: str | None = None
+        self._settings_instructions: str | None = None
 
     def _get_tokens_per(self) -> dict[str, int]:
         json_tokens = {"Characters": 200, "Settings": 150, "Other": 100}
@@ -173,19 +174,33 @@ class NameAnalyzer(NameTools):
             return {k: int(v * 0.85) for k, v in json_tokens.items()}
         return json_tokens
 
-    def _initialize_instructions(self) -> tuple[str, str, str]:
-        # TODO: Pass in instructions file path from config?
-        base_instructions = self._get_instruction_text(
-            "name_analyzer_base_instructions.txt", prompt_type="markdown"
-        )
-        character_instructions = self._get_instruction_text(
-            "character_instructions.txt", prompt_type="markdown"
-        )
-        settings_instructions = self._get_instruction_text(
-            "settings_instructions.txt", prompt_type="markdown"
-        )
+    @property
+    def base_instructions(self) -> str:
+        """Lazy-loads base instructions."""
+        if self._base_instructions is None:
+            self._base_instructions = self._get_instruction_text(
+                "name_analyzer_base_instructions.txt",
+                prompt_type=self.instruction_type,
+            )
+        return self._base_instructions
 
-        return base_instructions, character_instructions, settings_instructions
+    @property
+    def character_instructions(self) -> str:
+        """Lazy-loads character instructions."""
+        if self._character_instructions is None:
+            self._character_instructions = self._get_instruction_text(
+                "character_instructions.txt", prompt_type=self.instruction_type
+            )
+        return self._character_instructions
+
+    @property
+    def settings_instructions(self) -> str:
+        """Lazy-loads settings instructions."""
+        if self._settings_instructions is None:
+            self._settings_instructions = self._get_instruction_text(
+                "settings_instructions.txt", prompt_type=self.instruction_type
+            )
+        return self._settings_instructions
 
     def initialize_chapter(self, metadata: BookDict, chapter: Chapter) -> None:
         self.metadata = metadata
@@ -241,7 +256,7 @@ class NameAnalyzer(NameTools):
         schema: dict = {category: schema_stub}
         return json.dumps(schema)
 
-    def _create_instructions(self) -> str:
+    def _create_instructions(self, categories: list[str]) -> str:
         """
         Creates instructions for the AI based on the categories to be
         analyzed.
@@ -257,26 +272,22 @@ class NameAnalyzer(NameTools):
         Returns:
             str: The instructions for the AI.
         """
-        base_instructions, character_instructions, settings_instructions = (
-            self._initialize_instructions()
-        )
 
-        for category in self._to_batch:
-            if category == "Characters":
-                instructions = base_instructions + character_instructions
-            if category == "Settings":
-                instructions += settings_instructions
-            else:
-                other_category_list = [
-                    cat
-                    for cat in self._to_batch
-                    if cat not in self._categories_base
-                ]
-                instructions += (
-                    "Provide descriptions of "
-                    + ", ".join(other_category_list)
-                    + " without referencing specific characters or plot points"
-                )
+        instructions = self.base_instructions
+        other_category_list = [
+            cat for cat in categories if cat not in self._categories_base
+        ]
+
+        if "Characters" in categories:
+            instructions += f"\n{self.character_instructions}"
+        if "Settings" in categories:
+            instructions += f"\n{self.settings_instructions}"
+        if other_category_list:
+            instructions += (
+                "\nProvide descriptions of "
+                + ", ".join(other_category_list)
+                + " without referencing specific characters or plot points"
+            )
 
         instructions += (
             "\nYou will format this information using the following schema "
@@ -284,7 +295,7 @@ class NameAnalyzer(NameTools):
         )
         return instructions
 
-    def _form_schema(self) -> str:
+    def _form_schema(self, categories: list) -> str:
         """
         Forms the schema for the categories to be analyzed.
 
@@ -304,56 +315,11 @@ class NameAnalyzer(NameTools):
         """
         attributes_str = ""
 
-        for category in self._to_batch:
+        for category in categories:
             schema_str = self._generate_schema(category)
             attributes_str += schema_str
 
         return attributes_str
-
-    def _reset_variables(self, category: str, token_count: int) -> None:
-        """
-        Resets the variables for a new batch of categories.
-
-        This method takes in a category and a token count as input and resets
-        the variables for a new batch of categories. It initializes the
-        'to_batch' list with the given category and sets the 'max_tokens'
-        variable to the token count.
-
-        Args:
-            category (str): The category for the new batch.
-            token_count (int): The token count for the new batch.
-
-        Returns:
-            Tuple[list, int]: A tuple containing the updated 'to_batch' list
-                and 'max_tokens' variable.
-
-        """
-        self._to_batch = [category]
-        self.max_tokens = token_count
-
-    def _append_attributes_batch(self, instructions: str) -> None:
-        """
-        Appends the attributes batch to the list.
-
-        This method takes in an attributes batch, a list of categories to be
-        analyzed, the maximum number of tokens, and the instructions for the
-        AI. It generates the JSON schema for the categories using the
-        _form_schema method. Then, it appends the attributes batch, consisting
-        of the attributes JSON, the maximum tokens, and the instructions, to
-        the list.
-
-        Args:
-            instructions (str): The instructions for the AI.
-
-        Returns:
-            list: The updated attributes batch list.
-        """
-        attributes_json: str = self._form_schema()
-        self._attributes_batch.append((
-            attributes_json,
-            self.max_tokens,
-            instructions,
-        ))
 
     def build_role_script(self) -> None:
         """
@@ -363,34 +329,50 @@ class NameAnalyzer(NameTools):
 
         chapter_data: dict = self.chapter.names
 
+        categories: list[str] = []
+        current_tokens = 0
+
         for category, names in chapter_data.items():
             token_value = self.tokens_per.get(
                 category, self.tokens_per["Other"]
             )
-            token_count = min(
+            category_tokens = min(
                 len(names) * token_value, self.absolute_max_tokens
             )
-            instructions = self._create_instructions()
-            if self.max_tokens + token_count > self.absolute_max_tokens:
-                instructions = self._create_instructions()
-                self._append_attributes_batch(instructions)
-                self._reset_variables(category, token_count)
-            else:
-                self._to_batch.append(category)
-                self.max_tokens += token_count
 
-        if self._to_batch:
-            instructions = self._create_instructions()
-            self._append_attributes_batch(instructions)
+            if current_tokens + category_tokens > self.absolute_max_tokens:
+                self._role_scripts.append(
+                    self._create_role_script(categories, current_tokens)
+                )
+                categories = []
+                current_tokens = 0
 
-        for (
-            attributes_json,
-            max_tokens,
-            instructions,
-        ) in self._attributes_batch:
-            system_message = instructions + attributes_json
-            role_script = RoleScript(system_message, max_tokens)
-            self._role_scripts.append(role_script)
+            categories.append(category)
+            current_tokens += category_tokens
+
+        if categories:
+            self._role_scripts.append(
+                self._create_role_script(categories, current_tokens)
+            )
+
+    def _create_role_script(
+        self, categories: list[str], max_tokens: int
+    ) -> RoleScript:
+        """
+        Creates a RoleScript object for the given categories.
+
+        Args:
+            categories (list[str]): List of categories to include in this
+                RoleScript.
+            max_tokens (int): Maximum number of tokens for this RoleScript.
+
+        Returns:
+            RoleScript: A RoleScript object.
+        """
+        instructions = self._create_instructions(categories)
+        attributes_json = self._form_schema(categories)
+        system_message = instructions + attributes_json
+        return RoleScript(system_message, max_tokens)
 
     def _combine_responses(self, responses: list[str]) -> str:
         """Combine AI responses
@@ -407,7 +389,7 @@ class NameAnalyzer(NameTools):
             + ",".join(part.lstrip("{").rstrip("}") for part in responses)
             + "}"
             if self.json_mode
-            else "".join(responses)
+            else "\n".join(responses)
         )
 
     def analyze_names(self) -> dict:
