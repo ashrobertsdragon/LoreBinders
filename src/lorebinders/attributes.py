@@ -431,8 +431,8 @@ class NameSummarizer(NameTools):
     chapters.
 
     Attributes:
-        metadata (dict): The book metadata.
-        chapter (Chapter): The Chapter object being iterated over.
+        _ai (AIInterface): The AIInterface object.
+        _categories_base (list): The base list of categories to be analyzed.
         temperature (float): The temperature parameter for AI response
             generation.
         max_tokens (int): The maximum number of tokens for AI response
