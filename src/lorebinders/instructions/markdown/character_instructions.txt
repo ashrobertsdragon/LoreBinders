@@ -8,7 +8,7 @@ An example from an early chapter of Jane Eyre:
 - fair skin
 - dark brown hair
 - hazel eyes
-- plain appearance", '
+- plain appearance
 
 ### Personality
 
