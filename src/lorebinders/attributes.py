@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections import defaultdict
 from typing import TYPE_CHECKING, Generator, cast
 
 if TYPE_CHECKING:
@@ -501,29 +502,41 @@ class NameSummarizer(NameTools):
         for category, category_names in self.lorebinder.items():
             yield from self._generate_prompts(category, category_names)
 
+    @staticmethod
+    def _iterate_categories(detail_dict: dict) -> dict:
+        traits: defaultdict[str, list] = defaultdict(list)
+        for chapter_details in detail_dict.values():
+            for attribute, value in chapter_details.items():
+                traits[attribute].extend(
+                    value if isinstance(value, list) else [value]
+                )
+        return dict(traits)
+
     def _create_description(self, category: str, details: dict | list) -> str:
         if category in self._categories_base:
             detail_dict: dict = cast(dict, details)  # Stupid MyPy
-            return ", ".join(
-                f"{attribute}: {','.join(detail)}"
-                for attribute, detail in detail_dict.items()
+            traits = self._iterate_categories(detail_dict)
+            return "; ".join(
+                f"{trait}: {', '.join(detail)}"
+                for trait, detail in traits.items()
             )
         else:
             detail_list: list = cast(list, details)
             return ", ".join(detail_list)
 
-    def _filter_chapters(self, category_names: dict) -> Generator:
+    def _filter_chapters(
+        self, category_names: dict[str, dict]
+    ) -> Generator[tuple[str, dict[str, dict]], None, None]:
         for name, chapters in category_names.items():
             if len(chapters) > self._minimum_chapter_threshold:
                 yield name, chapters
 
     def _generate_prompts(
-        self, category: str, category_names: dict
-    ) -> Generator:
+        self, category: str, category_names: dict[str, dict]
+    ) -> Generator[tuple[str, str, str], None, None]:
         for name, chapters in self._filter_chapters(category_names):
-            for _, details in chapters.items():
-                description = self._create_description(category, details)
-                yield category, name, f"{name}: {description}"
+            description = self._create_description(category, chapters)
+            yield category, name, f"{name}: {description}"
 
     def summarize_names(self, lorebinder: dict) -> dict:
         """
