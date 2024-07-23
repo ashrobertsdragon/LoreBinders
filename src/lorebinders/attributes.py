@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
 from lorebinders.ai.ai_interface import AIInterface
 from lorebinders.name_tools import NameTools
-from lorebinders.prompt_generator import PromptGenerator
+from lorebinders.prompt_generator import create_prompts
 from lorebinders.role_script import RoleScript
 from lorebinders.sort_names import SortNames
 
@@ -483,8 +483,6 @@ class NameSummarizer(NameTools):
         self._current_name: str | None = None
         self.lorebinder: dict = {}
 
-        self._prompt_generator = PromptGenerator(self._categories_base)
-
     def build_role_script(self) -> None:
         system_message = (
             "You are an expert summarizer. Please summarize the description "
@@ -501,9 +499,7 @@ class NameSummarizer(NameTools):
         Lorebinder dictionary.
         """
         self.lorebinder = lorebinder
-        for category, name, prompt in self._prompt_generator.create_prompts(
-            lorebinder
-        ):
+        for category, name, prompt in create_prompts(lorebinder):
             self._current_category = category
             self._current_name = name
             if self._single_role_script:
