@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import json
-from collections import defaultdict
-from typing import TYPE_CHECKING, Generator, cast
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from lorebinders._types import BookDict, Chapter
 
 from lorebinders.ai.ai_interface import AIInterface
 from lorebinders.name_tools import NameTools
+from lorebinders.prompt_generator import PromptGenerator
 from lorebinders.role_script import RoleScript
 from lorebinders.sort_names import SortNames
 
@@ -482,7 +482,8 @@ class NameSummarizer(NameTools):
         self._current_category: str | None = None
         self._current_name: str | None = None
         self.lorebinder: dict = {}
-        self._minimum_chapter_threshold: int = 3
+
+        self._prompt_generator = PromptGenerator(self._categories_base)
 
     def build_role_script(self) -> None:
         system_message = (
@@ -490,53 +491,6 @@ class NameSummarizer(NameTools):
             "over the course of the story for the following:"
         )
         self._single_role_script = RoleScript(system_message, self.max_tokens)
-
-    def _create_prompts(self) -> Generator:
-        """
-        Generate prompts for each name in the lorebinder.
-
-        Yields:
-            Tuple[str, str, str]: A tuple containing the category, name, and
-                prompt for each name in the lorebinder.
-        """
-        for category, category_names in self.lorebinder.items():
-            yield from self._generate_prompts(category, category_names)
-
-    @staticmethod
-    def _iterate_categories(detail_dict: dict) -> dict:
-        traits: defaultdict[str, list] = defaultdict(list)
-        for chapter_details in detail_dict.values():
-            for attribute, value in chapter_details.items():
-                traits[attribute].extend(
-                    value if isinstance(value, list) else [value]
-                )
-        return dict(traits)
-
-    def _create_description(self, category: str, details: dict | list) -> str:
-        if category in self._categories_base:
-            detail_dict: dict = cast(dict, details)  # Stupid MyPy
-            traits = self._iterate_categories(detail_dict)
-            return "; ".join(
-                f"{trait}: {', '.join(detail)}"
-                for trait, detail in traits.items()
-            )
-        else:
-            detail_list: list = cast(list, details)
-            return ", ".join(detail_list)
-
-    def _filter_chapters(
-        self, category_names: dict[str, dict]
-    ) -> Generator[tuple[str, dict[str, dict]], None, None]:
-        for name, chapters in category_names.items():
-            if len(chapters) > self._minimum_chapter_threshold:
-                yield name, chapters
-
-    def _generate_prompts(
-        self, category: str, category_names: dict[str, dict]
-    ) -> Generator[tuple[str, str, str], None, None]:
-        for name, chapters in self._filter_chapters(category_names):
-            description = self._create_description(category, chapters)
-            yield category, name, f"{name}: {description}"
 
     def summarize_names(self, lorebinder: dict) -> dict:
         """
@@ -547,7 +501,9 @@ class NameSummarizer(NameTools):
         Lorebinder dictionary.
         """
         self.lorebinder = lorebinder
-        for category, name, prompt in self._create_prompts():
+        for category, name, prompt in self._prompt_generator.create_prompts(
+            lorebinder
+        ):
             self._current_category = category
             self._current_name = name
             if self._single_role_script:
@@ -576,5 +532,5 @@ class NameSummarizer(NameTools):
         if response and self._current_category and self._current_name:
             category = self._current_category
             name = self._current_name
-            lorebinder[category][name]["summary"] = response
+            lorebinder[category] = {name: {"summary": response}}
         return lorebinder
