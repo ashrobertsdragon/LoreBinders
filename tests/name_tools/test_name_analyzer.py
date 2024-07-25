@@ -1,3 +1,10 @@
+import pytest
+from unittest.mock import Mock, patch
+
+from lorebinders.name_tools.name_extractor import NameAnalyzer
+from tests.name_tools.fixtures import name_analyzer, name_analyzer_markdown, mock_metadata, mock_chapter
+
+
 def test_name_analyzer_init(name_analyzer):
     assert name_analyzer.instruction_type == "json"
     assert name_analyzer.temperature == 0.4

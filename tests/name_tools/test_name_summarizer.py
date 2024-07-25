@@ -1,3 +1,10 @@
+import pytest
+from unittest.mock import Mock, patch
+
+from lorebinders.name_tools.name_extractor import NameSummarizer
+from tests.name_tools.fixtures import ai_interface,name_summarizer, mock_metadata, mock_chapter
+
+
 def test_name_summarizer_init(ai_interface):
     summarizer = NameSummarizer(ai_interface)
 
