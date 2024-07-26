@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import Mock, patch
 
 from lorebinders.name_tools.name_extractor import NameExtractor
-from tests.name_tools.fixtures import name_extractor, mock_metadata, mock_chapter
+from tests.name_tools.name_fixtures import name_extractor, mock_metadata, mock_chapter
 
 def test_name_extractor_initialize_chapter(name_extractor, mock_metadata, mock_chapter):
     name_extractor._get_instruction_text = Mock(side_effect=["Base instructions", "Further instructions"])
@@ -39,7 +39,7 @@ def test_name_extractor_build_custom_role_empty(name_extractor):
     assert result == ""
 
 @patch.object(NameExtractor, "_build_custom_role")
-@patch('lorebinders.attributes.RoleScript')
+@patch('lorebinders.name_tools.name_extractor.RoleScript')
 def test_name_extractor_build_role_script(MockRoleScript, mock_build_custom_role, name_extractor):
     mock_build_custom_role.return_value = "Custom role"
     name_extractor._base_instructions = "Base"
@@ -67,7 +67,7 @@ def test_name_extractor_extract_names(mock_parse_response, mock_get_ai_response,
     mock_parse_response.assert_called_once_with("AI response")
     assert result == {"characters": ["Alice", "Bob"]}
 
-@patch('lorebinders.attributes.SortNames')
+@patch('lorebinders.name_tools.name_extractor.SortNames')
 def test_name_extractor_parse_response(MockSortNames, name_extractor):
     name_extractor.narrator = "John"
     mock_sorter = MockSortNames.return_value

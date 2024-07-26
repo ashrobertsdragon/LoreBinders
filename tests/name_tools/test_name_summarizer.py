@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import Mock, patch
 
-from lorebinders.name_tools.name_extractor import NameSummarizer
-from tests.name_tools.fixtures import ai_interface,name_summarizer, mock_metadata, mock_chapter
+from lorebinders.name_tools.name_summarizer import NameSummarizer
+from tests.name_tools.name_fixtures import ai_interface,name_summarizer, mock_metadata, mock_chapter
 
 
 def test_name_summarizer_init(ai_interface):
@@ -40,7 +40,7 @@ def test_parse_response_valid_response_updates_lorebinder(name_summarizer):
 
     assert result == {"Characters": {"Alice": {"summary": "Alice is a brave warrior."}}}
 
-@patch("lorebinders.attributes.create_prompts")
+@patch("lorebinders.name_tools.name_summarizer.create_prompts")
 @patch.object(NameSummarizer, "_get_ai_response")
 @patch.object(NameSummarizer, "_parse_response")
 def test_name_summarizer_identify_current_category_and_name(mock_parse_response, mock_get_ai_response, mock_create_prompts, name_summarizer):
@@ -105,7 +105,7 @@ def test_name_summarizer_new_summarize_names_returns_updated_lorebinder(mock_get
     assert updated_lorebinder == mock_lorebinder_with_summary
 
 @patch.object(NameSummarizer, "_get_ai_response")
-@patch('lorebinders.attributes.RoleScript')
+@patch('lorebinders.name_tools.name_summarizer.RoleScript')
 def test_name_summarizer_get_ai_response(MockRoleScript, mock_get_ai_response, name_summarizer):
     prompt = "Test prompt"
 
@@ -113,7 +113,7 @@ def test_name_summarizer_get_ai_response(MockRoleScript, mock_get_ai_response, n
 
     mock_get_ai_response.assert_called_once_with(MockRoleScript, prompt)
 
-@patch("lorebinders.attributes.create_prompts")
+@patch("lorebinders.name_tools.name_summarizer.create_prompts")
 @patch.object(NameSummarizer, "_get_ai_response")
 @patch.object(NameSummarizer, "_parse_response")
 def test_name_summarizer_summarize_names(mock_create_prompts, mock_parse_response, mock_get_ai_response, name_summarizer):

@@ -1,7 +1,9 @@
 import pytest
 from unittest.mock import Mock
 
-from name_tools import NameAnalyzer, NameExtractor, NameSummarizer
+from lorebinders.name_tools.name_analyzer import NameAnalyzer
+from lorebinders.name_tools.name_extractor import NameExtractor
+from lorebinders.name_tools.name_summarizer import NameSummarizer
 
 @pytest.fixture
 def ai_interface() -> Mock:

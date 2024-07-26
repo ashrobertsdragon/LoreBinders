@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from lorebinders._types import BookDict, Chapter
 
 from lorebinders.ai.ai_interface import AIInterface
-from lorebinders.name_tools import NameTools
+from lorebinders.name_tools.name_tools import NameTools
 from lorebinders.role_script import RoleScript
 from lorebinders.sort_names import SortNames
 

@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from lorebinders._types import BookDict, Chapter
 
 from lorebinders.ai.ai_interface import AIInterface
-from lorebinders.name_tools import NameTools
+from lorebinders.name_tools.name_tools import NameTools
 from lorebinders.role_script import RoleScript
 
 

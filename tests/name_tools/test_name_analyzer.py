@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import Mock, patch
 
-from lorebinders.name_tools.name_extractor import NameAnalyzer
-from tests.name_tools.fixtures import name_analyzer, name_analyzer_markdown, mock_metadata, mock_chapter
+from lorebinders.name_tools.name_analyzer import NameAnalyzer
+from tests.name_tools.name_fixtures import name_analyzer, name_analyzer_markdown, mock_metadata, mock_chapter
 
 
 def test_name_analyzer_init(name_analyzer):
@@ -88,7 +88,7 @@ def test_name_analyzer_create_instructions(name_analyzer):
     assert all(part in instructions for part in ["Base", "Character", "Settings"])
 
 @patch.object(NameAnalyzer, "_create_instructions")
-@patch("lorebinders.attributes.NameAnalyzer._form_schema")
+@patch.object("NameAnalyzer","_form_schema")
 def test_name_analyzer_create_role_script(mock_form_schema, mock_create_instructions, name_analyzer):
     mock_create_instructions.return_value="Test instructions"
     mock_form_schema.return_value="Test schema"

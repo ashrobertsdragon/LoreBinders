@@ -1,5 +1,5 @@
 from lorebinders.ai.ai_interface import AIInterface
-from lorebinders.name_tools import NameTools
+from lorebinders.name_tools.name_tools import NameTools
 from lorebinders.prompt_generator import create_prompts
 from lorebinders.role_script import RoleScript
 
