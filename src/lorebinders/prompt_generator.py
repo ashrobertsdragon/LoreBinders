@@ -1,3 +1,4 @@
+import re
 from typing import Generator
 
 
@@ -10,35 +11,31 @@ def filter_chapters(
             yield name, chapters
 
 
+def split_value(value: str) -> list[str]:
+    return re.split(r"[;,]\s*", value)
+
+
 def add_to_traits(
     attribute: str,
     value: str | list[str],
     traits: dict[str, list[str]],
-) -> None:
+) -> dict[str, list[str]]:
     if attribute not in traits:
         traits[attribute] = []
     if isinstance(value, list):
         traits[attribute].extend(value)
     else:
-        process_value(attribute, value, traits)
-
-
-def process_value(
-    attribute: str, value: str, traits: dict[str, list[str]]
-) -> None:
-    if ";" in value or "," in value:
-        value = value.replace("; ", ",")
-        traits[attribute].extend(value.split(","))
-    else:
-        traits[attribute].append(value)
+        traits[attribute].extend(split_value(value))
+    return traits
 
 
 def process_chapter_details(
     chapter_details: dict[str, str | list[str]],
     traits: dict[str, list[str]],
-) -> None:
+) -> dict[str, list[str]]:
     for attribute, value in chapter_details.items():
-        add_to_traits(attribute, value, traits)
+        traits = add_to_traits(attribute, value, traits)
+    return traits
 
 
 def iterate_categories(
@@ -46,7 +43,7 @@ def iterate_categories(
 ) -> dict[str, list[str]]:
     traits: dict[str, list[str]] = {}
     for chapter_details in detail_dict.values():
-        process_chapter_details(chapter_details, traits)
+        traits = process_chapter_details(chapter_details, traits)
     return traits
 
 
