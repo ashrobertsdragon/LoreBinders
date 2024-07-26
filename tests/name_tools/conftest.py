@@ -7,34 +7,42 @@ from lorebinders.name_tools.name_summarizer import NameSummarizer
 
 @pytest.fixture
 def ai_interface() -> Mock:
+    """Mock AI interface class instance"""
     return Mock()
 
 @pytest.fixture
 def mock_create_prompts() -> Mock:
+    """Mock create_prompts function"""
     return Mock()
 
 @pytest.fixture
 def name_extractor(ai_interface) -> NameExtractor:
+    """Create instance of NameExtractor class with mocked AI interface"""
     return NameExtractor(ai_interface)
 
 @pytest.fixture
 def name_analyzer(ai_interface) -> NameAnalyzer:
+    """Create instance of NameAnalyzer class with mocked AI interface"""
     return NameAnalyzer(ai_interface, instruction_type="json", absolute_max_tokens=1000)
 
 @pytest.fixture
 def name_analyzer_markdown(ai_interface) -> NameAnalyzer:
+    """Create instance of NameAnalyzer class with mocked AI interface and instruction_type attribute set to 'markdown'"""
     return NameAnalyzer(ai_interface, instruction_type="markdown", absolute_max_tokens=1000)
 
 @pytest.fixture
 def name_summarizer(ai_interface) -> NameSummarizer:
+    """Create instance of NameSummarizer class with mocked AI interface"""
     return NameSummarizer(ai_interface)
 
 @pytest.fixture
 def mock_metadata() -> Mock:
+    """Mock of BookDict metadata"""
     return Mock(narrator="John", custom_categories=["Location", "Item"], character_traits=["Motivation"])
 
 @pytest.fixture
 def mock_chapter() -> Mock:
+    """Mock of instance of Chapter class with data"""
     return Mock(text="This is a sample chapter text.", names={
         "Characters": ["Alice", "Bob"],
         "Settings": ["Forest", "Castle"],
@@ -42,6 +50,7 @@ def mock_chapter() -> Mock:
     })
 @pytest.fixture
 def mock_lorebinder() -> dict[str, dict]:
+    """Sample lorebinder dictionary"""
     return {
         "Characters": {
             "Alice": {
@@ -119,6 +128,7 @@ def mock_lorebinder() -> dict[str, dict]:
 
 @pytest.fixture
 def mock_lorebinder_with_summary() -> dict[str, dict[str, dict]]:
+    """Sample lorebinder dictionary with summary"""
     return {
         "Characters": {
             "Alice": {
