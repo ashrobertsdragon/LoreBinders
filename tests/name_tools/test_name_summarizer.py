@@ -2,7 +2,6 @@ import pytest
 from unittest.mock import Mock, patch
 
 from lorebinders.name_tools.name_summarizer import NameSummarizer
-from tests.name_tools.name_fixtures import ai_interface,name_summarizer, mock_metadata, mock_chapter
 
 
 def test_name_summarizer_init(ai_interface):
@@ -32,6 +31,7 @@ def test_name_summarizer_build_role_script(name_summarizer):
 
 def test_parse_response_valid_response_updates_lorebinder(name_summarizer):
 
+    name_summarizer.lorebinder = {"Characters": {"Alice": {}}}
     name_summarizer._current_category = "Characters"
     name_summarizer._current_name = "Alice"
     response = "Alice is a brave warrior."
@@ -116,9 +116,11 @@ def test_name_summarizer_get_ai_response(MockRoleScript, mock_get_ai_response, n
 @patch("lorebinders.name_tools.name_summarizer.create_prompts")
 @patch.object(NameSummarizer, "_get_ai_response")
 @patch.object(NameSummarizer, "_parse_response")
-def test_name_summarizer_summarize_names(mock_create_prompts, mock_parse_response, mock_get_ai_response, name_summarizer):
-    prompts = iter([("Characters", "Alice", "Alice: Description1"), ("Settings", "Forest", "Forest: Description2")])
-    mock_create_prompts.side_effect = prompts
+def test_name_summarizer_summarize_names(mock_parse_response, mock_get_ai_response, mock_create_prompts, name_summarizer):
+    """Test the summarize_names method with patches of the create_prompts function and the _get_ai_response and _parse_response methods"""
+
+    prompts: list[tuple[str, str, str]] = [("Characters", "Alice", "Alice: Description1"), ("Settings", "Forest", "Forest: Description2")]
+    mock_create_prompts.return_value = iter(prompts)
     mock_get_ai_response.return_value = "Generated summary"
 
     name_summarizer._single_role_script = Mock()
@@ -127,6 +129,6 @@ def test_name_summarizer_summarize_names(mock_create_prompts, mock_parse_respons
 
     name_summarizer.summarize_names({"test": "value"})
 
-    assert mock_create_prompts.call_count == 2
-    assert name_summarizer._get_ai_response.call_count == 2
-    assert name_summarizer.mock_parse_response.call_count == 2
+    assert mock_create_prompts.call_count == 1
+    assert mock_get_ai_response.call_count == 2
+    assert mock_parse_response.call_count == 2

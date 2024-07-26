@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import Mock, patch
 
 from lorebinders.name_tools.name_analyzer import NameAnalyzer
-from tests.name_tools.name_fixtures import name_analyzer, name_analyzer_markdown, mock_metadata, mock_chapter
+
 
 
 def test_name_analyzer_init(name_analyzer):
@@ -88,7 +88,7 @@ def test_name_analyzer_create_instructions(name_analyzer):
     assert all(part in instructions for part in ["Base", "Character", "Settings"])
 
 @patch.object(NameAnalyzer, "_create_instructions")
-@patch.object("NameAnalyzer","_form_schema")
+@patch.object(NameAnalyzer,"_form_schema")
 def test_name_analyzer_create_role_script(mock_form_schema, mock_create_instructions, name_analyzer):
     mock_create_instructions.return_value="Test instructions"
     mock_form_schema.return_value="Test schema"
@@ -132,7 +132,7 @@ def test_name_analyzer_analyze_names(mock_get_ai_response, name_analyzer, mock_c
     assert result == {"parsed": "data"}
     assert mock_get_ai_response.call_count == 2
 
-@patch('lorebinders.json_tools.RepairJSON')
+@patch("lorebinders.json_tools.RepairJSON")
 def test_name_analyzer_parse_response_json(MockRepairJSON, name_analyzer):
     name_analyzer.instruction_type = "json"
     mock_repair = MockRepairJSON.return_value
@@ -140,7 +140,7 @@ def test_name_analyzer_parse_response_json(MockRepairJSON, name_analyzer):
     result = name_analyzer._parse_response('{"test": "response"}')
     assert result == {"parsed": "data"}
 
-@patch('lorebinders.markdown_parser.markdown_to_dict')
+@patch("lorebinders.markdown_parser.markdown_to_dict")
 def test_name_analyzer_parse_response_markdown(mock_markdown_to_dict, name_analyzer):
     name_analyzer.instruction_type = "markdown"
     mock_markdown_to_dict.return_value = {"parsed": "data"}

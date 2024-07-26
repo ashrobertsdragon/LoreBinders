@@ -2,7 +2,6 @@ import pytest
 from unittest.mock import Mock, patch
 
 from lorebinders.name_tools.name_extractor import NameExtractor
-from tests.name_tools.name_fixtures import name_extractor, mock_metadata, mock_chapter
 
 def test_name_extractor_initialize_chapter(name_extractor, mock_metadata, mock_chapter):
     name_extractor._get_instruction_text = Mock(side_effect=["Base instructions", "Further instructions"])
