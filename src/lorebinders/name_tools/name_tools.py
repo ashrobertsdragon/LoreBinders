@@ -7,34 +7,47 @@ from lorebinders.ai.ai_interface import AIInterface
 from lorebinders.role_script import RoleScript
 
 
-class NameTools:
+def get_instruction_text(
+    file_name: str, *, prompt_type: str | None = None
+) -> str:
     """
-    Mixin class for providing interface for AI to Name classes.
+    Get the instruction text from the file.
+
+    Args:
+        file_name (str): The filename of the instruction text.
+        prompt_type (str, optional): The type of prompt. Defaults to None.
+
+    Returns:
+        str: The instruction text read from the file.
     """
+    file_path: str = os.path.join("instructions", prompt_type or "", file_name)
+    return file_handling.read_text_file(file_path)
 
-    def __init__(self, ai: AIInterface) -> None:
-        self._ai = ai
-        self._categories_base: list[str] = ["Characters", "Settings"]
-        self.temperature: float = 0.7
-        self.json_mode: bool = False
 
-    def _get_instruction_text(
-        self, file_name: str, *, prompt_type: str | None = None
-    ) -> str:
-        if prompt_type is not None:
-            os.path.join("instructions", prompt_type, file_name)
-        else:
-            file_path = os.path.join("instructions", file_name)
-        return file_handling.read_text_file(file_path)
+def get_ai_response(
+    ai: AIInterface,
+    role_script: RoleScript,
+    prompt: str,
+    temperature: float,
+    json_mode: bool,
+) -> str:
+    """
+    Create the payload to send to the AI and send it.
 
-    def _get_ai_response(self, role_script: RoleScript, prompt: str) -> str:
-        """
-        Create the payload to send to the AI and send it.
-        """
-        payload = self._ai.create_payload(
-            prompt,
-            role_script.script,
-            self.temperature,
-            role_script.max_tokens,
-        )
-        return self._ai.call_api(payload, self.json_mode)
+    Args:
+        ai (AIInterface): The AI interface to use.
+        role_script (RoleScript): The role script to use.
+        prompt (str): The prompt to send to the AI.
+        temperature (float): The temperature to use.
+        json_mode (bool): Whether to use JSON mode or not.
+
+    Returns:
+        str: The response from the AI.
+    """
+    payload: dict = ai.create_payload(
+        prompt,
+        role_script.script,
+        temperature,
+        role_script.max_tokens,
+    )
+    return ai.call_api(payload, json_mode)
