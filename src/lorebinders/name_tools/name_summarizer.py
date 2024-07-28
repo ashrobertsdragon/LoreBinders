@@ -5,31 +5,40 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from lorebinders._types import AIInterface
 
+from lorebinders import prompt_generator
 from lorebinders.name_tools import name_tools
-from lorebinders.prompt_generator import create_prompts
 from lorebinders.role_script import RoleScript
 
 
-def build_role_script() -> RoleScript:
+def build_role_script(max_tokens: int = 200) -> RoleScript:
     """
-    Build the RoleScript
+    Builds the RoleScript
     """
     system_message = (
         "You are an expert summarizer. Please summarize the description "
         "over the course of the story for the following:"
     )
-    return RoleScript(system_message, 200)  # max_tokens set to 200
+    return RoleScript(system_message, max_tokens)
 
 
-def parse_response(
-    response: str, lorebinder: dict, current_category: str, current_name: str
+def update_lorebinder(
+    response: str, lorebinder: dict, category: str, name: str
 ) -> dict:
     """
-    Parses the response from the AI model to extract names and add them to the
-    Chapter object.
+    Adds the response as a value to a new summary key in the appropriate
+    section of the Lorebinder dictionary.
+
+    Args:
+        response (str): The response from the AI.
+        lorebinder (dict): The lorebinder dictionary.
+        category (str): The category the name is in.
+        name (str): The name the summary is for.
+
+    Returns:
+        dict: The updated lorebinder dictionary.
     """
-    if response and current_category and current_name:
-        lorebinder[current_category][current_name] = {"summary": response}
+    if response and category and name:
+        lorebinder[category][name] = {"summary": response}
     return lorebinder
 
 
@@ -48,10 +57,10 @@ def summarize_names(ai: AIInterface, lorebinder: dict) -> dict:
     temperature: float = 0.4
     json_mode: bool = False
 
-    for category, name, prompt in create_prompts(lorebinder):
+    for category, name, prompt in prompt_generator.create_prompts(lorebinder):
         response = name_tools.get_ai_response(
             ai, role_script, prompt, temperature, json_mode
         )
-        lorebinder = parse_response(response, lorebinder, category, name)
+        lorebinder = update_lorebinder(response, lorebinder, category, name)
 
     return lorebinder
