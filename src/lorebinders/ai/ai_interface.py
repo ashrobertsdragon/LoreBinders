@@ -4,7 +4,11 @@ import importlib
 import logging
 from typing import TYPE_CHECKING
 
-from lorebinders.ai.ai_models._model_schema import APIProvider, Model
+from lorebinders.ai.ai_models._model_schema import (
+    APIProvider,
+    Model,
+    ModelFamily
+)
 from lorebinders.ai.ai_type import AIType
 from lorebinders.ai.exceptions import MissingAIProviderError
 
@@ -77,12 +81,27 @@ class AIInterface:
         """
         model = self._family.get_model_by_id(model_id)
         self._ai.set_model(model, self._rate_limiter)
+        self._model = model
 
-    def get_model(self, model_id: int) -> Model:
+    def get_model_by_id(self, model_id: int) -> Model:
         """
         Retrieve model dictionary from configuration.
         """
         return self._family.get_model_by_id(model_id)
+
+    @property
+    def model(self) -> Model:
+        """
+        Return the Model object.
+        """
+        return self._model
+
+    @property
+    def family(self) -> ModelFamily:
+        """
+        Return the ModelFamily object.
+        """
+        return self._family
 
     def call_api(
         self,
@@ -92,7 +111,8 @@ class AIInterface:
         assistant_message: str | None = None,
     ) -> str:
         """
-        Calls the 'call_api method of the actual AI API class.
+        Facade method that calls the 'call_api method of the actual AI
+        APIProvider class.
         """
         return self._ai.call_api(
             api_payload, json_response, retry_count, assistant_message
@@ -106,7 +126,8 @@ class AIInterface:
         max_tokens: int,
     ) -> dict:
         """
-        Calls the 'create_payload' method of the actual AI class which has:
+        Facade method that calls the 'create_payload' method of the actual AI
+        class which has:
 
         Creates a payload dictionary for making API calls to the AI engine.
 
