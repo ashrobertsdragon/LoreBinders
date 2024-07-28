@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import os
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from lorebinders._types import InstructionType
 import lorebinders.file_handling as file_handling
 from lorebinders.ai.ai_interface import AIInterface
 from lorebinders.role_script import RoleScript
 
 
 def get_instruction_text(
-    file_name: str, *, prompt_type: str | None = None
+    file_name: str, *, instruction_type: InstructionType | None = None
 ) -> str:
     """
     Get the instruction text from the file.
@@ -20,6 +23,8 @@ def get_instruction_text(
     Returns:
         str: The instruction text read from the file.
     """
+    if instruction_type:
+        prompt_type = instruction_type.value
     file_path: str = os.path.join("instructions", prompt_type or "", file_name)
     return file_handling.read_text_file(file_path)
 

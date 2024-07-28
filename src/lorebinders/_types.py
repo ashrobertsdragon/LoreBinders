@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from logging import Logger
+from enum import Enum
 from typing import TYPE_CHECKING, Literal, TypeVar
 
+from loguru import logger
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionAssistantMessageParam,
@@ -33,8 +34,15 @@ FinishReason = Literal[
     "stop", "length", "tool_calls", "content_filter", "function_call"
 ]
 
+
+class InstructionType(Enum):
+    MARKDOWN = "markdown"
+    JSON = "json"
+
+
 __all__ = [
     "FinishReason",
+    "InstructionType",
     "ChatCompletion",
     "ChatCompletionAssistantMessageParam",
     "ChatCompletionSystemMessageParam",
@@ -44,7 +52,7 @@ __all__ = [
     "BookDict",
     "Book",
     "Chapter",
-    "Logger",
+    "logger",
     "AIProviderManager",
     "EmailManager",
     "ErrorManager",
