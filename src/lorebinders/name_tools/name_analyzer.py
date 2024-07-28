@@ -6,28 +6,18 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from lorebinders._types import BookDict, Chapter
+    from lorebinders._types import AIInterface, Chapter
 
-from lorebinders.ai.ai_interface import AIInterface
 from lorebinders.name_tools import name_tools
 from lorebinders.role_script import RoleScript
 
-
-@dataclass
-class AnalyzerConfig:
-    """
-    The configuration for the name analysis
-    """
-
-    instruction_type: str
-    absolute_max_tokens: int
-    base_categories: list[str] = ["Characters", "Settings"]
+BASE_CATEGORIES: list[str] = ["Characters", "Settings"]
 
 
-@dataclass
+@dataclass(frozen=True)
 class Instructions:
     """
-    The instruction strings for the role scripts
+    The instruction strings for the role scripts.
     """
 
     base: str
@@ -35,12 +25,23 @@ class Instructions:
     settings: str
 
 
+@dataclass(frozen=True)
+class RoleScriptHelper:
+    """
+    The additional information needed to build the role scripts.
+    """
+
+    instruction_type: str
+    absolute_max_tokens: int
+    instructions: Instructions
+
+
 def get_tokens_per(instruction_type: str) -> dict[str, int]:
     """
     Gets the tokens per for the analysis.
 
     Args:
-        instruction_type (str): The type of instruction to use.
+        instruction_type (str): The format the AI is told to respond in.
 
     Returns:
         dict[str, int]: The tokens per for the analysis.
@@ -60,7 +61,6 @@ def get_tokens_per(instruction_type: str) -> dict[str, int]:
 def generate_schema(
     category: str,
     added_traits: list[str] | None,
-    base_categories: list[str],
 ) -> str:
     """
     Generates the schema for the analysis.
@@ -68,9 +68,6 @@ def generate_schema(
     Args:
         category (str): The category to generate the schema for.
         added_traits (list[str] | None): The user added traits to include in
-            the analysis.
-        base_categories (list[str]): The base categories to include in the
-            analysis.
 
     Returns:
         str: The schema for the analysis.
@@ -93,47 +90,10 @@ def generate_schema(
 
     schema_stub = (
         {attr: "Description" for attr in cat_attr_map[category]}
-        if category in base_categories
+        if category in BASE_CATEGORIES
         else "Description"
     )
     return json.dumps({category: schema_stub})
-
-
-def create_instructions(
-    categories: list[str],
-    instructions: Instructions,
-    base_categories: list[str],
-) -> str:
-    """
-    Creates the instructions for the analysis.
-
-    Args:
-        categories (list[str]): The categories to include in the analysis.
-        instructions (Instructions): The instructions for the analysis.
-        base_categories (list[str]): The base categories to include in the
-            analysis.
-
-    Returns:
-        str: The instructions for the analysis.
-    """
-    result: str = instructions.base
-
-    if "Characters" in categories:
-        result += f"\n{instructions.character}"
-    if "Settings" in categories:
-        result += f"\n{instructions.settings}"
-
-    if other_categories := [
-        cat for cat in categories if cat not in base_categories
-    ]:
-        result += f"\nProvide descriptions of {', '.join(other_categories)}"
-        result += " without referencing specific characters or plot points"
-
-    return (
-        result
-        + "\nYou will format this information using the following schema where"
-        + ' "description" is replaced with the actual information.\n'
-    )
 
 
 def initialize_instructions(instruction_type: str) -> Instructions:
@@ -141,7 +101,7 @@ def initialize_instructions(instruction_type: str) -> Instructions:
     Initializes the instructions dataclass for the analysis.
 
     Args:
-        instruction_type (str): The type of instruction to use.
+        instruction_type (str): The format to tell the AI to respond in.
 
     Returns:
         Instructions: The instructions for the analysis.
@@ -160,10 +120,83 @@ def initialize_instructions(instruction_type: str) -> Instructions:
     )
 
 
+def initialize_role_script_helper(
+    instruction_type: str, absolute_max_tokens: int, instructions: Instructions
+) -> RoleScriptHelper:
+    """
+    Creates a dataclass of information needed to build the RoleScript objects.
+
+    Args:
+        instruction_type (str): The format the AI is told to respond in.
+
+    Returns:
+        RoleScriptHelper: The helper dataclass object.
+    """
+    return RoleScriptHelper(
+        instruction_type=instruction_type,
+        absolute_max_tokens=absolute_max_tokens,
+        instructions=instructions,
+    )
+
+
+def initialize_helpers(
+    instruction_type: str, absolute_max_tokens: int
+) -> RoleScriptHelper:
+    """
+    Initializes the helpers for the analysis.
+
+    Args:
+        instruction_type (str): The format to tell the AI to respond in.
+        absolute_max_tokens (int): The maximum number of tokens the AI model
+            can respond with.
+
+    Returns:
+        RoleScriptHelper: The helper dataclass object.
+    """
+    instructions: Instructions = initialize_instructions(instruction_type)
+    return initialize_role_script_helper(
+        instruction_type, absolute_max_tokens, instructions
+    )
+
+
+def create_instructions(
+    categories: list[str],
+    instructions: Instructions,
+) -> str:
+    """
+    Creates the instructions for the analysis.
+
+    Args:
+        categories (list[str]): The categories to include in the analysis.
+        instructions (Instructions): The instructions for the analysis.
+
+
+    Returns:
+        str: The instructions for the analysis.
+    """
+    result: str = instructions.base
+
+    if "Characters" in categories:
+        result += f"\n{instructions.character}"
+    if "Settings" in categories:
+        result += f"\n{instructions.settings}"
+
+    if other_categories := [
+        cat for cat in categories if cat not in BASE_CATEGORIES
+    ]:
+        result += f"\nProvide descriptions of {', '.join(other_categories)}"
+        result += " without referencing specific characters or plot points"
+
+    return (
+        result
+        + "\nYou will format this information using the following schema where"
+        + ' "description" is replaced with the actual information.\n'
+    )
+
+
 def create_role_script(
     categories: list[str],
     max_tokens: int,
-    config: AnalyzerConfig,
     instructions: Instructions,
     added_character_traits: list[str] | None,
 ) -> RoleScript:
@@ -173,21 +206,17 @@ def create_role_script(
     Args:
         categories (list[str]): The categories to include in the analysis.
         max_tokens (int): The maximum number of tokens for the analysis.
-        config (AnalyzerConfig): The configuration for the analysis.
-        instructions (Instructions): The instructions for the analysis.
+        instructions (Instructions): The unchanging segments of the system
+            instructions.
         added_character_traits (list[str] | None): The user added traits to
             include in the analysis.
 
     Returns:
         RoleScript: The role script for the AI.
     """
-    instruction_text: str = create_instructions(
-        categories, instructions, config.base_categories
-    )
+    instruction_text: str = create_instructions(categories, instructions)
     schema_text: str = "".join(
-        generate_schema(
-            category, added_character_traits, config.base_categories
-        )
+        generate_schema(category, added_character_traits)
         for category in categories
     )
     return RoleScript(instruction_text + schema_text, max_tokens)
@@ -195,8 +224,7 @@ def create_role_script(
 
 def build_role_scripts(
     chapter_data: dict,
-    config: AnalyzerConfig,
-    instructions: Instructions,
+    helper: RoleScriptHelper,
     added_character_traits: list[str] | None,
 ) -> list[RoleScript]:
     """
@@ -204,7 +232,7 @@ def build_role_scripts(
 
     Args:
         chapter_data (dict): The data of the chapter.
-        config (AnalyzerConfig): The configuration for the analysis.
+        helper (RoleScriptHelper): A dataclass of additional arguments.
         instructions (Instructions): The instructions for the analysis.
         added_character_traits (list[str] | None): The user added traits to
             include in the analysis.
@@ -212,7 +240,7 @@ def build_role_scripts(
     Returns:
         list[RoleScript]: The role scripts for the AI.
     """
-    tokens_per: dict[str, int] = get_tokens_per(config.instruction_type)
+    tokens_per: dict[str, int] = get_tokens_per(helper.instruction_type)
     role_scripts: list[RoleScript] = []
     categories: list = []
     current_tokens: int = 0
@@ -220,19 +248,18 @@ def build_role_scripts(
     for category, names in chapter_data.items():
         category_tokens: int = min(
             len(names) * tokens_per.get(category, tokens_per["Other"]),
-            config.absolute_max_tokens,
+            helper.absolute_max_tokens,
         )
 
         if (
-            current_tokens + category_tokens > config.absolute_max_tokens
+            current_tokens + category_tokens > helper.absolute_max_tokens
             and categories
         ):
             role_scripts.append(
                 create_role_script(
                     categories,
                     current_tokens,
-                    config,
-                    instructions,
+                    helper.instructions,
                     added_character_traits,
                 )
             )
@@ -246,8 +273,7 @@ def build_role_scripts(
             create_role_script(
                 categories,
                 current_tokens,
-                config,
-                instructions,
+                helper.instructions,
                 added_character_traits,
             )
         )
@@ -274,6 +300,18 @@ def combine_responses(responses: list[str], json_mode: bool) -> str:
 
 
 def parse_response(response: str, instruction_type: str) -> dict:
+    """
+    Parses the response from the AI model based on the instruction type to
+    form a dictionary.
+
+    Args:
+        response (str): The response from the AI model.
+        instruction_type (str): The format the AI was told to respond in.
+
+    Returns:
+        dict: A dictionary containing the names categorized by their respective
+            categories.
+    """
     if instruction_type == "json":
         from lorebinders.json_tools import RepairJSON
 
@@ -286,47 +324,39 @@ def parse_response(response: str, instruction_type: str) -> dict:
 
 def analyze_names(
     ai: AIInterface,
-    metadata: BookDict,
+    instruction_type: str,
+    role_scripts: list[RoleScript],
     chapter: Chapter,
-    config: AnalyzerConfig,
 ) -> dict:
     """
     Analyzes the names in the chapter and returns the analysis.
 
     Args:
         ai (AIInterface): The AIInterface object.
-        metadata (BookDict): The metadata of the book.
+        instruction_type (str): The format to tell the AI to respond in.
+        role_scripts (list[RoleScript]): List of instructions and max tokens
+            for the AI.
         chapter (Chapter): The chapter to analyze.
-        config (AnalyzerConfig): The configuration for the analysis.
 
     Returns:
         dict: The analysis of the names.
-
     """
-    instructions: Instructions = initialize_instructions(
-        config.instruction_type
-    )
-    role_scripts: list[RoleScript] = build_role_scripts(
-        chapter_data=chapter.names,
-        config=config,
-        instructions=instructions,
-        added_character_traits=metadata.character_traits,
-    )
 
+    json_mode = instruction_type == "json"
     responses: list[str] = [
         name_tools.get_ai_response(
             ai,
             script,
             f"Text: {chapter.text}",
             0.4,
-            config.instruction_type == "json",
+            json_mode,
         )
         for script in role_scripts
     ]
     combined_response: str = combine_responses(
-        responses=responses, json_mode=config.instruction_type == "json"
+        responses=responses, json_mode=json_mode
     )
     return parse_response(
         response=combined_response,
-        instruction_type=config.instruction_type,
+        instruction_type=instruction_type,
     )
