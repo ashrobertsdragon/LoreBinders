@@ -18,12 +18,12 @@ if TYPE_CHECKING:
         ErrorManager,
         RateLimitManager
     )
+    from lorebinders.ai.ai_interface import AIInterface
     from lorebinders.ai.exceptions import (
         KeyNotFoundError,
         MaxRetryError,
         NoMessageError
     )
-    from lorebinders.binders import Binder
     from lorebinders.book import Book, Chapter
     from lorebinders.book_dict import BookDict
 
@@ -39,11 +39,11 @@ __all__ = [
     "ChatCompletionAssistantMessageParam",
     "ChatCompletionSystemMessageParam",
     "ChatCompletionUserMessageParam",
+    "AIInterface",
     "ResponseFormat",
     "BookDict",
     "Book",
     "Chapter",
-    "Binder",
     "Logger",
     "AIProviderManager",
     "EmailManager",
