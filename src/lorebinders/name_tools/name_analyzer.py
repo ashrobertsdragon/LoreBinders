@@ -34,6 +34,7 @@ class RoleScriptHelper:
     instruction_type: InstructionType
     absolute_max_tokens: int
     instructions: Instructions
+    added_character_traits: list[str] | None
 
 
 @lru_cache(maxsize=None)
@@ -122,6 +123,7 @@ def initialize_role_script_helper(
     instruction_type: InstructionType,
     absolute_max_tokens: int,
     instructions: Instructions,
+    added_character_traits: list[str] | None = None,
 ) -> RoleScriptHelper:
     """
     Creates a dataclass of information needed to build the RoleScript objects.
@@ -136,11 +138,14 @@ def initialize_role_script_helper(
         instruction_type=instruction_type,
         absolute_max_tokens=absolute_max_tokens,
         instructions=instructions,
+        added_character_traits=added_character_traits,
     )
 
 
 def initialize_helpers(
-    instruction_type: InstructionType, absolute_max_tokens: int
+    instruction_type: InstructionType,
+    absolute_max_tokens: int,
+    added_character_traits: list[str] | None = None,
 ) -> RoleScriptHelper:
     """
     Initializes the helpers for the analysis.
@@ -155,7 +160,10 @@ def initialize_helpers(
     """
     instructions: Instructions = initialize_instructions(instruction_type)
     return initialize_role_script_helper(
-        instruction_type, absolute_max_tokens, instructions
+        instruction_type,
+        absolute_max_tokens,
+        instructions,
+        added_character_traits,
     )
 
 
@@ -224,8 +232,81 @@ def create_role_script(
     return RoleScript(instruction_text + schema_text, max_tokens)
 
 
+def calculate_category_tokens(
+    names: list[str],
+    instruction_type: InstructionType,
+    category: str,
+    max_tokens: int,
+) -> int:
+    """
+    Calculates the number of tokens for a category.
+
+    Args:
+        names (list[str]): The names to include in the batch.
+        instruction_type (InstructionType): The format of the AI response.
+        category (str): The category to include in the batch.
+        max_tokens (int): The maximum number of tokens for the batch.
+
+    Returns:
+        int: The number of tokens for the category.
+    """
+    tokens_per: dict[str, int] = get_tokens_per(instruction_type)
+    return min(
+        len(names) * tokens_per.get(category, tokens_per["Other"]), max_tokens
+    )
+
+
+def should_create_new_role_script(
+    current_tokens: int, category_tokens: int, max_tokens: int
+) -> bool:
+    """
+    Checks if a new role script should be created.
+
+    Args:
+        current_tokens (int): The number of tokens in the current role script.
+        category_tokens (int): The number of tokens for the current category.
+        max_tokens (int): The maximum number of tokens for the role script.
+
+    Returns:
+        bool: True if a new role script should be created, False otherwise.
+    """
+    return current_tokens + category_tokens > max_tokens
+
+
+def append_role_script(
+    role_scripts: list[RoleScript],
+    current_categories: list[str],
+    current_tokens: int,
+    helper: RoleScriptHelper,
+) -> list[RoleScript]:
+    """
+    Appends a new role script to the list of role scripts.
+
+    Args:
+        role_scripts (list[RoleScript]): The list of role scripts.
+        current_categories (list[str]): The categories in the current role
+            script.
+        current_tokens (int): The number of tokens in the current role script.
+        instructions (Instructions): The instructions for the analysis.
+        added_character_traits (list[str] | None): The user added traits to
+            include in the analysis.
+
+    Returns:
+        list[RoleScript]: The updated list of role scripts.
+    """
+    role_scripts.append(
+        create_role_script(
+            current_categories,
+            current_tokens,
+            helper.instructions,
+            helper.added_character_traits,
+        )
+    )
+    return role_scripts
+
+
 def build_role_scripts(
-    chapter_data: dict,
+    chapter_data: dict[str, list[str]],
     helper: RoleScriptHelper,
     added_character_traits: list[str] | None,
 ) -> list[RoleScript]:
@@ -233,7 +314,7 @@ def build_role_scripts(
     Builds the role scripts for the AI.
 
     Args:
-        chapter_data (dict): The data of the chapter.
+        chapter_data (dict[str, list[str]]): The data of the chapter.
         helper (RoleScriptHelper): A dataclass of additional arguments.
         instructions (Instructions): The instructions for the analysis.
         added_character_traits (list[str] | None): The user added traits to
@@ -242,42 +323,39 @@ def build_role_scripts(
     Returns:
         list[RoleScript]: The role scripts for the AI.
     """
-    tokens_per: dict[str, int] = get_tokens_per(helper.instruction_type)
+
+    if not chapter_data:
+        return []
+
     role_scripts: list[RoleScript] = []
-    categories: list = []
+    current_categories: list[str] = []
     current_tokens: int = 0
 
     for category, names in chapter_data.items():
-        category_tokens: int = min(
-            len(names) * tokens_per.get(category, tokens_per["Other"]),
+        category_tokens: int = calculate_category_tokens(
+            names,
+            helper.instruction_type,
+            category,
             helper.absolute_max_tokens,
         )
 
         if (
-            current_tokens + category_tokens > helper.absolute_max_tokens
-            and categories
-        ):
-            role_scripts.append(
-                create_role_script(
-                    categories,
-                    current_tokens,
-                    helper.instructions,
-                    added_character_traits,
-                )
+            should_create_new_role_script(
+                current_tokens, category_tokens, helper.absolute_max_tokens
             )
-            categories, current_tokens = [], 0
+            and current_categories
+        ):
+            role_scripts = append_role_script(
+                role_scripts, current_categories, current_tokens, helper
+            )
+            current_categories, current_tokens = [], 0
 
-        categories.append(category)
+        current_categories.append(category)
         current_tokens += category_tokens
 
-    if categories:
-        role_scripts.append(
-            create_role_script(
-                categories,
-                current_tokens,
-                helper.instructions,
-                added_character_traits,
-            )
+    if current_categories:
+        role_scripts = append_role_script(
+            role_scripts, current_categories, current_tokens, helper
         )
 
     return role_scripts

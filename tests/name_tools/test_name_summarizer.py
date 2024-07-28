@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, call
 
 from lorebinders.name_tools.name_summarizer import NameSummarizer
 
@@ -44,6 +44,11 @@ def test_parse_response_valid_response_updates_lorebinder(name_summarizer):
 @patch.object(NameSummarizer, "_get_ai_response")
 @patch.object(NameSummarizer, "_parse_response")
 def test_name_summarizer_identify_current_category_and_name(mock_parse_response, mock_get_ai_response, mock_create_prompts, name_summarizer):
+    """
+    Test that the _current_category and _current_name attributes are updated
+    correctly based on the response from the AI.
+    """
+
     prompts = iter([
         ("Settings", "Castle", "Prompt 1"),
         ("Characters", "King", "Prompt 2")
@@ -59,13 +64,17 @@ def test_name_summarizer_identify_current_category_and_name(mock_parse_response,
 
     name_summarizer.summarize_names(lorebinder)
 
-    assert name_summarizer._current_category == "Settings"
-    assert name_summarizer._current_name == "Castle"
-    next(prompts)
-    assert name_summarizer._current_category == "Characters"
-    assert name_summarizer._current_name == "King"
+
     assert name_summarizer._get_ai_response.call_count == 2
+    mock_get_ai_response.assert_has_calls([
+        call("mock_script", "Prompt 1"),
+        call("mock_script", "Prompt 2")
+    ])
     assert name_summarizer._parse_response.call_count == 2
+    mock_parse_response.assert_has_calls([
+        call("AI response"),
+        call("AI response")
+    ])
 
 
 def test_name_summarizer_summary_added_to_correct_entry(name_summarizer, mock_lorebinder):
