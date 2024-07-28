@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from lorebinders._types import BookDict, Chapter
+    from lorebinders._types import Chapter
 
 from lorebinders.ai.ai_interface import AIInterface
 from lorebinders.name_tools import name_tools
@@ -45,14 +45,14 @@ def build_custom_role(custom_categories: list[str] | None) -> str:
         return ""
 
     name_strings: list[str] = [
-        f"{attr.strip()}:{attr.strip()}1, {attr.strip()}2, {attr.strip()}3"
-        for attr in custom_categories
+        f"{cat.strip()}:{cat.strip()}1, {cat.strip()}2, {cat.strip()}3"
+        for cat in custom_categories
     ]
     return "\n".join(name_strings)
 
 
 def build_role_script(
-    max_tokens: int, custom_categories: list[str] | None
+    custom_categories: list[str] | None, max_tokens: int = 1000
 ) -> RoleScript:
     """
     Builds the role script.
@@ -71,35 +71,47 @@ def build_role_script(
         f"{base_instructions}\n{custom_categories}.\n"
         f"{further_instructions}\n{role_categories}"
     )
-    return RoleScript(system_message, max_tokens)
+    return RoleScript(system_message, max_tokens=max_tokens)
 
 
 def extract_names(
-    ai: AIInterface, metadata: BookDict, chapter: Chapter
+    ai: AIInterface,
+    chapter: Chapter,
+    role_script: RoleScript,
+    narrator: str | None,
 ) -> dict:
-    max_tokens: int = 1000
+    """
+    Extracts names from the chapter text using the AI model.
+
+    Args:
+        ai (AIInterface): The AI interface to use.
+        chapter (Chapter): The chapter to extract names from.
+        role_script (RoleScript): The system message and max tokens to use.
+        narrator (str | None): The narrator of the book if in third person.
+
+    Returns:
+        dict: A dictionary containing the names categorized by their respective
+            categories.
+    """
     temperature: float = 0.2
     json_mode: bool = False
 
-    role_script: RoleScript = build_role_script(
-        max_tokens, metadata.custom_categories
-    )
     prompt = f"Text: {chapter.text}"
 
     response: str = name_tools.get_ai_response(
         ai, role_script, prompt, temperature, json_mode
     )
-    return parse_response(response, metadata.narrator)
+    return parse_response(response, narrator)
 
 
 def parse_response(response: str, narrator: str | None) -> dict:
     """
-    Parses the response from the AI model to extract names and add them to the
-    Chapter object.
+    Parses the response from the AI model to extract names and create a
+    dictionary.
 
     Args:
         response (str): The response from the AI model.
-        narrator (str): The narrator from the Book object.
+        narrator (str): The narrator of the book if in third person.
 
     Returns:
         dict: A dictionary containing the names categorized by their respective
