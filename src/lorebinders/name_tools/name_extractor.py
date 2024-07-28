@@ -1,3 +1,4 @@
+# name_extractor.py
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -6,103 +7,103 @@ if TYPE_CHECKING:
     from lorebinders._types import BookDict, Chapter
 
 from lorebinders.ai.ai_interface import AIInterface
-from lorebinders.name_tools.name_tools import NameTools
+from lorebinders.name_tools import name_tools
 from lorebinders.role_script import RoleScript
 from lorebinders.sort_names import SortNames
 
 
-class NameExtractor(NameTools):
+def create_instructions() -> tuple[str, str]:
     """
-    Responsible for extracting characters, settings, and other categories from
-    the chapter text using Named Entity Recognition (NER).
+    Creates the instructions for the name extractor.
+
+    Returns:
+        tuple[str, str]: A tuple containing the base instruction and the
+            further instructions.
     """
+    base_instruction: str = name_tools.get_instruction_text(
+        "name_extractor_sys_prompt.txt"
+    )
+    further_instructions: str = name_tools.get_instruction_text(
+        "name_extractor_instructions.txt"
+    )
+    return base_instruction, further_instructions
 
-    def __init__(self, ai: AIInterface) -> None:
-        super().__init__(ai)
 
-        self.max_tokens: int = 1000
-        self.temperature: float = 0.2
+def build_custom_role(custom_categories: list[str] | None) -> str:
+    """
+    Creates a sample string to be added to the instructions based on a custom
+    category list.
 
-    def initialize_chapter(self, metadata: BookDict, chapter: Chapter) -> None:
-        self.metadata = metadata
-        self.chapter = chapter
-        self._prompt = f"Text: {self.chapter.text}"
-        self.narrator = self.metadata.narrator
-        self.custom_categories = self.metadata.custom_categories
-        self._base_instructions, self._further_instructions = (
-            self._create_instructions()
-        )
+    Args:
+        custom_categories (list[str] | None): The user added categories to
+            include in the instructions.
 
-    def _create_instructions(self) -> tuple[str, str]:
-        # TODO: Pass in instructions file path from config?
-        base_instruction = self._get_instruction_text(
-            "name_extractor_sys_prompt.txt"
-        )
-        further_instructions = self._get_instruction_text(
-            "name_extractor_instructions.txt"
-        )
-        return base_instruction, further_instructions
+    Returns:
+        str: The sample string to be added to the instructions.
+    """
+    if not custom_categories:
+        return ""
 
-    def _build_custom_role(self) -> str:
-        """
-        Builds a custom role script based on the custom categories provided.
+    name_strings: list[str] = [
+        f"{attr.strip()}:{attr.strip()}1, {attr.strip()}2, {attr.strip()}3"
+        for attr in custom_categories
+    ]
+    return "\n".join(name_strings)
 
-        Returns:
-            str: The custom role script.
 
-        """
-        role_categories: str = ""
-        if self.custom_categories and len(self.custom_categories) > 0:
-            name_strings: list = []
-            for name in self.custom_categories:
-                attr: str = name.strip()
-                name_string: str = f"{attr}:{attr}1, {attr}2, {attr}3"
-                name_strings.append(name_string)
-                role_categories = "\n".join(name_strings)
-        return role_categories
+def build_role_script(
+    max_tokens: int, custom_categories: list[str] | None
+) -> RoleScript:
+    """
+    Builds the role script.
 
-    def build_role_script(self) -> None:
-        """
-        Builds the role script for the NameExtractor class.
+    Args:
+        max_tokens (int): The maximum number of tokens for the AI to use.
+        custom_categories (list[str] | None): The user added categories to
+            include in the instructions.
+    Returns:
+        None
+    """
+    base_instructions, further_instructions = create_instructions()
+    role_categories: str = build_custom_role(custom_categories)
 
-        This method constructs the role script that will be used by the
-        NameExtractor class to extract characters and settings from the
-        chapter text. The role script includes instructions for the AI, such
-        as identifying characters and settings, handling first-person scenes,
-        and formatting the output.
+    system_message: str = (
+        f"{base_instructions}\n{custom_categories}.\n"
+        f"{further_instructions}\n{role_categories}"
+    )
+    return RoleScript(system_message, max_tokens)
 
-        Returns:
-            None
-        """
-        role_categories: str = self._build_custom_role()
 
-        system_message = (
-            f"{self._base_instructions}\n{self.custom_categories}.\n"
-            f"{self._further_instructions}\n{role_categories}"
-        )
-        self._single_role_script = RoleScript(system_message, self.max_tokens)
+def extract_names(
+    ai: AIInterface, metadata: BookDict, chapter: Chapter
+) -> dict:
+    max_tokens: int = 1000
+    temperature: float = 0.2
+    json_mode: bool = False
 
-    def extract_names(self) -> dict:
-        response = self._get_ai_response(
-            self._single_role_script, self._prompt
-        )
-        return self._parse_response(response)
+    role_script: RoleScript = build_role_script(
+        max_tokens, metadata.custom_categories
+    )
+    prompt = f"Text: {chapter.text}"
 
-    def _parse_response(self, response: str) -> dict:
-        """
-        Parses the response from the AI model to extract names and add them to
-        the Chapter object.
+    response: str = name_tools.get_ai_response(
+        ai, role_script, prompt, temperature, json_mode
+    )
+    return parse_response(response, metadata.narrator)
 
-        This method takes the response from the AI model as input and extracts
-        the names using the _sort_names method. It also retrieves the narrator
-        from the Book object. The extracted names are then added to the
-        Chapter object using the add_names method.
 
-        Args:
-            response (str): The response from the AI model.
+def parse_response(response: str, narrator: str | None) -> dict:
+    """
+    Parses the response from the AI model to extract names and add them to the
+    Chapter object.
 
-        Returns:
-            dict: A dictionary containing the extracted names.
-        """
-        sorter = SortNames(response, self.narrator or "")
-        return sorter.sort()
+    Args:
+        response (str): The response from the AI model.
+        narrator (str): The narrator from the Book object.
+
+    Returns:
+        dict: A dictionary containing the names categorized by their respective
+            categories.
+    """
+    sorter = SortNames(response, narrator or "")
+    return sorter.sort()
