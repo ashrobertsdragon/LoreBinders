@@ -1,12 +1,12 @@
-# name_analyzer.py
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from lorebinders._types import AIInterface, Chapter
+    from lorebinders._types import AIInterface, Chapter, InstructionType
 
 from lorebinders.name_tools import name_tools
 from lorebinders.role_script import RoleScript
@@ -14,7 +14,7 @@ from lorebinders.role_script import RoleScript
 BASE_CATEGORIES: list[str] = ["Characters", "Settings"]
 
 
-@dataclass(frozen=True)
+@dataclass(slots=True, frozen=True)
 class Instructions:
     """
     The instruction strings for the role scripts.
@@ -25,18 +25,19 @@ class Instructions:
     settings: str
 
 
-@dataclass(frozen=True)
+@dataclass(slots=True, frozen=True)
 class RoleScriptHelper:
     """
     The additional information needed to build the role scripts.
     """
 
-    instruction_type: str
+    instruction_type: InstructionType
     absolute_max_tokens: int
     instructions: Instructions
 
 
-def get_tokens_per(instruction_type: str) -> dict[str, int]:
+@lru_cache(maxsize=None)
+def get_tokens_per(instruction_type: InstructionType) -> dict[str, int]:
     """
     Gets the tokens per for the analysis.
 
@@ -72,15 +73,13 @@ def generate_schema(
     Returns:
         str: The schema for the analysis.
     """
-    character_traits: list[str] = [
-        "Appearance",
-        "Personality",
-        "Mood",
-        "Relationships with other characters",
-    ] + (added_traits or [])
-
-    cat_attr_map: dict[str, list[str]] = {
-        "Characters": character_traits,
+    default_traits: dict[str, list[str]] = {
+        "Characters": [
+            "Appearance",
+            "Personality",
+            "Mood",
+            "Relationships with other characters",
+        ],
         "Settings": [
             "Appearance",
             "Relative location",
@@ -88,15 +87,14 @@ def generate_schema(
         ],
     }
 
-    schema_stub = (
-        {attr: "Description" for attr in cat_attr_map[category]}
-        if category in BASE_CATEGORIES
-        else "Description"
+    traits: list[str] = default_traits.get(category, []) + (added_traits or [])
+    schema_stub: dict[str, str] | str = (
+        {trait: "Description" for trait in traits} if traits else "Description"
     )
     return json.dumps({category: schema_stub})
 
 
-def initialize_instructions(instruction_type: str) -> Instructions:
+def initialize_instructions(instruction_type: InstructionType) -> Instructions:
     """
     Initializes the instructions dataclass for the analysis.
 
@@ -109,19 +107,21 @@ def initialize_instructions(instruction_type: str) -> Instructions:
     return Instructions(
         base=name_tools.get_instruction_text(
             "name_analyzer_base_instructions.txt",
-            prompt_type=instruction_type,
+            instruction_type=instruction_type,
         ),
         character=name_tools.get_instruction_text(
-            "character_instructions.txt", prompt_type=instruction_type
+            "character_instructions.txt", instruction_type=instruction_type
         ),
         settings=name_tools.get_instruction_text(
-            "settings_instructions.txt", prompt_type=instruction_type
+            "settings_instructions.txt", instruction_type=instruction_type
         ),
     )
 
 
 def initialize_role_script_helper(
-    instruction_type: str, absolute_max_tokens: int, instructions: Instructions
+    instruction_type: InstructionType,
+    absolute_max_tokens: int,
+    instructions: Instructions,
 ) -> RoleScriptHelper:
     """
     Creates a dataclass of information needed to build the RoleScript objects.
@@ -140,7 +140,7 @@ def initialize_role_script_helper(
 
 
 def initialize_helpers(
-    instruction_type: str, absolute_max_tokens: int
+    instruction_type: InstructionType, absolute_max_tokens: int
 ) -> RoleScriptHelper:
     """
     Initializes the helpers for the analysis.
@@ -170,28 +170,30 @@ def create_instructions(
         categories (list[str]): The categories to include in the analysis.
         instructions (Instructions): The instructions for the analysis.
 
-
     Returns:
         str: The instructions for the analysis.
     """
-    result: str = instructions.base
+    result = [instructions.base]
 
     if "Characters" in categories:
-        result += f"\n{instructions.character}"
+        result.append(instructions.character)
     if "Settings" in categories:
-        result += f"\n{instructions.settings}"
+        result.append(instructions.settings)
 
     if other_categories := [
         cat for cat in categories if cat not in BASE_CATEGORIES
     ]:
-        result += f"\nProvide descriptions of {', '.join(other_categories)}"
-        result += " without referencing specific characters or plot points"
+        result.append(
+            f"Provide descriptions of {', '.join(other_categories)}"
+            " without referencing specific characters or plot points"
+        )
 
-    return (
-        result
-        + "\nYou will format this information using the following schema where"
-        + ' "description" is replaced with the actual information.\n'
+    result.append(
+        "You will format this information using the following schema where"
+        ' "description" is replaced with the actual information.\n'
     )
+
+    return "\n".join(result)
 
 
 def create_role_script(
@@ -299,20 +301,20 @@ def combine_responses(responses: list[str], json_mode: bool) -> str:
     )
 
 
-def parse_response(response: str, instruction_type: str) -> dict:
+def parse_response(response: str, json_mode: bool) -> dict:
     """
     Parses the response from the AI model based on the instruction type to
     form a dictionary.
 
     Args:
         response (str): The response from the AI model.
-        instruction_type (str): The format the AI was told to respond in.
+        json_mode (bool): Whether the response is formatted as JSON or not.
 
     Returns:
         dict: A dictionary containing the names categorized by their respective
             categories.
     """
-    if instruction_type == "json":
+    if json_mode:
         from lorebinders.json_tools import RepairJSON
 
         return RepairJSON().json_str_to_dict(response)
@@ -324,7 +326,7 @@ def parse_response(response: str, instruction_type: str) -> dict:
 
 def analyze_names(
     ai: AIInterface,
-    instruction_type: str,
+    instruction_type: InstructionType,
     role_scripts: list[RoleScript],
     chapter: Chapter,
 ) -> dict:
@@ -358,5 +360,5 @@ def analyze_names(
     )
     return parse_response(
         response=combined_response,
-        instruction_type=instruction_type,
+        json_mode=json_mode,
     )
