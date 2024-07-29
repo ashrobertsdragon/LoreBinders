@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from lorebinders._managers import RateLimitManager
-    from lorebinders._types import ChatCompletion, FinishReason
+    from lorebinders._type_annotations import ChatCompletion, FinishReason
     from lorebinders.ai.ai_models._model_schema import Model
 
 

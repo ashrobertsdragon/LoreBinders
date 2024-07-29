@@ -6,8 +6,11 @@ from functools import lru_cache
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from lorebinders._types import AIInterface, Chapter, InstructionType
-
+    from lorebinders._type_annotations import (
+        AIInterface,
+        Chapter,
+    )
+from lorebinders._types import InstructionType
 from lorebinders.name_tools import name_tools
 from lorebinders.role_script import RoleScript
 
@@ -60,9 +63,55 @@ def get_tokens_per(instruction_type: InstructionType) -> dict[str, int]:
     )
 
 
+def generate_json_schema(
+    category: str,
+    added_traits: list[str] | None,
+    default_traits: dict[str, list[str]],
+) -> str:
+    """
+    Generates the JSON schema for the analysis.
+
+    Args:
+        category (str): The category to generate the schema for.
+        added_traits (list[str] | None): The user added traits to include in
+
+    Returns:
+        str: The schema for the analysis.
+    """
+
+    traits: list[str] = default_traits.get(category, []) + (added_traits or [])
+    schema_stub: dict[str, str] | str = (
+        {trait: "Description" for trait in traits} if traits else "Description"
+    )
+    return json.dumps({category: schema_stub})
+
+
+def generate_markdown_schema(
+    category: str,
+    added_traits: list[str] | None,
+    default_traits: dict[str, list[str]],
+) -> str:
+    """
+    Generates the Markdown schema for the analysis.
+
+    Args:
+        category (str): The category to generate the schema for.
+        added_traits (list[str] | None): The user added traits to include in
+
+    Returns:
+        str: The schema for the analysis.
+    """
+    traits: list[str] = default_traits.get(category, []) + (added_traits or [])
+    schema = f"# {category}\n"
+    for trait in traits:
+        schema += f"## {trait}\nDescription\n"
+    return schema
+
+
 def generate_schema(
     category: str,
     added_traits: list[str] | None,
+    instruction_type: InstructionType,
 ) -> str:
     """
     Generates the schema for the analysis.
@@ -70,6 +119,7 @@ def generate_schema(
     Args:
         category (str): The category to generate the schema for.
         added_traits (list[str] | None): The user added traits to include in
+        instruction_type (str): The format of the AI response.
 
     Returns:
         str: The schema for the analysis.
@@ -87,12 +137,17 @@ def generate_schema(
             "Familiarity for main character",
         ],
     }
-
-    traits: list[str] = default_traits.get(category, []) + (added_traits or [])
-    schema_stub: dict[str, str] | str = (
-        {trait: "Description" for trait in traits} if traits else "Description"
-    )
-    return json.dumps({category: schema_stub})
+    match instruction_type:
+        case InstructionType.MARKDOWN:
+            return generate_markdown_schema(
+                category, added_traits, default_traits
+            )
+        case instruction_type.JSON:
+            return generate_json_schema(category, added_traits, default_traits)
+        case _:
+            raise ValueError(
+                f"Unsupported instruction type: {instruction_type}"
+            )
 
 
 def initialize_instructions(instruction_type: InstructionType) -> Instructions:
@@ -207,8 +262,8 @@ def create_instructions(
 def create_role_script(
     categories: list[str],
     max_tokens: int,
-    instructions: Instructions,
-    added_character_traits: list[str] | None,
+    helper: RoleScriptHelper,
+    instruction_type: InstructionType,
 ) -> RoleScript:
     """
     Creates the role script for the AI.
@@ -224,9 +279,13 @@ def create_role_script(
     Returns:
         RoleScript: The role script for the AI.
     """
-    instruction_text: str = create_instructions(categories, instructions)
+    instruction_text: str = create_instructions(
+        categories, helper.instructions
+    )
     schema_text: str = "".join(
-        generate_schema(category, added_character_traits)
+        generate_schema(
+            category, helper.added_character_traits, instruction_type
+        )
         for category in categories
     )
     return RoleScript(instruction_text + schema_text, max_tokens)
@@ -278,6 +337,7 @@ def append_role_script(
     current_categories: list[str],
     current_tokens: int,
     helper: RoleScriptHelper,
+    instruction_type: InstructionType,
 ) -> list[RoleScript]:
     """
     Appends a new role script to the list of role scripts.
@@ -298,8 +358,8 @@ def append_role_script(
         create_role_script(
             current_categories,
             current_tokens,
-            helper.instructions,
-            helper.added_character_traits,
+            helper,
+            instruction_type,
         )
     )
     return role_scripts
@@ -308,7 +368,7 @@ def append_role_script(
 def build_role_scripts(
     chapter_data: dict[str, list[str]],
     helper: RoleScriptHelper,
-    added_character_traits: list[str] | None,
+    instruction_type: InstructionType,
 ) -> list[RoleScript]:
     """
     Builds the role scripts for the AI.
@@ -346,7 +406,11 @@ def build_role_scripts(
             and current_categories
         ):
             role_scripts = append_role_script(
-                role_scripts, current_categories, current_tokens, helper
+                role_scripts,
+                current_categories,
+                current_tokens,
+                helper,
+                instruction_type,
             )
             current_categories, current_tokens = [], 0
 
@@ -355,7 +419,11 @@ def build_role_scripts(
 
     if current_categories:
         role_scripts = append_role_script(
-            role_scripts, current_categories, current_tokens, helper
+            role_scripts,
+            current_categories,
+            current_tokens,
+            helper,
+            instruction_type,
         )
 
     return role_scripts

@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from lorebinders._types import Chapter
+    from lorebinders._type_annotations import Chapter
 
 from lorebinders.ai.ai_interface import AIInterface
 from lorebinders.name_tools import name_tools

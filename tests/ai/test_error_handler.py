@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from lorebinders._types import EmailManager
+    from lorebinders._type_annotations import EmailManager
 from lorebinders.ai.api_error_handler import (
     APIErrorHandler,
     RetryHandler,

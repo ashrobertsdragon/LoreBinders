@@ -14,7 +14,7 @@ from lorebinders._managers import EmailManager, ErrorManager
 from lorebinders.ai.exceptions import MaxRetryError
 
 if TYPE_CHECKING:
-    from lorebinders._types import Book, BookDict
+    from lorebinders._type_annotations import Book, BookDict
 
 
 class APIErrorHandler(ErrorManager):

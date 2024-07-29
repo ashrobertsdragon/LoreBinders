@@ -13,7 +13,7 @@ from lorebinders.ai.ai_type import AIType
 from lorebinders.ai.exceptions import MissingAIProviderError
 
 if TYPE_CHECKING:
-    from lorebinders._types import RateLimitManager
+    from lorebinders._type_annotations import RateLimitManager
 
 
 class AIModelConfig:

@@ -4,7 +4,7 @@ modules:
   depends_on:
   - src.lorebinders.ai.ai_models._model_schema
 - path: src.lorebinders._titles
-- path: src.lorebinders._types
+- path: src.lorebinders._type_annotations
 - path: src.lorebinders.abstract_name_tools
   depends_on:
   - src.lorebinders.ai.ai_interface
@@ -54,7 +54,7 @@ modules:
 - path: src.lorebinders.email_handlers.smtp_handler
 - path: src.lorebinders.file_handling
   depends_on:
-  - src.lorebinders._types
+  - src.lorebinders._type_annotations
 - path: src.lorebinders.json_tools
 - path: src.lorebinders.main
 - path: src.lorebinders.make_pdf

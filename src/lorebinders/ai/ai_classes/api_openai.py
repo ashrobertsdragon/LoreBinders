@@ -9,7 +9,7 @@ from loguru import logger
 from openai import OpenAI
 
 if TYPE_CHECKING:
-    from lorebinders._types import (
+    from lorebinders._type_annotations import (
         EmailManager,
         ChatCompletion,
         ChatCompletionAssistantMessageParam,

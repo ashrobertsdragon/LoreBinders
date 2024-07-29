@@ -11,7 +11,7 @@ from lorebinders.ai.rate_limit import RateLimit
 
 if TYPE_CHECKING:
     from lorebinders._managers import EmailManager, RateLimitManager
-    from lorebinders._types import ChatCompletion, FinishReason
+    from lorebinders._type_annotations import ChatCompletion, FinishReason
     from lorebinders.ai.ai_models._model_schema import Model
 
 

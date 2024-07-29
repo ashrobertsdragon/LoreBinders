@@ -4,7 +4,7 @@ import os
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from lorebinders._types import InstructionType
+    from lorebinders._type_annotations import InstructionType
 import lorebinders.file_handling as file_handling
 from lorebinders.ai.ai_interface import AIInterface
 from lorebinders.role_script import RoleScript

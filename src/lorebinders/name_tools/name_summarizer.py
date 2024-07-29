@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from lorebinders._types import AIInterface
+    from lorebinders._type_annotations import AIInterface
 
 from lorebinders import prompt_generator
 from lorebinders.name_tools import name_tools

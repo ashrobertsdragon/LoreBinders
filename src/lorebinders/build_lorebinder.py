@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from ebook2text.convert_file import convert_file  # type: ignore
 
 if TYPE_CHECKING:
-    from lorebinders._types import AIProviderManager
+    from lorebinders._type_annotations import AIProviderManager
 
 import lorebinders.make_pdf as make_pdf
 from lorebinders._managers import RateLimitManager
