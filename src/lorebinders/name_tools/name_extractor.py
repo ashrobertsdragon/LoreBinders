@@ -67,8 +67,12 @@ def build_role_script(
     base_instructions, further_instructions = create_instructions()
     role_categories: str = build_custom_role(custom_categories)
 
+    custom_category_str = (
+        (", ".join(custom_categories) + "\n") if custom_categories else ""
+    )
+
     system_message: str = (
-        f"{base_instructions}\n{custom_categories}.\n"
+        f"{base_instructions}\n{custom_category_str}"
         f"{further_instructions}\n{role_categories}"
     )
     return RoleScript(system_message, max_tokens=max_tokens)
