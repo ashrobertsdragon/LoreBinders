@@ -55,7 +55,7 @@ def get_tokens_per(instruction_type: InstructionType) -> dict[str, int]:
     }
     return (
         {k: int(v * 0.85) for k, v in json_tokens.items()}
-        if instruction_type == "markdown"
+        if instruction_type == InstructionType.MARKDOWN
         else json_tokens
     )
 
@@ -425,11 +425,11 @@ def analyze_names(
     json_mode = instruction_type == "json"
     responses: list[str] = [
         name_tools.get_ai_response(
-            ai,
-            script,
-            f"Text: {chapter.text}",
-            0.4,
-            json_mode,
+            ai=ai,
+            role_script=script,
+            prompt=f"Text: {chapter.text}",
+            temperature=0.4,
+            json_mode=json_mode,
         )
         for script in role_scripts
     ]
