@@ -24,7 +24,7 @@ class Instructions:
     """
 
     base: str
-    character: str
+    characters: str
     settings: str
 
 
@@ -102,10 +102,11 @@ def generate_markdown_schema(
         str: The schema for the analysis.
     """
     traits: list[str] = default_traits.get(category, []) + (added_traits or [])
-    schema = f"# {category}\n"
-    for trait in traits:
-        schema += f"## {trait}\nDescription\n"
-    return schema
+    schema: list[str] = [f"# {category}"]
+    schema.extend([
+        f"## {trait}\nDescription" for trait in traits if trait
+    ]) if traits else schema.append("Description")
+    return "\n".join(schema) + "\n"
 
 
 def generate_schema(
@@ -144,10 +145,9 @@ def generate_schema(
             )
         case instruction_type.JSON:
             return generate_json_schema(category, added_traits, default_traits)
-        case _:
-            raise ValueError(
-                f"Unsupported instruction type: {instruction_type}"
-            )
+        # This code is literally unreachable with Enums, but MyPy is dumb
+        case _:  # pragma: no cover
+            raise ValueError(f"Unhandled instruction type: {instruction_type}")
 
 
 def initialize_instructions(instruction_type: InstructionType) -> Instructions:
@@ -165,7 +165,7 @@ def initialize_instructions(instruction_type: InstructionType) -> Instructions:
             "name_analyzer_base_instructions.txt",
             instruction_type=instruction_type,
         ),
-        character=name_tools.get_instruction_text(
+        characters=name_tools.get_instruction_text(
             "character_instructions.txt", instruction_type=instruction_type
         ),
         settings=name_tools.get_instruction_text(
@@ -239,7 +239,7 @@ def create_instructions(
     result = [instructions.base]
 
     if "Characters" in categories:
-        result.append(instructions.character)
+        result.append(instructions.characters)
     if "Settings" in categories:
         result.append(instructions.settings)
 
@@ -248,14 +248,12 @@ def create_instructions(
     ]:
         result.append(
             f"Provide descriptions of {', '.join(other_categories)}"
-            " without referencing specific characters or plot points"
+            " without referencing specific characters or plot points."
         )
-
     result.append(
         "You will format this information using the following schema where"
         ' "description" is replaced with the actual information.\n'
     )
-
     return "\n".join(result)
 
 
@@ -490,7 +488,7 @@ def analyze_names(
         dict: The analysis of the names.
     """
 
-    json_mode = instruction_type == "json"
+    json_mode = instruction_type == InstructionType.JSON
     responses: list[str] = [
         name_tools.get_ai_response(
             ai=ai,
