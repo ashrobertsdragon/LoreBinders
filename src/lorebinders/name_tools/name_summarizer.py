@@ -38,7 +38,7 @@ def update_lorebinder(
         dict: The updated lorebinder dictionary.
     """
     if response and category and name:
-        lorebinder[category][name] = {"summary": response}
+        lorebinder[category][name] |= {"Summary": response}
     return lorebinder
 
 
