@@ -1,143 +1,109 @@
+from unicodedata import category
 import pytest
 from unittest.mock import Mock, patch, call
 
-from lorebinders.name_tools.name_summarizer import NameSummarizer
+from lorebinders.name_tools.name_summarizer import build_role_script, summarize_names, update_lorebinder
 
+@pytest.fixture
+def mock_lorebinder():
+    return {
+    "Characters": {
+        "John Doe": {
+            "Chapter 1": "John Doe is introduced as a mysterious stranger.",
+            "Chapter 2": "John Doe shows his skills in a challenging situation.",
+            "Chapter 3": "John Doe faces a moral dilemma."
+        },
+        "Jane Smith": {
+            "Chapter 1": "Jane Smith is introduced as a determined detective.",
+            "Chapter 2": "Jane Smith uncovers a hidden secret.",
+            "Chapter 3": "Jane Smith confronts her past."
+        },
+        "Bob Johnson": {
+            "Chapter 1": "Bob Johnson is introduced as a retired soldier.",
+            "Chapter 2": "Bob Johnson uses his military training to help the team.",
+            "Chapter 3": "Bob Johnson makes a sacrifice for the greater good."
+        }
+    },
+    "Settings": {
+        "New York City": {
+            "Chapter 1": "The story begins in the bustling streets of New York City.",
+            "Chapter 2": "The characters explore the hidden underground of New York City.",
+            "Chapter 3": "The climax of the story takes place in Times Square."
+        },
+        "London": {
+            "Chapter 1": "The story starts in the historic streets of London.",
+            "Chapter 2": "The characters visit the famous British Museum.",
+            "Chapter 3": "The final showdown occurs in the Tower of London."
+        },
+        "Tokyo": {
+            "Chapter 1": "The story unfolds in the neon-lit streets of Tokyo.",
+            "Chapter 2": "The characters visit the famous Meiji Shrine.",
+            "Chapter 3": "The conclusion of the story happens in the Shibuya Crossing."
+        }
+    }
+}
 
-def test_name_summarizer_init(ai_interface):
-    summarizer = NameSummarizer(ai_interface)
+@patch("lorebinders.name_tools.name_summarizer.RoleScript")
+def test_build_role_script_default_max_tokens(MockRoleScript):
 
-    assert summarizer._ai == ai_interface
-    assert summarizer.temperature == 0.4
-    assert summarizer.max_tokens == 200
-    assert summarizer._categories_base == ["Characters", "Settings"]
-    assert summarizer.json_mode == False
-    assert summarizer._single_role_script is None
-    assert summarizer._current_category is None
-    assert summarizer._current_name is None
-    assert summarizer.lorebinder == {}
+    build_role_script()
+    MockRoleScript.assert_called_once_with("You are an expert summarizer. Please summarize the description over the course of the story for the following:", 200)
 
+@patch("lorebinders.name_tools.name_summarizer.RoleScript")
+def test_build_role_script_non_default_max_tokens(MockRoleScript):
+    build_role_script(1000)
+    MockRoleScript.assert_called_once_with("You are an expert summarizer. Please summarize the description over the course of the story for the following:", 1000)
 
+def test_update_lorebinder():
 
-def test_name_summarizer_build_role_script(name_summarizer):
-    name_summarizer.build_role_script()
-
-    assert name_summarizer._single_role_script is not None
-    assert name_summarizer._single_role_script.script == (
-        "You are an expert summarizer. Please summarize the description "
-        "over the course of the story for the following:"
-    )
-    assert name_summarizer._single_role_script.max_tokens == 200
-
-def test_parse_response_valid_response_updates_lorebinder(name_summarizer):
-
-    name_summarizer.lorebinder = {"Characters": {"Alice": {}}}
-    name_summarizer._current_category = "Characters"
-    name_summarizer._current_name = "Alice"
-    response = "Alice is a brave warrior."
-
-    result = name_summarizer._parse_response(response)
-
-    assert result == {"Characters": {"Alice": {"summary": "Alice is a brave warrior."}}}
-
-@patch("lorebinders.name_tools.name_summarizer.create_prompts")
-@patch.object(NameSummarizer, "_get_ai_response")
-@patch.object(NameSummarizer, "_parse_response")
-def test_name_summarizer_identify_current_category_and_name(mock_parse_response, mock_get_ai_response, mock_create_prompts, name_summarizer):
-    """
-    Test that the _current_category and _current_name attributes are updated
-    correctly based on the response from the AI.
-    """
-
-    prompts = iter([
-        ("Settings", "Castle", "Prompt 1"),
-        ("Characters", "King", "Prompt 2")
-    ])
-    mock_create_prompts.return_value=prompts
-    mock_get_ai_response.return_value = "AI response"
-    mock_parse_response.return_value = {}
-    lorebinder = {"test": "value"}
-
-    name_summarizer._single_role_script = Mock()
-    name_summarizer._get_ai_response = mock_get_ai_response
-    name_summarizer._parse_response = mock_parse_response
-
-    name_summarizer.summarize_names(lorebinder)
-
-
-    assert name_summarizer._get_ai_response.call_count == 2
-    mock_get_ai_response.assert_has_calls([
-        call("mock_script", "Prompt 1"),
-        call("mock_script", "Prompt 2")
-    ])
-    assert name_summarizer._parse_response.call_count == 2
-    mock_parse_response.assert_has_calls([
-        call("AI response"),
-        call("AI response")
-    ])
-
-
-def test_name_summarizer_summary_added_to_correct_entry(name_summarizer, mock_lorebinder):
-    name_summarizer._get_ai_response = Mock(return_value="AI response")
-
-    result = name_summarizer.summarize_names(mock_lorebinder)
-
-    for category in result:
-        for name in result[category]:
-            assert "summary" in result[category][name]
-            assert result[category][name]["summary"] == "AI response"
-
-def test_name_summarizer_handle_empty_or_none_responses(name_summarizer):
+    response = "AI generated summary"
     lorebinder = {
         "Characters": {
-            "Alice": {"summary": ""},
-            "Bob": {"summary": None}
-        },
-        "Settings": {
-            "Forest": {"summary": ""},
-            "Castle": {"summary": None}
+            "John Doe": {
+                "Chapter 1": "John Doe is introduced as a mysterious stranger.",
+                "Chapter 2": "John Doe shows his skills in a challenging situation.",
+                "Chapter 3": "John Doe faces a moral dilemma.",
+            }
+        }
+    }
+    category = "Characters"
+    name = "John Doe"
+
+    result = update_lorebinder(response, lorebinder, category, name)
+
+    assert result[category][name]["Summary"] == response
+    assert result == {
+        "Characters": {
+            "John Doe": {
+                "Chapter 1": "John Doe is introduced as a mysterious stranger.",
+                "Chapter 2": "John Doe shows his skills in a challenging situation.",
+                "Chapter 3": "John Doe faces a moral dilemma.",
+                "Summary": "AI generated summary"
+            }
         }
     }
 
-    result = name_summarizer.summarize_names(lorebinder)
-
-    assert not result["Characters"]["Alice"]["summary"]
-    assert not result["Characters"]["Bob"]["summary"]
-    assert not result["Settings"]["Forest"]["summary"]
-    assert not result["Settings"]["Castle"]["summary"]
-
-@patch.object(NameSummarizer, "_get_ai_response")
-def test_name_summarizer_new_summarize_names_returns_updated_lorebinder(mock_get_ai_response, name_summarizer, mock_lorebinder, mock_lorebinder_with_summary):
-    mock_get_ai_response.return_value = "Generated response"
-    name_summarizer._single_role_script = Mock()
-    updated_lorebinder = name_summarizer.summarize_names(mock_lorebinder)
-    assert updated_lorebinder == mock_lorebinder_with_summary
-
-@patch.object(NameSummarizer, "_get_ai_response")
-@patch('lorebinders.name_tools.name_summarizer.RoleScript')
-def test_name_summarizer_get_ai_response(MockRoleScript, mock_get_ai_response, name_summarizer):
-    prompt = "Test prompt"
-
-    name_summarizer._get_ai_response(MockRoleScript, prompt)
-
-    mock_get_ai_response.assert_called_once_with(MockRoleScript, prompt)
-
-@patch("lorebinders.name_tools.name_summarizer.create_prompts")
-@patch.object(NameSummarizer, "_get_ai_response")
-@patch.object(NameSummarizer, "_parse_response")
-def test_name_summarizer_summarize_names(mock_parse_response, mock_get_ai_response, mock_create_prompts, name_summarizer):
-    """Test the summarize_names method with patches of the create_prompts function and the _get_ai_response and _parse_response methods"""
+@patch("lorebinders.name_tools.name_summarizer.prompt_generator.create_prompts")
+@patch("lorebinders.name_tools.name_summarizer.name_tools.get_ai_response")
+@patch("lorebinders.name_tools.name_summarizer.build_role_script")
+@patch("lorebinders.name_tools.name_summarizer.update_lorebinder")
+def test_summarize_names(mock_update_lorebinder, mock_build_role_script, mock_get_ai_response, mock_create_prompts):
 
     prompts: list[tuple[str, str, str]] = [("Characters", "Alice", "Alice: Description1"), ("Settings", "Forest", "Forest: Description2")]
     mock_create_prompts.return_value = iter(prompts)
+
     mock_get_ai_response.return_value = "Generated summary"
+    mock_build_role_script.return_value = "Role script"
+    mock_update_lorebinder.return_value = {"updated": "dictionary"}
 
-    name_summarizer._single_role_script = Mock()
-    name_summarizer._get_ai_response = mock_get_ai_response
-    name_summarizer._parse_response = mock_parse_response
+    lorebinder = {"test": "value"}
+    ai = "AIInterface"
+    result = summarize_names(ai, lorebinder)
 
-    name_summarizer.summarize_names({"test": "value"})
+    mock_build_role_script.assert_called_once()
+    mock_create_prompts.assert_called_once()
 
-    assert mock_create_prompts.call_count == 1
     assert mock_get_ai_response.call_count == 2
-    assert mock_parse_response.call_count == 2
+    assert mock_update_lorebinder.call_count == 2
+
+    assert result == {"updated": "dictionary"}
