@@ -23,8 +23,8 @@ def get_instruction_text(
     Returns:
         str: The instruction text read from the file.
     """
-    if instruction_type:
-        prompt_type = instruction_type.value
+
+    prompt_type = instruction_type.value if instruction_type else ""
     file_path: str = os.path.join("instructions", prompt_type or "", file_name)
     return file_handling.read_text_file(file_path)
 
