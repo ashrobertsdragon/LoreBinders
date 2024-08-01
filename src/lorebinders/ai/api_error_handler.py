@@ -28,13 +28,13 @@ class APIErrorHandler(ErrorManager):
 
     def _extract_error_info(self, e: Exception) -> tuple[int, str]:
         """Extracts error code and message from a potential API exception."""
-        error_details = {}
+        error_details: dict = {}
+        status_code: int = 0
         with contextlib.suppress(AttributeError, json.JSONDecodeError):
             if response := getattr(e, "response", None):
-                error_details = response.json().get("error")
-        return getattr(e, "status_code", 0), error_details.get(
-            "message", "Unknown error"
-        )
+                status_code = getattr(response, "status_code", 0)
+                error_details = response.json().get("error", {})
+        return status_code, error_details.get("message", "Unknown error")
 
     def _is_unresolvable_error(
         self, e: Exception, error_code: int, error_message: str
