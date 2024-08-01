@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
+from loguru import logger
 from pydantic import BaseModel, ValidationError
 
 from lorebinders.ai.api_error_handler import APIErrorHandler
@@ -24,12 +24,18 @@ class Payload(BaseModel):
 
 
 class AIManager(ABC):
+    @abstractmethod
     def __init__(self, email_handler: EmailManager) -> None:
+        """
+        This method is not intended to be called with super().__init__() but
+        instead is provided as a reference for the child class to implement.
+        """
         self.unresolvable_errors = self._set_unresolvable_errors()
         self.error_handler = APIErrorHandler(
             email_manager=email_handler,
             unresolvable_errors=self.unresolvable_errors,
         )
+        self.api_model: str | None = None
 
     @abstractmethod
     def _set_unresolvable_errors(self) -> tuple:
@@ -128,7 +134,8 @@ class AIManager(ABC):
                     temperature (float): The temperature value.
                     max_tokens (int): The maximum number of tokens.
         """
-
+        if not self.api_model:
+            raise AttributeError("AI model not set. Call set_model() first.")
         try:
             payload = Payload(
                 api_model=self.api_model,
@@ -137,10 +144,10 @@ class AIManager(ABC):
                 temperature=temperature,
                 max_tokens=max_tokens,
             )
+            return payload.model_dump()
         except ValidationError as e:
-            logging.exception(str(e))
-
-        return payload.model_dump()
+            logger.exception(str(e))
+            raise
 
     def modify_payload(self, api_payload: dict, **kwargs) -> dict:
         """
