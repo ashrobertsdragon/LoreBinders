@@ -6,7 +6,7 @@ from lorebinders.file_handling import read_json_file, write_json_file
 
 class FileRateLimitHandler(RateLimitManager):
     def _filename(self, model_name) -> str:
-        return f"{model_name}rate_limit_data"
+        return f"{model_name}_rate_limit_data.json"
 
     def read(self, model_name: str) -> dict:
         filename = self._filename(model_name)
