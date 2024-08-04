@@ -3,11 +3,12 @@ from __future__ import annotations
 import contextlib
 import inspect
 import json
-import logging
 import os
 import time
 import traceback
 from typing import TYPE_CHECKING
+
+from loguru import logger
 
 from lorebinders import file_handling
 from lorebinders._managers import EmailManager, ErrorManager
@@ -77,7 +78,7 @@ class RetryHandler:
         """
 
         sleep_time = self._calculate_sleep_time()
-        logging.warning(
+        logger.warning(
             f"Retry attempt #{self.retry_count} in {sleep_time} seconds."
         )
         time.sleep(sleep_time)
@@ -148,7 +149,7 @@ class UnresolvableErrorHandler:
                 file_handling.append_json_file(chapter.analysis, analysis_file)
 
         except KeyError:
-            logging.exception(f"Book {title} not found.")
+            logger.exception(f"Book {title} not found.")
 
     def _build_error_msg(self, e: Exception) -> str:
         """
@@ -175,6 +176,6 @@ class UnresolvableErrorHandler:
             e (Exception): _description_
         """
         error_message = self._build_error_msg(e)
-        logging.critical(error_message)
+        logger.critical(error_message)
         self.email.error_email(error_message)
         exit(1)
