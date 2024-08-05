@@ -85,9 +85,8 @@ class RetryHandler:
 
     def increment_retry_count(self, retry_count: int) -> int:
         """Handles resolvable errors with exponential backoff."""
-        self.retry_count = retry_count
+        self.retry_count = retry_count + 1
         try:
-            self.retry_count += 1
             if self.retry_count == self.max_retries:
                 raise MaxRetryError("Maximum retry count reached")
             self._sleep()
