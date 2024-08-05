@@ -3,19 +3,14 @@ from __future__ import annotations
 import contextlib
 import inspect
 import json
-import os
 import time
 import traceback
-from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from lorebinders import file_handling
+import lorebinders.ai.save_data as save_data
 from lorebinders._managers import EmailManager, ErrorManager
 from lorebinders.ai.exceptions import MaxRetryError
-
-if TYPE_CHECKING:
-    from lorebinders._type_annotations import Book, BookDict
 
 
 class APIErrorHandler(ErrorManager):
@@ -103,13 +98,12 @@ class UnresolvableErrorHandler:
     def _get_frame_info(self) -> tuple[str, str, str]:
         """
         Retrieve information about the exception frame, including the file
-        name, line number, function name, and binder name if available.
+        name, line number, function name, and book name if available.
         """
 
         frame = inspect.currentframe()
         file_name, function_name = "Unknown", "Unknown"
 
-        binder_name = "Unknown"
         book_name = "Unknown"
 
         while frame is not None and book_name == "Unknown":
@@ -121,34 +115,19 @@ class UnresolvableErrorHandler:
                 function_name = frame.f_code.co_name
 
             locals_ = frame.f_locals
-            if "binder" in locals_:
-                binder_name = repr(locals_["binder"])
             if "book" in locals_:
                 book_name = repr(locals_["book"])
-                self._save_data(book_name)
-            if binder_name != "Unknown" or book_name != "Unknown":
+            if book_name != "Unknown":
                 break
 
             frame = frame.f_back
 
-        return binder_name, file_name, function_name
+        return book_name, file_name, function_name
 
     @staticmethod
-    def _save_data(book_name: str) -> None:
-        try:
-            title = book_name.split("'")[1]
-            book: Book = globals()[title]
-            metadata: BookDict = book.metadata
-            user_folder: str = metadata.user_folder or ""
-            names_file = os.path.join(user_folder, "names.json")
-            analysis_file = os.path.join(user_folder, "analysis.json")
-
-            for chapter in book.chapters:
-                file_handling.append_json_file(chapter.names, names_file)
-                file_handling.append_json_file(chapter.analysis, analysis_file)
-
-        except KeyError:
-            logger.exception(f"Book {title} not found.")
+    def _save_data(book_name: str) -> str:
+        success = save_data.save_progress(book_name)
+        return f"Progress {'was' if success else 'was not'} saved."
 
     def _build_error_msg(self, e: Exception) -> str:
         """
@@ -156,15 +135,17 @@ class UnresolvableErrorHandler:
         function name, line number, file name, stack trace, and timestamp.
         """
 
-        binder, file_name, function_name = self._get_frame_info()
+        book_name, file_name, function_name = self._get_frame_info()
 
+        progress_saved = self._save_data(book_name)
         function_details = f"Error in {function_name} in {file_name}:"
         stack_info = traceback.format_exc()
         traceback_message = f"{function_details}\nStack Trace:\n{stack_info}"
         return (
             f"Error: {e}.\n"
             f"{traceback_message}\n"
-            f"for Binder {binder}\n"
+            f"for Book {book_name}\n"
+            f"{progress_saved}\n"
             f"Timestamp: {time.ctime()}"
         )
 
