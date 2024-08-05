@@ -53,7 +53,7 @@ class APIErrorHandler(ErrorManager):
 
 class RetryHandler:
     def __init__(self, email_handler: EmailManager) -> None:
-        self.max_retries = 5
+        self.max_retries: int = 5
         self.email_handler = email_handler
 
     def _calculate_sleep_time(self) -> int:
@@ -72,7 +72,7 @@ class RetryHandler:
 
         """
 
-        sleep_time = self._calculate_sleep_time()
+        sleep_time: int = self._calculate_sleep_time()
         logger.warning(
             f"Retry attempt #{self.retry_count} in {sleep_time} seconds."
         )
@@ -98,13 +98,13 @@ class UnresolvableErrorHandler:
     def _get_frame_info(self) -> tuple[str, str, str]:
         """
         Retrieve information about the exception frame, including the file
-        name, line number, function name, and book name if available.
+        name and function name, and book name if available.
         """
 
-        frame = inspect.currentframe()
+        frame: inspect.FrameType | None = inspect.currentframe()
         file_name, function_name = "Unknown", "Unknown"
 
-        book_name = "Unknown"
+        book_name: str = "Unknown"
 
         while frame is not None and book_name == "Unknown":
             if (
@@ -114,7 +114,7 @@ class UnresolvableErrorHandler:
                 file_name = frame.f_code.co_filename
                 function_name = frame.f_code.co_name
 
-            locals_ = frame.f_locals
+            locals_: dict = frame.f_locals
             if "book" in locals_:
                 book_name = repr(locals_["book"])
             if book_name != "Unknown":
@@ -126,21 +126,29 @@ class UnresolvableErrorHandler:
 
     @staticmethod
     def _save_data(book_name: str) -> str:
-        success = save_data.save_progress(book_name)
+        success: bool = save_data.save_progress(book_name)
         return f"Progress {'was' if success else 'was not'} saved."
 
     def _build_error_msg(self, e: Exception) -> str:
         """
         Generate an error message with detailed information including the
         function name, line number, file name, stack trace, and timestamp.
+
+        Args:
+            e (Exception): The exception that was raised.
+
+        Returns:
+            str: The formatted error message.
         """
 
         book_name, file_name, function_name = self._get_frame_info()
 
-        progress_saved = self._save_data(book_name)
-        function_details = f"Error in {function_name} in {file_name}:"
-        stack_info = traceback.format_exc()
-        traceback_message = f"{function_details}\nStack Trace:\n{stack_info}"
+        progress_saved: str = self._save_data(book_name)
+        function_details: str = f"Error in {function_name} in {file_name}:"
+        stack_info: str = traceback.format_exc()
+        traceback_message: str = (
+            f"{function_details}\nStack Trace:\n{stack_info}"
+        )
         return (
             f"Error: {e}.\n"
             f"{traceback_message}\n"
@@ -150,12 +158,13 @@ class UnresolvableErrorHandler:
         )
 
     def kill_app(self, e: Exception) -> None:
-        """_summary_
+        """
+        Exit the application with an error message.
 
         Args:
-            e (Exception): _description_
+            e (Exception): The exception that was raised.
         """
-        error_message = self._build_error_msg(e)
+        error_message: str = self._build_error_msg(e)
         logger.critical(error_message)
         self.email.error_email(error_message)
         exit(1)
