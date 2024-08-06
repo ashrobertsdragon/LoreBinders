@@ -7,8 +7,12 @@ from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from typing import TYPE_CHECKING
 
 from lorebinders._managers import EmailManager
+
+if TYPE_CHECKING:
+    from lorebinders._type_annotations import Path
 
 
 class SMTPHandler(EmailManager):
@@ -18,15 +22,15 @@ class SMTPHandler(EmailManager):
         self.server: str = os.environ["MAIL_SERVER"]
         self.port: int = int(os.environ["MAIL_PORT"])
 
-    def _get_email_body(self) -> str:
+    def _get_email_body(self, body: str = "email_content.html") -> str:
         """
         Reads the contents of an html file and returns it as the email
         body text.
         """
-        html_path: str = os.path.join("ProsePal", "email_content.html")
-        return pathlib.Path(html_path).read_text()
+        html_path = pathlib.Path("lorebinders", "email_handlers", body)
+        return html_path.read_text()
 
-    def _get_attachment(self, attachment: tuple[str, str, str]) -> str:
+    def _get_attachment(self, attachment: tuple[str, str, str]) -> Path:
         """
         Unpack the tuple 'attachment' to retrieve the path to the Binder to
         email.
@@ -40,7 +44,7 @@ class SMTPHandler(EmailManager):
                 unpacked tuple.
         """
         folder_name, book_name, binder = attachment
-        return os.path.join(folder_name, f"{book_name}-{binder}.pdf")
+        return pathlib.Path(folder_name, f"{book_name}-{binder}.pdf")
 
     def send_mail(
         self,
@@ -56,7 +60,7 @@ class SMTPHandler(EmailManager):
             book_name: Name of the book.
             user_email: Email address of the user.
         """
-        email_body = error_msg or self._get_email_body()
+        email_body: str = error_msg or self._get_email_body()
 
         subject = (
             "A critical error occurred"
@@ -65,7 +69,7 @@ class SMTPHandler(EmailManager):
         )
         try:
             if attachment:
-                file_path: str = self._get_attachment(attachment)
+                file_path: Path = self._get_attachment(attachment)
                 self._create_email_object(
                     user_email, subject, email_body, file_path=file_path
                 )
@@ -75,7 +79,7 @@ class SMTPHandler(EmailManager):
             print(f"Failed to send email. Reason: {e}")
         return
 
-    def _create_attachment(self, file_path: str) -> MIMEBase:
+    def _create_attachment(self, file_path: Path) -> MIMEBase:
         with open(file_path, "rb") as attachment_file:
             part = MIMEBase("application", "octet-stream")
             part.set_payload(attachment_file.read())
@@ -86,7 +90,7 @@ class SMTPHandler(EmailManager):
         return part
 
     def _create_email_object(
-        self, user_email, subject, email_body, file_path: str | None = None
+        self, user_email, subject, email_body, file_path: Path | None = None
     ):
         s = smtplib.SMTP_SSL(host=self.server, port=self.port)
         s.login(self.admin_email, self.password)
@@ -99,7 +103,6 @@ class SMTPHandler(EmailManager):
             msg.attach(attachment_part)
         msg.attach(MIMEText(email_body, "html"))
         s.send_message(msg)
-        print("email sent")
 
     def error_email(self, error_msg: str) -> None:
         """
