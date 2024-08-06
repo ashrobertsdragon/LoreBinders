@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from loguru import logger
@@ -30,6 +31,7 @@ if TYPE_CHECKING:
 
 
 __all__ = [
+    "Path",
     "FinishReason",
     "InstructionType",
     "ChatCompletion",
