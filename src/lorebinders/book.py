@@ -57,14 +57,13 @@ class Book:
             self.metadata.custom_categories
         )
 
-        self.name = self.title
         self._binder: dict = {}
 
         self.file = read_text_file(self._book_file)
         self._build_chapters()
 
     def __repr__(self) -> str:
-        return f"Book({self.name!r})"
+        return f"Book({self.title}-{self.author})"
 
     def _build_chapters(self) -> list:
         """
