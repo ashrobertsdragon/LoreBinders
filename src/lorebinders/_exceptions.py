@@ -1,0 +1,2 @@
+class BadEmailError(Exception):
+    pass
