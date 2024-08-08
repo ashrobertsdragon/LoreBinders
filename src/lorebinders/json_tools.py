@@ -18,6 +18,37 @@ def is_valid_json_file(file_path: str) -> bool:
     )
 
 
+def repair_json_str(bad_string: str) -> str:
+    """
+    Repairs any syntax errors in a given JSON string.
+
+    Args:
+        bad_string (str): The JSON string with syntax errors to be
+            repaired.
+
+    Returns:
+        str: A valid JSON string after repairing any syntax errors.
+
+    """
+    return repair_json(bad_string)
+
+
+def json_str_to_dict(json_str: str) -> dict:
+    """
+    Converts a JSON string to a Python dictionary by repairing any syntax
+    errors in the JSON string.
+
+    Args:
+        json_str (str): The JSON string to be converted to a dictionary.
+
+    Returns:
+        dict: A Python dictionary representing the JSON data after
+            repairing any syntax errors.
+
+    """
+    return repair_json(json_str)
+
+
 class MergeJSON:
     """
     A class to merge two partial JSON objects and validate the combined
@@ -72,12 +103,11 @@ class MergeJSON:
         Finds the end index of the first JSON object in the first segment and
         the start index of the second JSON object in the second segment.
         """
-        self.first_end = self._find_full_object(
-            self.first_half[::-1], forward=False
-        )
+        self.first_end = self._find_full_object(self.first_half, forward=False)
         self.second_start = self._find_full_object(self.second_half)
 
-    def _find_full_object(self, string: str, forward: bool = True) -> int:
+    @staticmethod
+    def _find_full_object(string: str, forward: bool = True) -> int:
         """
         Finds the position of the first full object of a string representation
         of a partial JSON object.
@@ -85,7 +115,9 @@ class MergeJSON:
 
         balanced = 0 if forward else -1
         count = 0
-        for i, char in enumerate(string):
+
+        directional_string: str = string if forward else string[::-1]
+        for i, char in enumerate(directional_string):
             if char == "{":
                 count += 1
             elif char == "}":
@@ -119,44 +151,3 @@ class MergeJSON:
             log = f"Could not combine.\n{self.repair_stub}"
             logging.warning(log)
             return ""
-
-
-class RepairJSON:
-    """
-    A class for repairing JSON strings with syntax errors and converting JSON
-    strings to Python dictionaries.
-
-    Methods:
-        repair_str: Repairs any syntax errors in a given JSON string.
-        json_str_to_dict: Converts a JSON string to a Python dictionary by
-            repairing any syntax errors in the JSON string.
-    """
-
-    def repair_str(self, bad_string: str) -> str:
-        """
-        Repairs any syntax errors in a given JSON string.
-
-        Args:
-            bad_string (str): The JSON string with syntax errors to be
-                repaired.
-
-        Returns:
-            str: A valid JSON string after repairing any syntax errors.
-
-        """
-        return repair_json(bad_string)
-
-    def json_str_to_dict(self, json_str: str) -> dict:
-        """
-        Converts a JSON string to a Python dictionary by repairing any syntax
-        errors in the JSON string.
-
-        Args:
-            json_str (str): The JSON string to be converted to a dictionary.
-
-        Returns:
-            dict: A Python dictionary representing the JSON data after
-                repairing any syntax errors.
-
-        """
-        return repair_json(json_str)
