@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import logging
 import os
 
 from json_repair import repair_json
+from loguru import logger
 
 import lorebinders.file_handling as file_handling
 
@@ -150,12 +150,12 @@ class MergeJSON:
         if self.first_end and self.second_start:
             self.first_end = len(self.first_half) - self.first_end - 1
             return (
-                self.first_half[: self.first_end + 1]
+                self.first_half[: self.first_end]
                 + ", "
-                + self.second_half[self.second_start :]
+                + self.second_half[self.second_start :]  # noqa: E203
             )
 
         else:
             log = f"Could not combine.\n{self.repair_stub}"
-            logging.warning(log)
+            logger.warning(log)
             return ""
