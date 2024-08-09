@@ -113,8 +113,9 @@ class MergeJSON:
         of a partial JSON object.
         """
 
-        balanced = 0 if forward else -1
-        count = 0
+        balanced: int = 0 if forward else -1
+        count: int = 0
+        last_balanced_position: int = 0
 
         directional_string: str = string if forward else string[::-1]
         for i, char in enumerate(directional_string):
@@ -122,8 +123,15 @@ class MergeJSON:
                 count += 1
             elif char == "}":
                 count -= 1
-            return i if i != 0 and count == balanced else 0
-        return 0
+            if count == balanced:
+                last_balanced_position = i
+
+        if count != 0:
+            return 0
+
+        return (
+            last_balanced_position if forward else last_balanced_position + 1
+        )
 
     def merge(self) -> str:
         """
