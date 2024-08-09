@@ -82,11 +82,7 @@ class MergeJSON:
             failure.
     """
 
-    def __init__(self):
-        self.first_end = 0
-        self.second_start = 0
-
-    def set_ends(self, first_half: str, second_half: str) -> None:
+    def _set_halves(self, first_half: str, second_half: str) -> None:
         """
         Sets the end indices of the first and second JSON objects in the
         first and second segments, respectively.
@@ -98,13 +94,14 @@ class MergeJSON:
             f"First response:\n{first_half}\nSecond response:\n{second_half}"
         )
 
-    def _find_ends(self) -> None:
+    def find_ends(self) -> tuple[int, int]:
         """
         Finds the end index of the first JSON object in the first segment and
         the start index of the second JSON object in the second segment.
         """
-        self.first_end = self._find_full_object(self.first_half, forward=False)
-        self.second_start = self._find_full_object(self.second_half)
+        first_end = self._find_full_object(self.first_half, forward=False)
+        second_start = self._find_full_object(self.second_half)
+        return first_end, second_start
 
     @staticmethod
     def _find_full_object(string: str, forward: bool = True) -> int:
@@ -133,7 +130,7 @@ class MergeJSON:
             last_balanced_position if forward else last_balanced_position + 1
         )
 
-    def merge(self) -> str:
+    def _merge_halves(self, first_end: int, second_start: int) -> str:
         """
         Merges two strings of a partial JSON object
 
@@ -147,15 +144,29 @@ class MergeJSON:
             string.
         """
 
-        if self.first_end and self.second_start:
-            self.first_end = len(self.first_half) - self.first_end - 1
+        if first_end and second_start:
             return (
-                self.first_half[: self.first_end]
+                self.first_half[:first_end]
                 + ", "
-                + self.second_half[self.second_start :]  # noqa: E203
+                + self.second_half[second_start:]
             )
+        log = f"Could not combine.\n{self.repair_stub}"
+        logger.warning(log)
+        return ""
 
-        else:
-            log = f"Could not combine.\n{self.repair_stub}"
-            logger.warning(log)
-            return ""
+    def merge(self, first_half: str, second_half: str) -> str:
+        """
+        Merges two strings of a partial JSON object
+
+        Args:
+            first_half: str - the first segment of a partial JSON object in
+                string form
+            second_half: str - the second segment of a partial JSON object in
+                string form
+
+        Returns either the combined string of a full JSON object or empty
+            string.
+        """
+        self._set_halves(first_half, second_half)
+        first_end, second_start = self.find_ends()
+        return self._merge_halves(first_end, second_start)
