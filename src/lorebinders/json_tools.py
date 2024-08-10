@@ -140,7 +140,6 @@ def find_full_object(string: str, forward: bool = True) -> int:
             string from the direction specified.
     """
 
-    balanced: int = 0 if forward else -1
     count: int = 0
     directional_string: str = string if forward else string[::-1]
 
@@ -149,9 +148,9 @@ def find_full_object(string: str, forward: bool = True) -> int:
             count += 1
         elif char == "}":
             count -= 1
-        if count == balanced:
+        if count == 0:
             # return the position from the end being iterated from
-            return i if forward else i + 1
+            return i if forward else len(string) - i - 1
 
     return 0
 
