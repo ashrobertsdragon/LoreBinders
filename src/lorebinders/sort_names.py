@@ -343,7 +343,7 @@ class SortNames:
 
         for i, value_i in enumerate(inner_values):
             clean_i = cleaned_values[value_i]
-            for value_j in inner_values[i + 1 :]:
+            for value_j in inner_values[i + 1 :]:  # noqa: E203
                 if self._should_compare_values(value_i, value_j):
                     clean_j = cleaned_values[value_j]
                     shorter_value, longer_value = self._sort_shorter_longer(
@@ -388,7 +388,7 @@ class SortNames:
         added_lines: int
 
         split_lines, added_lines = split_func(self._lines[index])
-        self._lines[index : index + 1] = split_lines
+        self._lines[index : index + 1] = split_lines  # noqa: E203
         return index + added_lines
 
     def sort(self) -> dict:
