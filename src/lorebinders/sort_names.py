@@ -23,7 +23,7 @@ class SortNames:
         sort: Parse the raw NER string into a nested dictionary.
     """
 
-    def __init__(self, name_list: str, narrator: Optional[str]) -> None:
+    def __init__(self, name_list: str, narrator: Optional[str] = None) -> None:
         self._lines = name_list.split("\n")
         self._narrator = narrator or ""
 
