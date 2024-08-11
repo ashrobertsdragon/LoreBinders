@@ -91,10 +91,10 @@ def log_merge_warning(first_part: str, second_part: str) -> None:
 
 def find_last_full_object(string: str) -> int:
     """
-    Finds the position of the first full object of a string representation
+    Finds the position of the last full object of a string representation
     of a partial JSON object.
 
-    Iterates from the 'broken' end of a partial JSON object and returns the
+    Iterates from the beginning of a partial JSON object and returns the
     position of the end of the last complete object in the string. If no
     complete object is found, returns 0.
 
@@ -104,7 +104,7 @@ def find_last_full_object(string: str) -> int:
     Returns:
         int: The position of the end of the last complete object.
     """
-
+    last_balanced_location: int = 0
     count: int = 0
     for i, char in enumerate(string[1:]):
         if char == "{":
@@ -114,7 +114,7 @@ def find_last_full_object(string: str) -> int:
         if count == 0 and char in "{}":
             last_balanced_location = i
 
-    return last_balanced_location + 1 or 0
+    return last_balanced_location + 1 if last_balanced_location > 0 else 0
 
 
 def merge_json(first_part: str, second_part: str) -> str:
@@ -132,6 +132,6 @@ def merge_json(first_part: str, second_part: str) -> str:
     """
 
     if first_end := find_last_full_object(first_part):
-        return f"{first_part[:first_end]}, {second_part.lstrip('{')}"
+        return f"{first_part[: first_end + 1]},{second_part.lstrip('{')}"
     log_merge_warning(first_part, second_part)
     return ""
