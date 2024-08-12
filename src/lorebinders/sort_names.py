@@ -87,7 +87,8 @@ class SortNames:
             self._missing_newline_after_pattern.sub(":\n", line),
         ]
 
-    def _lowercase_interior_exterior(self, line: str) -> str:
+    @staticmethod
+    def _lowercase_interior_exterior(line: str) -> str:
         """
         Lowercase 'interior' and 'exterior' in the line.
         """
