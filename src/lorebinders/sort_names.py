@@ -119,7 +119,7 @@ class SortNames:
         return line.replace("(", "").replace(")", "")
 
     @staticmethod
-    def _replace_bad_setting(line: str) -> str:
+    def _replace_bad_setting() -> str:
         """
         Replace invalid setting indicator with 'Settings:'.
         """
@@ -135,7 +135,7 @@ class SortNames:
         """
         Remove non-interior/exterior parantheticals from the line.
         """
-        return self._not_int_ext_parenthetical_pattern.sub(r"\`1", line)
+        return self._not_int_ext_parenthetical_pattern.sub(r"\1", line)
 
     @staticmethod
     def _num_added_lines(split_lines: list) -> int:
@@ -215,11 +215,8 @@ class SortNames:
         """
         Check if the line mentions a narrator or main character.
         """
-        return any(line.lower().split()) in {
-            "narrator",
-            "protagonist",
-            "main character",
-        }
+        narrator_phrases = ["narrator", "protagonist", "main character"]
+        return any(phrase in line.lower() for phrase in narrator_phrases)
 
     @staticmethod
     def _has_odd_parentheses(line: str) -> bool:
@@ -251,9 +248,10 @@ class SortNames:
         """
         Determine if the line should be skipped based on junk words.
         """
+
         if line != "":
             line_set = set(line.lower().split())
-            bool(line_set.intersection(self._junk_words))
+            return not line_set.isdisjoint(self._junk_words)
         return True
 
     @staticmethod
@@ -435,7 +433,7 @@ class SortNames:
             if self._has_odd_parentheses(line):
                 line = self._remove_parentheses(line)
             if self._has_bad_setting(line):
-                line = self._replace_bad_setting(line)
+                line = self._replace_bad_setting()
             if self._has_narrator(line):
                 line = self._narrator
             # line = self._remove_parantheticals_pattern(line)
