@@ -6,79 +6,70 @@ from typing import Callable, Dict, List, Tuple, Union, cast
 from lorebinders._titles import TITLES
 
 
-class Data:
-    pass
+def remove_titles(name: str) -> str:
+    """
+    Removes titles from a given name.
+
+    This method takes a name as input and removes any titles from the
+    beginning of the name. It checks if the first word of the name is a
+    title, based on a predefined list of titles. If the first word is a
+    title, it returns the name without the title. Otherwise, it returns
+    the original name.
+
+    Args:
+        value (str): The name from which titles need to be removed.
+
+    Returns:
+        str: The name without any titles.
+
+    """
+    if not isinstance(name, str):
+        raise TypeError("name must be a string")
+
+    name_split: List[str] = name.split(" ")
+    if name_split[0] in TITLES and name not in TITLES:
+        return " ".join(name_split[1:])
+    return name
 
 
-class ManipulateData(Data):
-    def remove_titles(self, name: str) -> str:
-        """
-        Removes titles from a given name.
+def to_singular(plural: str) -> str:
+    """
+    Converts a plural word to its singular form based on common English
+    pluralization rules.
 
-        This method takes a name as input and removes any titles from the
-        beginning of the name. It checks if the first word of the name is a
-        title, based on a predefined list of titles. If the first word is a
-        title, it returns the name without the title. Otherwise, it returns
-        the original name.
+    Args:
+        plural: A string representing the plural form of a word.
 
-        Args:
-            value (str): The name from which titles need to be removed.
+    Returns:
+        (str) The singular form of the given word if a pattern matches,
+            otherwise the original word.
+    """
+    if not isinstance(plural, str):
+        raise TypeError("plural must be a string")
+    if not plural:
+        raise ValueError("plural must not be empty")
+    lower_plural = plural.lower()
+    patterns = {
+        r"(\w+)(ves)$": r"\1f",
+        r"(\w+)(ies)$": r"\1y",
+        r"(\w+)(i)$": r"\1us",
+        r"(\w+)(a)$": r"\1um",
+        r"(\w+)(en)$": r"\1an",
+        r"(\w+)(oes)$": r"\1o",
+        r"(\w+)(ses)$": r"\1s",
+        r"(\w+)(hes)$": r"\1h",
+        r"(\w+)(xes)$": r"\1x",
+        r"(\w+)(zes)$": r"\1z",
+    }
 
-        Returns:
-            str: The name without any titles.
-
-        """
-        if not isinstance(name, str):
-            raise TypeError("name must be a string")
-
-        name_split: List[str] = name.split(" ")
-        if name_split[0] in TITLES and name not in TITLES:
-            return " ".join(name_split[1:])
-        return name
-
-    def to_singular(self, plural: str) -> str:
-        """
-        Converts a plural word to its singular form based on common English
-        pluralization rules.
-
-        Args:
-            plural: A string representing the plural form of a word.
-
-        Returns:
-            (str) The singular form of the given word if a pattern matches,
-                otherwise the original word.
-        """
-        if not isinstance(plural, str):
-            raise TypeError("plural must be a string")
-        if not plural:
-            raise ValueError("plural must not be empty")
-        lower_plural = plural.lower()
-        patterns = {
-            r"(\w+)(ves)$": r"\1f",
-            r"(\w+)(ies)$": r"\1y",
-            r"(\w+)(i)$": r"\1us",
-            r"(\w+)(a)$": r"\1um",
-            r"(\w+)(en)$": r"\1an",
-            r"(\w+)(oes)$": r"\1o",
-            r"(\w+)(ses)$": r"\1s",
-            r"(\w+)(hes)$": r"\1h",
-            r"(\w+)(xes)$": r"\1x",
-            r"(\w+)(zes)$": r"\1z",
-        }
-
-        singular = (
-            re.sub(pattern, repl, lower_plural)
-            for pattern, repl in patterns.items()
-        )
-        return next(singular, plural[:-1])
+    singular = (
+        re.sub(pattern, repl, lower_plural)
+        for pattern, repl in patterns.items()
+    )
+    return next(singular, plural[:-1])
 
 
-class CleanData(Data):
-    def __init__(self, binder: dict):
-        self.binder = binder
-
-
-class RemoveNoneFound(CleanData):
+class RemoveNoneFound:
     """
     This class removes "None found" entries from a nested dictionary.
 
@@ -93,6 +84,9 @@ class RemoveNoneFound(CleanData):
             dictionary.
         clean_none_found: Calls `_remove_none`.
     """
+
+    def __init__(self, binder: dict) -> None:
+        self.binder = binder
 
     def clean_none_found(self) -> dict:
         """
@@ -140,7 +134,7 @@ class RemoveNoneFound(CleanData):
             return {} if d.lower() == "none found" else cast(dict, {d: None})
 
 
-class DeduplicateKeys(CleanData):
+class DeduplicateKeys:
     """
     This class removes duplicate keys in a dictionary by merging singular and
     plural forms of keys. It uses the __call__ method to be called directly.
@@ -167,8 +161,7 @@ class DeduplicateKeys(CleanData):
     """
 
     def __init__(self, binder: dict) -> None:
-        self.manipulate_data = ManipulateData()
-        super().__init__(binder)
+        self.binder = binder
 
     def __call__(self) -> None:
         self.deduplicated = self._deduplicate_keys(self.binder)
@@ -250,10 +243,10 @@ class DeduplicateKeys(CleanData):
         """
         key1 = key_1.strip()
         key2 = key_2.strip()
-        detitled_key1 = self.manipulate_data.remove_titles(key1)
-        detitled_key2 = self.manipulate_data.remove_titles(key2)
-        singular_key1 = self.manipulate_data.to_singular(key1)
-        singular_key2 = self.manipulate_data.to_singular(key2)
+        detitled_key1 = remove_titles(key1)
+        detitled_key2 = remove_titles(key2)
+        singular_key1 = to_singular(key1)
+        singular_key2 = to_singular(key2)
 
         if (
             key1 + " " in key2
@@ -394,7 +387,7 @@ class DeduplicateKeys(CleanData):
         return value1
 
 
-class ReshapeDict(CleanData):
+class ReshapeDict:
     """
     A class to reshape a dictionary of chapter summaries by demoting chapter
     numbers inside attribute names.
@@ -420,8 +413,8 @@ class ReshapeDict(CleanData):
     """
 
     def __init__(self, binder: dict) -> None:
+        self.binder = binder
         self._reshaped_data: dict = defaultdict(dict)
-        super().__init__(binder)
 
     def __call__(self) -> None:
         self.reshaped = self._reshape(self.binder)
@@ -480,7 +473,7 @@ class FinalReshape(ReshapeDict):
         return self._reshaped_data
 
 
-class SortDictionary(CleanData):
+class SortDictionary:
     """
     Sorts the keys of a nested dictionary.
 
@@ -495,6 +488,9 @@ class SortDictionary(CleanData):
         dict: A dictionary with the same structure as self.binder, but
         with the keys sorted in ascending order.
     """
+
+    def __init__(self, binder: dict) -> None:
+        self.binder = binder
 
     def __call__(self) -> dict:
         return self._sort(self.binder)
@@ -531,7 +527,7 @@ class SortDictionary(CleanData):
         return sorted_dict
 
 
-class ReplaceNarrator(CleanData):
+class ReplaceNarrator:
     """
     A class that replaces occurrences of the word 'narrator', 'protagonist',
     'the main character', or 'main character' with a specified narrator name
@@ -562,6 +558,9 @@ class ReplaceNarrator(CleanData):
             Replaces the occurrences of the words in the specified dictionary
                 with the narrator name.
     """
+
+    def __init__(self, binder: dict):
+        self._binder = binder
 
     def _replace_str(self, value: str) -> str:
         narrator_list: str = (
@@ -597,7 +596,7 @@ class ReplaceNarrator(CleanData):
         character's name
         """
         self._narrator_name = narrator_name
-        return self._clean_dict(self.binder)
+        return self._clean_dict(self._binder)
 
 
 def clean_lorebinders(lorebinder: dict, narrator: str):
