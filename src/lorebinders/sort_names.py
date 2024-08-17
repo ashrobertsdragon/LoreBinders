@@ -2,9 +2,7 @@ import re
 from collections import defaultdict
 from typing import Callable, List, Optional, Tuple
 
-from lorebinders.data_cleaner import ManipulateData
-
-data = ManipulateData()
+import lorebinders.data_cleaner as data_cleaner
 
 
 class SortNames:
@@ -282,6 +280,27 @@ class SortNames:
         )
         self._inner_values.clear()
 
+    def _combine_singular_to_plural(self, category_name: str) -> list:
+        """
+        Combine singular and plural forms of the category name.
+
+        Args:
+            category_name (str): The name of the category to combine.
+
+        Returns:
+            list: A list of combined category names.
+        """
+        inner_values: list[str] = []
+        if category_name.endswith("s"):
+            inner_values = self._category_dict[category_name]
+            singular_key = category_name[:-1]
+            if singular_key in self._category_dict:
+                inner_values = self._category_dict[category_name]
+                inner_values.extend(self._category_dict[singular_key])
+                self._category_dict[singular_key] = []
+
+        return inner_values
+
     def _build_ner_dict(self) -> None:
         """
         Builds a Named Entity Recognition (NER) dictionary based on the
@@ -298,22 +317,12 @@ class SortNames:
         Returns:
             None
         """
-        name_map: dict = defaultdict(str)
-
-        for category_name, inner_values in self._category_dict.items():
-            if (
-                category_name.endswith("s")
-                and category_name[:-1] in self._category_dict
-            ):
-                inner_values.extend(self._category_dict[category_name[:-1]])
-                self._category_dict[category_name[:-1]] = []
-
-            if standardized_values := self._compare_names(
-                inner_values, name_map
-            ):
+        for category_name, inner_values in list(self._category_dict.items()):
+            if inner_values := self._combine_singular_to_plural(category_name):
+                standardized_values = self._compare_names(inner_values)
                 self.ner_dict[category_name] = standardized_values
 
-    def _compare_names(self, inner_values: list, name_map: dict) -> list:
+    def _compare_names(self, inner_values: list) -> list:
         """
         Compares and standardizes names in the inner_values list.
 
@@ -335,10 +344,11 @@ class SortNames:
             list: A list of standardized names.
 
         """
+        name_map: dict = defaultdict(str)
+
         cleaned_values = {
-            value: data.remove_titles(value) for value in inner_values
+            value: data_cleaner.remove_titles(value) for value in inner_values
         }
-        name_map = {}
 
         for i, value_i in enumerate(inner_values):
             clean_i = cleaned_values[value_i]
@@ -351,16 +361,18 @@ class SortNames:
                     name_map[shorter_value] = longer_value
 
         standardized_names = {
-            name_map.get(name, name) for name in inner_values
+            name_map.get(cleaned_values[name], cleaned_values[name])
+            for name in inner_values
         }
+
         return list(standardized_names)
 
     @staticmethod
     def _sort_shorter_longer(clean_i: str, clean_j: str) -> Tuple[str, str]:
         """Get the shorter and longer of two cleaned names."""
-        if clean_i == data.to_singular(clean_j):
+        if clean_i == data_cleaner.to_singular(clean_j):
             return clean_i, clean_j
-        elif clean_j == data.to_singular(clean_i):
+        elif clean_j == data_cleaner.to_singular(clean_i):
             return clean_j, clean_i
         else:
             shorter, longer = sorted([clean_i, clean_j], key=len)
