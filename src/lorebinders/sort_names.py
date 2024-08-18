@@ -402,19 +402,41 @@ class SortNames:
         self._lines[index : index + 1] = split_lines  # noqa: E203
         return index + added_lines
 
-    def sort(self) -> dict:
+    def _finalize_dict(self):
         """
-        Parses the response from the AI model to extract names and add them to
-        the Chapter object.
+        Finalizes the dictionary by adding the category dictionary to the
+        `ner_dict` dictionary.
+        """
+        if self._category_name:
+            self._set_category_dict()
+        if self._category_dict:
+            self._build_ner_dict()
 
-        This method takes the response from the AI model as input and extracts
-        the names using the _sort_names method. It also retrieves the narrator
-        from the Book object. The extracted names are then added to the
-        Chapter object using the add_names method.
+    def _process_remaining_modifications(self, line: str) -> str:
+        """
+        Process the remaining modifications to the line.
 
         Args:
-            name_list (str): The response from the AI model.
-            narrator (str): The narrator from the Book object.
+            line (str): The line to process.
+
+        Returns:
+            str: The processed line.
+        """
+        if self._has_odd_parentheses(line):
+            line = self._remove_parentheses(line)
+        if self._has_bad_setting(line):
+            line = self._replace_bad_setting()
+        if self._has_narrator(line):
+            line = self._narrator
+        return self._remove_parantheticals_pattern(line)
+
+    def sort(self) -> dict:
+        """
+        Cleans the lines and sorts into a dictionary.
+
+        This method performs several operations on the split string to
+        standardize and organize them before sorting into a dictionary of
+        names from a named entity recognition (NER) model.
 
         Returns:
             dict: A dictionary containing the sorted names categorized by
@@ -440,24 +462,14 @@ class SortNames:
                     continue
             line = self._remove_leading_colon_pattern(line)
             if self._should_skip_line(line):
-                i += 1
+                self._lines.pop(i)
                 continue
-            if self._has_odd_parentheses(line):
-                line = self._remove_parentheses(line)
-            if self._has_bad_setting(line):
-                line = self._replace_bad_setting()
-            if self._has_narrator(line):
-                line = self._narrator
-            # line = self._remove_parantheticals_pattern(line)
+            line = self._process_remaining_modifications(line)
 
             # Remaining lines ending with a colon are category names and lines
             # following belong in a list for that category
             self._add_to_dict(line)
             i += 1
 
-        if self._category_name:
-            self._set_category_dict()
-        if self._category_dict:
-            self._build_ner_dict()
-
+        self._finalize_dict()
         return self.ner_dict
