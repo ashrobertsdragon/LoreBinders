@@ -25,7 +25,7 @@ class SortNames:
         self._lines = name_list.split("\n")
         self._narrator = narrator or ""
 
-        self.ner_dict: defaultdict = defaultdict(str)
+        self.ner_dict: dict = {}
         self._category_dict: dict = {}
         self._category_name: str = ""
         self._inner_values: list = []
@@ -142,23 +142,39 @@ class SortNames:
         """
         return len(split_lines) - 1
 
-    def _add_missing_newline(self, line: str) -> Tuple[List[str], int]:
+    def _needs_newline(self, line: str) -> bool:
+        """
+        Check if the line needs a newline based on the patterns.
+
+        Args:
+            line (str): The line to check.
+
+        Returns:
+            bool: True if any pattern matches, False otherwise.
+        """
+        patterns = self._missing_newline_patterns(line)
+        return any(pattern != line for pattern in patterns)
+
+    def _add_missing_newline(self, line: str) -> tuple[list[str], int]:
         """
         Add missing newlines to the line.
 
+        Args:
+            line (str): The line to check.
+
         Returns:
-            split_lines (List[str]): A list of the split lines.
-            (int): The number of lines to add to the index. This is one less
-                than the total number of lines in split_lines.
+            Tuple[list[str], int]: A list of the split lines and the number of
+            lines that were added to the original.
         """
         patterns = self._missing_newline_patterns(line)
-        for pattern in patterns:
-            if pattern != line:
-                split_lines = pattern.split("\n")
-                num_added_lines = 1
-                return split_lines, num_added_lines
-        num_added_lines = 0
-        return [line], num_added_lines
+        return next(
+            (
+                (pattern.split("\n"), 1)
+                for pattern in patterns
+                if pattern != line
+            ),
+            ([line], 0),
+        )
 
     def _split_at_commas(self, line: str) -> Tuple[List[str], int]:
         """
@@ -259,10 +275,18 @@ class SortNames:
         """
         return line.startswith("interior:") or line.startswith("exterior:")
 
+    def _add_lines_to_dict(self, lines: list[str]) -> None:
+        """
+        Add the lines to the category dictionary.
+        """
+        for line in lines:
+            self._add_to_dict(line)
+
     def _add_to_dict(self, line: str) -> None:
         """
         Add the line to the category dictionary.
         """
+
         if self._ends_with_colon(line):
             if self._category_name:
                 self._set_category_dict()
@@ -301,7 +325,7 @@ class SortNames:
 
         return inner_values
 
-    def _build_ner_dict(self) -> None:
+    def _build_ner_dict(self) -> dict[str, list[str]]:
         """
         Builds a Named Entity Recognition (NER) dictionary based on the
         categories and inner values stored in the category dictionary.
@@ -317,10 +341,12 @@ class SortNames:
         Returns:
             None
         """
+        ner_dict: dict[str, list[str]] = {}
         for category_name, inner_values in list(self._category_dict.items()):
             if inner_values := self._combine_singular_to_plural(category_name):
                 standardized_values = self._compare_names(inner_values)
-                self.ner_dict[category_name] = standardized_values
+                ner_dict[category_name] = standardized_values
+        return ner_dict
 
     def _compare_names(self, inner_values: list) -> list:
         """
@@ -402,15 +428,14 @@ class SortNames:
         self._lines[index : index + 1] = split_lines  # noqa: E203
         return index + added_lines
 
-    def _finalize_dict(self):
+    def _finalize_dict(self) -> dict:
         """
         Finalizes the dictionary by adding the category dictionary to the
         `ner_dict` dictionary.
         """
         if self._category_name:
             self._set_category_dict()
-        if self._category_dict:
-            self._build_ner_dict()
+        return self._build_ner_dict()
 
     def _process_remaining_modifications(self, line: str) -> str:
         """
@@ -444,7 +469,7 @@ class SortNames:
         """
         split_conditions = [
             (self._is_list_as_str, self._split_at_commas),
-            (self._missing_newline_patterns, self._add_missing_newline),
+            (self._needs_newline, self._add_missing_newline),
         ]
 
         i = 0
@@ -452,13 +477,17 @@ class SortNames:
             line = self._lines[i].strip()
             line = self._remove_list_formatting(line)
             if self._starts_with_location(line):
+                orig_index = i
                 i = self._split_and_update_lines(i, self._split_settings_line)
+                self._add_lines_to_dict(self._lines[orig_index:i])
                 continue
             line = self._lowercase_interior_exterior(line)
             line = self._replace_inverted_setting(line)
             for condition, split_func in split_conditions:
                 if condition(line):
+                    orig_index = i
                     i = self._split_and_update_lines(i, split_func)
+                    self._add_lines_to_dict(self._lines[orig_index:i])
                     continue
             line = self._remove_leading_colon_pattern(line)
             if self._should_skip_line(line):
@@ -469,7 +498,5 @@ class SortNames:
             # Remaining lines ending with a colon are category names and lines
             # following belong in a list for that category
             self._add_to_dict(line)
-            i += 1
 
-        self._finalize_dict()
-        return self.ner_dict
+        return self._finalize_dict()
