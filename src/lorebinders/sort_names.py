@@ -275,13 +275,6 @@ class SortNames:
         """
         return line.startswith("interior:") or line.startswith("exterior:")
 
-    def _add_lines_to_dict(self, lines: list[str]) -> None:
-        """
-        Add the lines to the category dictionary.
-        """
-        for line in lines:
-            self._add_to_dict(line)
-
     def _add_to_dict(self, line: str) -> None:
         """
         Add the line to the category dictionary.
@@ -404,30 +397,6 @@ class SortNames:
             shorter, longer = sorted([clean_i, clean_j], key=len)
             return shorter, longer
 
-    def _split_and_update_lines(
-        self, index: int, split_func: Callable[[str], Tuple[List[str], int]]
-    ) -> int:
-        """
-        Split the line at index i using the provided split function and
-        update the lines list.
-
-        Args:
-            index (int): The index of the line to split.
-            lines (list[str]): The list of lines.
-            split_func (Callable[[str], Tuple[list[str], int]]): The function
-                to split the line.
-
-        Returns:
-            Tuple[int, bool]: A tuple containing the new index i and a
-                boolean indicating whether to continue the main loop.
-        """
-        split_lines: List[str]
-        added_lines: int
-
-        split_lines, added_lines = split_func(self._lines[index])
-        self._lines[index : index + 1] = split_lines  # noqa: E203
-        return index + added_lines
-
     def _finalize_dict(self) -> dict:
         """
         Finalizes the dictionary by adding the category dictionary to the
@@ -455,6 +424,26 @@ class SortNames:
             line = self._narrator
         return self._remove_parantheticals_pattern(line)
 
+    def _split_and_update_lines(
+        self, index: int, split_func: Callable[[str], Tuple[List[str], int]]
+    ) -> None:
+        """
+        Split the line at index i using the provided split function and
+        update the lines list.
+
+        Args:
+            index (int): The index of the line to split.
+            split_func (Callable[[str], Tuple[list[str], int]]): The function
+                to split the line.
+
+        Returns:
+            None
+        """
+        split_lines: List[str]
+
+        split_lines, _ = split_func(self._lines[index])
+        self._lines[index : index + 1] = split_lines  # noqa: E203
+
     def sort(self) -> dict:
         """
         Cleans the lines and sorts into a dictionary.
@@ -477,18 +466,20 @@ class SortNames:
             line = self._lines[i].strip()
             line = self._remove_list_formatting(line)
             if self._starts_with_location(line):
-                orig_index = i
-                i = self._split_and_update_lines(i, self._split_settings_line)
-                self._add_lines_to_dict(self._lines[orig_index:i])
+                self._split_and_update_lines(i, self._split_settings_line)
                 continue
             line = self._lowercase_interior_exterior(line)
             line = self._replace_inverted_setting(line)
+
+            split: bool = False
             for condition, split_func in split_conditions:
                 if condition(line):
-                    orig_index = i
-                    i = self._split_and_update_lines(i, split_func)
-                    self._add_lines_to_dict(self._lines[orig_index:i])
-                    continue
+                    self._split_and_update_lines(i, split_func)
+                    split = True
+                    break
+            if split:  # When line is split, start iteration over at same index
+                continue
+
             line = self._remove_leading_colon_pattern(line)
             if self._should_skip_line(line):
                 self._lines.pop(i)
@@ -498,5 +489,6 @@ class SortNames:
             # Remaining lines ending with a colon are category names and lines
             # following belong in a list for that category
             self._add_to_dict(line)
+            i += 1
 
         return self._finalize_dict()
