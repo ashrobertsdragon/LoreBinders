@@ -454,3 +454,102 @@ def test_sort_names_process_remaining_modifications_remove_parantheticals_patter
 def test_sort_names_process_remaining_modifications_no_modifications(sort_names):
     result = sort_names._process_remaining_modifications("Test line")
     assert result == "Test line"
+
+def test_sort_remove_list_formatting(sort_names):
+    sort_names._lines = ["1. line1", "line2"]
+    sort_names._category_name = "Test"
+    expected = {"Test": ["line1", "line2"]}
+
+    result = sort_names.sort()
+
+    assert result == expected
+
+def test_sort_starts_with_location(sort_names):
+    sort_names._lines = ["exterior: line1, line2", "line3"]
+    sort_names._category_name = "Test"
+    expected = {"Test": ["line1 (exterior)", "line2 (exterior)", "line3"]}
+
+    result = sort_names.sort()
+
+    assert result == expected
+
+def test_sort_lowercase_interior_exterior(sort_names):
+    sort_names._lines = ["line1 (INTERIOR)", "line2"]
+    sort_names._category_name = "Test"
+    expected = {"Test": ["line1 (interior)", "line2"]}
+
+    result = sort_names.sort()
+
+    assert result == expected
+
+def test_sort_replace_inverted_setting(sort_names):
+    sort_names._lines = ["interior (line1)", "line2"]
+    sort_names._category_name = "Test"
+    expected = {"Test": ["line1 (interior)", "line2"]}
+
+    result = sort_names.sort()
+
+    assert result == expected
+
+def test_sort_split_at_commas(sort_names):
+    sort_names._lines = ["line1, line2", "line3"]
+    sort_names._category_name = "Test"
+    expected = {"Test": ["line1", "line2", "line3"]}
+
+    result = sort_names.sort()
+
+    assert result == expected
+
+def test_sort_add_missing_newline(sort_names):
+    sort_names._lines = ["line1 line2", "line3"]
+    sort_names._category_name = "Test"
+    expected = {"Test": ["line1", "line2", "line3"]}
+
+    result = sort_names.sort()
+
+    assert result == expected
+
+def test_sort_remove_leading_colon(sort_names):
+    sort_names._lines = [":line1", "line2"]
+    sort_names._category_name = "Test"
+    expected = {"Test": ["line1", "line2"]}
+
+    result = sort_names.sort()
+
+    assert result == expected
+
+def test_sort_should_skip_line(sort_names):
+    sort_names._lines = ["none", "line2"]
+    sort_names._category_name = "Test"
+    expected = {"Test": ["line2"]}
+
+    result = sort_names.sort()
+
+    assert result == expected
+
+def test_sort_process_remaining_modifications(sort_names):
+    sort_names._lines = ["line0", "line2"]
+    sort_names._category_name = "Test"
+    expected = {"Test": ["line1", "line2"]}
+
+    result = sort_names.sort()
+
+    assert result == expected
+
+def test_sort_no_modification(sort_names):
+    sort_names._lines = ["line1", "line2"]
+    sort_names._category_name = "Test"
+    expected = {"Test": ["line1", "line2"]}
+
+    result = sort_names.sort()
+
+    assert result == expected
+
+def test_sort_add_missing_newline_in_middle(sort_names):
+    sort_names._lines = ["line1", "line2 line3", "line4"]
+    sort_names._category_name = "Test"
+    expected = {"Test": ["line1", "line2", "line3", "line4"]}
+
+    result = sort_names.sort()
+
+    assert result == expected
