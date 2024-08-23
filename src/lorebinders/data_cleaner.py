@@ -27,7 +27,7 @@ def remove_titles(name: str) -> str:
         raise TypeError("name must be a string")
 
     name_split: List[str] = name.split(" ")
-    if name_split[0] in TITLES and name not in TITLES:
+    if name_split[0].lower() in TITLES and name.lower() not in TITLES:
         return " ".join(name_split[1:])
     return name
 
@@ -49,89 +49,66 @@ def to_singular(plural: str) -> str:
     if not plural:
         raise ValueError("plural must not be empty")
     lower_plural = plural.lower()
-    patterns = {
-        r"(\w+)(ves)$": r"\1f",
-        r"(\w+)(ies)$": r"\1y",
-        r"(\w+)(i)$": r"\1us",
-        r"(\w+)(a)$": r"\1um",
-        r"(\w+)(en)$": r"\1an",
-        r"(\w+)(oes)$": r"\1o",
-        r"(\w+)(ses)$": r"\1s",
-        r"(\w+)(hes)$": r"\1h",
-        r"(\w+)(xes)$": r"\1x",
-        r"(\w+)(zes)$": r"\1z",
-    }
+    patterns = [
+        (r"(\w+)(ves)$", r"\1f"),
+        (r"(\w+)(ies)$", r"\1y"),
+        (r"(\w+)(i)$", r"\1us"),
+        (r"(\w+)(a)$", r"\1um"),
+        (r"(\w+)(en)$", r"\1an"),
+        (r"(\w+)(oes)$", r"\1o"),
+        (r"(\w+)(sses)$", r"\1s"),
+        (r"(\w+)(ses)$", r"\1se"),
+        (r"(\w+)(hes)$", r"\1h"),
+        (r"(\w+)(xes)$", r"\1x"),
+        (r"(\w+)(zes)$", r"\1z"),
+    ]
 
     singular = (
         re.sub(pattern, repl, lower_plural)
-        for pattern, repl in patterns.items()
+        for pattern, repl in patterns
+        if re.match(pattern, lower_plural)
     )
+
     return next(singular, plural[:-1])
 
 
-class RemoveNoneFound:
+def clean_none_found(d: Union[dict, list, str]) -> dict:
     """
-    This class removes "None found" entries from a nested dictionary.
-
-    Args:
-        binder (dict): The nested dictionary to be cleaned.
-
-    Attributes:
-        binder (dict): The nested dictionary to be cleaned.
-
-    Methods:
-        _remove_none: Recursively removes "None found" entries from the nested
-            dictionary.
-        clean_none_found: Calls `_remove_none`.
+    Takes the nested dictionary from AttributeAnalyzer and removes "None
+    found" entries.
+    Returns the cleaned nested dictionary.
     """
-
-    def __init__(self, binder: dict) -> None:
-        self.binder = binder
-
-    def clean_none_found(self) -> dict:
-        """
-        Calls the _remove_none method to recursively remove "None found"
-        entries from the binder dictionary the class was initialized with.
-        """
-        return self._remove_none(self.binder)
-
-    def _remove_none(self, d: Union[dict, list, str]) -> dict:
-        """
-        Takes the nested dictionary from AttributeAnalyzer and removes "None
-        found" entries.
-        Returns the cleaned nested dictionary.
-        """
-        if isinstance(d, dict):
-            new_dict: dict = {}
-            for key, value in d.items():
-                cleaned_value = self._remove_none(value)
-                if isinstance(cleaned_value, list):
-                    new_dict[key] = (
-                        cleaned_value
-                        if len(cleaned_value) > 1
-                        else cleaned_value[0]
-                    )
-                elif (
-                    isinstance(cleaned_value, str)
-                    and cleaned_value.lower() != "none found"
-                ):
-                    new_dict[key] = cleaned_value
-            return new_dict
-        # Use cast pretend to convert lists and strings to dicts for MyPy
-        elif isinstance(d, list):
-            cleaned_list = [
-                self._remove_none(item)
-                for item in d
-                if item.lower() != "none found"
-            ]
-            if len(cleaned_list) > 1:
-                return cast(dict, cleaned_list)
-            elif len(cleaned_list) == 1:
-                return cast(dict, cleaned_list[0])
-            else:
-                return {}
+    if isinstance(d, dict):
+        new_dict: dict = {}
+        for key, value in d.items():
+            cleaned_value = clean_none_found(value)
+            if isinstance(cleaned_value, list):
+                new_dict[key] = (
+                    cleaned_value
+                    if len(cleaned_value) > 1
+                    else cleaned_value[0]
+                )
+            elif (
+                isinstance(cleaned_value, str)
+                and cleaned_value.lower() != "none found"
+            ):
+                new_dict[key] = cleaned_value
+        return new_dict
+    # Use cast pretend to convert lists and strings to dicts for MyPy
+    elif isinstance(d, list):
+        cleaned_list = [
+            clean_none_found(item)
+            for item in d
+            if item.lower() != "none found"
+        ]
+        if len(cleaned_list) > 1:
+            return cast(dict, cleaned_list)
+        elif len(cleaned_list) == 1:
+            return cast(dict, cleaned_list[0])
         else:
-            return {} if d.lower() == "none found" else cast(dict, {d: None})
+            return {}
+    else:
+        return {} if d.lower() == "none found" else cast(dict, {d: None})
 
 
 class DeduplicateKeys:
@@ -603,8 +580,7 @@ def clean_lorebinders(lorebinder: dict, narrator: str):
     reshaper = ReshapeDict(lorebinder)
     reshaped: dict = reshaper.reshaped
 
-    remove_none = RemoveNoneFound(reshaped)
-    only_found: dict = remove_none.clean_none_found()
+    only_found: dict = clean_none_found(reshaped)
 
     deduplicator = DeduplicateKeys(only_found)
     deduped: dict = deduplicator.deduplicated
