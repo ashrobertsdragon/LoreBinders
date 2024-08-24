@@ -230,8 +230,8 @@ class DeduplicateKeys:
             bool: True if the keys are similar, False otherwise.
 
         """
-        key1 = key_1.strip()
-        key2 = key_2.strip()
+        key1 = key_1.strip().lower()
+        key2 = key_2.strip().lower()
         detitled_key1 = remove_titles(key1)
         detitled_key2 = remove_titles(key2)
         singular_key1 = to_singular(key1)
@@ -242,19 +242,21 @@ class DeduplicateKeys:
             or key2 + " " in key1
             or key1 == singular_key2
             or singular_key1 == key2
+            or singular_key1 == singular_key2
         ):
             return True
 
         key1_is_title = self._is_title(key1)
         key2_is_title = self._is_title(key2)
-        if (key1_is_title and key1.lower() in key2.lower()) or (
-            key2_is_title and key2.lower() in key1.lower()
+        if (key1_is_title and key1 + " " in key2) or (
+            key2_is_title and key2 + " " in key1
         ):
             return True
 
         if detitled_key1 and detitled_key2:
             return (
-                detitled_key1 == key2
+                detitled_key1 == detitled_key2
+                or detitled_key1 == key2
                 or key1 == detitled_key2
                 or detitled_key1 == singular_key2
                 or singular_key1 == detitled_key2
