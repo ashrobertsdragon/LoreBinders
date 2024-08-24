@@ -60,7 +60,7 @@ def to_singular(plural: str) -> str:
         (r"(\w+)(ses)$", r"\1se"),
         (r"(\w+)(hes)$", r"\1h"),
         (r"(\w+)(xes)$", r"\1x"),
-        (r"(\w+)(zes)$", r"\1z"),
+        (r"(\w+)(zes)$", r"\1ze"),
     ]
 
     singular = (
@@ -69,7 +69,7 @@ def to_singular(plural: str) -> str:
         if re.match(pattern, lower_plural)
     )
 
-    return next(singular, plural[:-1])
+    return next(singular, lower_plural[:-1])
 
 
 def clean_list(unparsed_list) -> list:
@@ -85,7 +85,8 @@ def clean_list(unparsed_list) -> list:
     new_list: list = []
     for item in unparsed_list:
         if isinstance(item, str):
-            new_list.append(clean_str(item))
+            if cleaned_str := clean_str(item):
+                new_list.append(cleaned_str)
         elif isinstance(item, dict):
             if cleaned_dict := clean_none_found(item):
                 new_list.append(cleaned_dict)
