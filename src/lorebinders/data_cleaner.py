@@ -139,17 +139,10 @@ def clean_none_found(unparsed_dict: dict) -> dict:
 class DeduplicateKeys:
     """
     This class removes duplicate keys in a dictionary by merging singular and
-    plural forms of keys. It uses the __call__ method to be called directly.
-
-    Args:
-        binder (dict): The dictionary to be sorted
-
-    Attributes:
-        manipulate_data (ManipulateData): An instance of the ManipulateData
-            class.
+    plural forms of keys.
 
     Methods:
-        _deduplicate_keys: Removes duplicate keys in a dictionary by merging
+        deduplicate_keys: Removes duplicate keys in a dictionary by merging
             singular and plural forms of keys.
         _prioritize_keys: Determines the priority of keys based on whether one
             is a standalone title or length.
@@ -162,13 +155,7 @@ class DeduplicateKeys:
             into one.
     """
 
-    def __init__(self, binder: dict) -> None:
-        self.binder = binder
-
-    def __call__(self) -> None:
-        self.deduplicated = self._deduplicate_keys(self.binder)
-
-    def _deduplicate_keys(self, d: dict) -> dict:
+    def deduplicate(self, binder: dict) -> dict:
         """
         Removes duplicate keys in a dictionary by merging singular and plural
         forms of keys.
@@ -179,9 +166,9 @@ class DeduplicateKeys:
         Returns the deduplicated dictionary.
         """
 
-        cleaned_dict = {}
+        cleaned_dict: dict = {}
 
-        for outer_key, nested_dict in d.items():
+        for outer_key, nested_dict in binder.items():
             if not isinstance(nested_dict, dict):
                 continue
             duplicate_keys = set()
@@ -197,7 +184,7 @@ class DeduplicateKeys:
                     )
                     duplicate_keys.add(key_to_merge)
 
-            inner_dict = {
+            inner_dict: dict = {
                 key: value
                 for key, value in nested_dict.items()
                 if key not in duplicate_keys
@@ -414,14 +401,10 @@ class ReshapeDict:
         dict: The reshaped dictionary of chapter summaries.
     """
 
-    def __init__(self, binder: dict) -> None:
-        self.binder = binder
+    def __init__(self) -> None:
         self._reshaped_data: dict = defaultdict(dict)
 
-    def __call__(self) -> None:
-        self.reshaped = self._reshape(self.binder)
-
-    def _reshape(self, binder: dict) -> dict:
+    def reshape(self, binder: dict) -> dict:
         """
         Reshapes a dictionary of chapter summaries to demote chapter numbers
         inside attribute names.
@@ -455,7 +438,7 @@ class FinalReshape(ReshapeDict):
 
     """
 
-    def _reshape(self, binder: dict) -> dict:
+    def reshape(self, binder: dict) -> dict:
         """
         Demotes chapter numbers to lowest dictionary in Characters and
         Settings dictionaries.
@@ -491,13 +474,7 @@ class SortDictionary:
         with the keys sorted in ascending order.
     """
 
-    def __init__(self, binder: dict) -> None:
-        self.binder = binder
-
-    def __call__(self) -> dict:
-        return self._sort(self.binder)
-
-    def _sort(self, binder: dict) -> dict:
+    def sort(self, binder: dict) -> dict:
         """
         Sorts the keys of a nested dictionary.
 
@@ -602,14 +579,15 @@ class ReplaceNarrator:
 
 
 def clean_lorebinders(lorebinder: dict, narrator: str):
-    reshaper = ReshapeDict(lorebinder)
-    reshaped: dict = reshaper.reshaped
+    reshaper = ReshapeDict()
+    reshaped: dict = reshaper.reshape(lorebinder)
 
     only_found: dict = clean_none_found(reshaped)
 
-    deduplicator = DeduplicateKeys(only_found)
-    deduped: dict = deduplicator.deduplicated
+    deduplicator = DeduplicateKeys()
+    deduped: dict = deduplicator.deduplicate(only_found)
 
     replace_narrator = ReplaceNarrator(deduped)
     narrator_replaced: dict = replace_narrator.replace(narrator)
-    return SortDictionary(narrator_replaced)
+    dict_sorter = SortDictionary()
+    return dict_sorter.sort(narrator_replaced)
