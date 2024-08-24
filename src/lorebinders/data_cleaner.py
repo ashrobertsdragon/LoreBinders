@@ -1,7 +1,7 @@
 import re
 from collections import ChainMap, defaultdict
 from itertools import combinations
-from typing import Callable, Dict, List, Tuple, Union, cast
+from typing import Callable, Dict, List, Tuple, Union
 
 from lorebinders._titles import TITLES
 
@@ -72,43 +72,67 @@ def to_singular(plural: str) -> str:
     return next(singular, plural[:-1])
 
 
-def clean_none_found(d: Union[dict, list, str]) -> dict:
+def clean_list(unparsed_list) -> list:
     """
-    Takes the nested dictionary from AttributeAnalyzer and removes "None
-    found" entries.
-    Returns the cleaned nested dictionary.
+    Removes "none found" from values in a list.
+
+    Args:
+        unparsed_list (list): The list to be cleaned.
+
+    Returns:
+        list: The cleaned list.
     """
-    if isinstance(d, dict):
-        new_dict: dict = {}
-        for key, value in d.items():
-            cleaned_value = clean_none_found(value)
-            if isinstance(cleaned_value, list):
-                new_dict[key] = (
-                    cleaned_value
-                    if len(cleaned_value) > 1
-                    else cleaned_value[0]
-                )
-            elif (
-                isinstance(cleaned_value, str)
-                and cleaned_value.lower() != "none found"
-            ):
-                new_dict[key] = cleaned_value
-        return new_dict
-    # Use cast pretend to convert lists and strings to dicts for MyPy
-    elif isinstance(d, list):
-        cleaned_list = [
-            clean_none_found(item)
-            for item in d
-            if item.lower() != "none found"
-        ]
-        if len(cleaned_list) > 1:
-            return cast(dict, cleaned_list)
-        elif len(cleaned_list) == 1:
-            return cast(dict, cleaned_list[0])
-        else:
-            return {}
-    else:
-        return {} if d.lower() == "none found" else cast(dict, {d: None})
+    new_list: list = []
+    for item in unparsed_list:
+        if isinstance(item, str):
+            new_list.append(clean_str(item))
+        elif isinstance(item, dict):
+            if cleaned_dict := clean_none_found(item):
+                new_list.append(cleaned_dict)
+        elif cleaned_list := clean_list(item):
+            new_list.append(cleaned_list)
+
+    return new_list
+
+
+def clean_str(unparsed_str: str) -> str:
+    """
+    Removes "none found" from a string.
+
+    Args:
+        unparsed_str (str): The string to be cleaned.
+
+    Returns:
+        str: The cleaned string.
+    """
+    return unparsed_str if unparsed_str.lower() != "none found" else ""
+
+
+def clean_none_found(unparsed_dict: dict) -> dict:
+    """
+    Removes "none found" from values in a dictionary.
+
+    Args:
+        d (dict): The dictionary to be cleaned.
+
+    Returns:
+        dict: the cleaned dictionary.
+    """
+    new_dict: dict = {}
+    for key, value in unparsed_dict.items():
+        if isinstance(value, dict):
+            if cleaned_dict := clean_none_found(value):
+                new_dict[key] = cleaned_dict
+        elif isinstance(value, list):
+            cleaned_list = clean_list(value)
+            cleaned_list_length = len(cleaned_list)
+            if cleaned_list_length == 1:
+                new_dict[key] = cleaned_list[0]
+            elif cleaned_list_length > 1:
+                new_dict[key] = cleaned_list
+        elif cleaned_str := clean_str(value):
+            new_dict[key] = cleaned_str
+    return new_dict
 
 
 class DeduplicateKeys:
