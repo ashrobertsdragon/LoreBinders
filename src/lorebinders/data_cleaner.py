@@ -289,34 +289,33 @@ class DeduplicateKeys:
 
         characters_dict: dict = summaries.setdefault("Characters", {})
 
-        keys_to_delete = []
-        for category, names in summaries.items():
+        deduplicated_summaries: dict = {}
+        for category, names in list(summaries.items()):
             if category == "Characters":
+                deduplicated_summaries[category] = names
                 continue
             for name in names:
                 if characters_dict.get(name) is None:
+                    deduplicated_summaries[category] = {name: names[name]}
                     continue
                 for chapter, details in names[name].items():
-                    summaries["Characters"].setdefault(name, {}).setdefault(
-                        chapter, details
-                    )
                     if chapter in characters_dict[name]:
                         merged_values = self._merge_values(
                             characters_dict[name][chapter], details
                         )
-                        summaries["Characters"][name][chapter] = merged_values
+                        deduplicated_summaries["Characters"][name][chapter] = (
+                            merged_values
+                        )
                     elif isinstance(details, dict):
-                        summaries["Characters"][name][chapter] = details
+                        deduplicated_summaries["Characters"][name][chapter] = (
+                            details
+                        )
                     else:
-                        summaries["Characters"][name][chapter] = {
+                        deduplicated_summaries["Characters"][name][chapter] = {
                             "Also": details
                         }
-                keys_to_delete.append(name)
 
-        for name in keys_to_delete:
-            del names[name]
-
-        return summaries
+        return deduplicated_summaries
 
     def _merge_values(
         self,
