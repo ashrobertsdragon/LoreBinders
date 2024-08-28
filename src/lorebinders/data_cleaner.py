@@ -362,6 +362,7 @@ class DeduplicateKeys:
                 merged_dict[ALSO_KEY] = self._merge_values(
                     merged_dict[ALSO_KEY], value2
                 )
+                return merged_dict
             else:
                 value1[ALSO_KEY] = value2
         elif isinstance(value1, dict):
@@ -377,134 +378,70 @@ class DeduplicateKeys:
         return value1
 
 
-class ReshapeDict:
+def reshape_dict(binder: dict) -> dict:
     """
-    A class to reshape a dictionary of chapter summaries by demoting chapter
-    numbers inside attribute names.
-
-    Args:
-        binder (dict): The dictionary to be sorted
-
-    Methods:
-        __init__(): Sets the _reshaped_data attribute to an empty defaultdict
-            and calls the __init__() method of the parent class CleanData to
-            set the binder attribute to from the binder parameter.
-
-        __call__(): Calls the _reshape() method to perform the reshaping of
-            the data.
-
-        _reshape(): Reshapes the dictionary of chapter summaries by demoting
-            chapter numbers inside attribute names. It iterates over the
-            chapters, categories, and names in the original data and stores
-            the reshaped data in the _reshaped_data attribute.
-
-    Returns:
-        dict: The reshaped dictionary of chapter summaries.
+    Reshapes a dictionary of chapter summaries to demote chapter numbers
+    inside attribute names.
     """
+    reshaped_data: dict = {}
+    for chapter, chapter_data in binder.items():
+        for category, category_data in chapter_data.items():
+            category_key = category.title()
+            reshaped_data.setdefault(category_key, {})
+            for name, name_details in category_data.items():
+                reshaped_data[category_key].setdefault(name, {})
+                reshaped_data[category_key][name][chapter] = name_details
 
-    def __init__(self) -> None:
-        self._reshaped_data: dict = defaultdict(dict)
-
-    def reshape(self, binder: dict) -> dict:
-        """
-        Reshapes a dictionary of chapter summaries to demote chapter numbers
-        inside attribute names.
-        """
-
-        for chapter, chapter_data in binder.items():
-            for category, category_data in chapter_data.items():
-                capitalized_category = category.title()
-                for name, name_details in category_data.items():
-                    self._reshaped_data[capitalized_category][name][
-                        chapter
-                    ] = name_details
-        return self._reshaped_data
+    return reshaped_data
 
 
-class FinalReshape(ReshapeDict):
+def final_reshape(binder: dict) -> dict:
     """
-    A class that demotes chapter numbers to lowest dictionary in Characters
-    and Settings dictionaries. Intended to be called directly.
-
-    Args:
-        binder (dict): The dictionary to be sorted.
-
-    Methods:
-        _reshape(self) -> dict:
-            Demotes chapter numbers to the lowest dictionary level in the
-                'Characters' and 'Settings' dictionaries.
-
-    Returns:
-        dict: The reshaped dictionary with demoted chapter numbers.
-
+    Demotes chapter numbers to lowest dictionary in Characters and
+    Settings dictionaries.
     """
-
-    def reshape(self, binder: dict) -> dict:
-        """
-        Demotes chapter numbers to lowest dictionary in Characters and
-        Settings dictionaries.
-        """
-        for attribute, names in binder.items():
-            if attribute not in {"Characters", "Settings"}:
-                self._reshaped_data[attribute] = names
-                continue
-            for name, chapters in names.items():
-                for chapter, traits in chapters.items():
-                    if not isinstance(traits, dict):
-                        self._reshaped_data[attribute][name][chapter] = traits
-                    for trait, detail in traits.items():
-                        self._reshaped_data[attribute][name][trait][
-                            chapter
-                        ] = detail
-        return self._reshaped_data
+    reshaped_data: dict = defaultdict(dict)
+    for attribute, names in binder.items():
+        if attribute not in {"Characters", "Settings"}:
+            reshaped_data[attribute] = names
+            continue
+        for name, chapters in names.items():
+            for chapter, traits in chapters.items():
+                if not isinstance(traits, dict):
+                    reshaped_data[attribute][name][chapter] = traits
+                for trait, detail in traits.items():
+                    reshaped_data[attribute][name][trait][chapter] = detail
+    return reshaped_data
 
 
-class SortDictionary:
+def sort_dictionary(binder: dict) -> dict:
     """
     Sorts the keys of a nested dictionary.
-
-    Args:
-        binder (dict): The dictionary to be sorted.
-
-    Methods:
-    - __call__: Calls the _sort method and returns the sorted dictionary.
-    - _sort: Sorts the keys of a nested dictionary in ascending order.
 
     Returns:
         dict: A dictionary with the same structure as self.binder, but
         with the keys sorted in ascending order.
     """
 
-    def sort(self, binder: dict) -> dict:
-        """
-        Sorts the keys of a nested dictionary.
-
-        Returns:
-            dict: A dictionary with the same structure as self.binder, but
-            with the keys sorted in ascending order.
-        """
-
-        sorted_dict = {}
-        for outer_key, nested_dict in binder.items():
-            middle_dict = {
-                key: nested_dict[key] for key in sorted(nested_dict)
-            }
-            for key, inner_dict in middle_dict.items():
-                if isinstance(inner_dict, dict) and all(
-                    isinstance(key, int) for key in inner_dict.keys()
-                ):
-                    sorted_inner_dict = {
-                        str(inner_key): inner_dict[str(inner_key)]
-                        for inner_key in sorted(map(int, inner_dict.keys()))
-                    }
-                    middle_dict[key] = sorted_inner_dict
-                else:
-                    raise KeyError(
-                        "Dictionary level should be chapter numbers"
-                        f"but was {inner_dict.keys()}"
-                    )
-            sorted_dict[outer_key] = middle_dict
-        return sorted_dict
+    sorted_dict = {}
+    for outer_key, nested_dict in binder.items():
+        middle_dict = {key: nested_dict[key] for key in sorted(nested_dict)}
+        for key, inner_dict in middle_dict.items():
+            if isinstance(inner_dict, dict) and all(
+                isinstance(key, int) for key in inner_dict.keys()
+            ):
+                sorted_inner_dict = {
+                    str(inner_key): inner_dict[str(inner_key)]
+                    for inner_key in sorted(map(int, inner_dict.keys()))
+                }
+                middle_dict[key] = sorted_inner_dict
+            else:
+                raise KeyError(
+                    "Dictionary level should be chapter numbers"
+                    f"but was {inner_dict.keys()}"
+                )
+        sorted_dict[outer_key] = middle_dict
+    return sorted_dict
 
 
 class ReplaceNarrator:
@@ -580,8 +517,7 @@ class ReplaceNarrator:
 
 
 def clean_lorebinders(lorebinder: dict, narrator: str):
-    reshaper = ReshapeDict()
-    reshaped: dict = reshaper.reshape(lorebinder)
+    reshaped: dict = reshape_dict(lorebinder)
 
     only_found: dict = clean_none_found(reshaped)
 
@@ -590,5 +526,4 @@ def clean_lorebinders(lorebinder: dict, narrator: str):
 
     replace_narrator = ReplaceNarrator(deduped)
     narrator_replaced: dict = replace_narrator.replace(narrator)
-    dict_sorter = SortDictionary()
-    return dict_sorter.sort(narrator_replaced)
+    return sort_dictionary(narrator_replaced)
