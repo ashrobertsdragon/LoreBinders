@@ -89,6 +89,12 @@ class Book:
         if self._binder != binder:
             self.add_binder(binder)
 
+    def build_binder(self, chapter_number: int, analysis: dict) -> None:
+        if self._binder:
+            self._binder |= {chapter_number: analysis}
+        else:
+            self.add_binder({chapter_number: analysis})
+
     @property
     def chapters(self) -> list:
         return self._chapters
