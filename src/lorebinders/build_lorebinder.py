@@ -8,8 +8,10 @@ from ebook2text.convert_file import convert_file  # type: ignore
 if TYPE_CHECKING:
     from lorebinders._type_annotations import AIProviderManager
 
+import lorebinders.data_cleaner as data_cleaner
 import lorebinders.make_pdf as make_pdf
 from lorebinders._managers import RateLimitManager
+from lorebinders._types import InstructionType
 from lorebinders.ai.ai_interface import AIInterface, AIModelConfig
 from lorebinders.ai.ai_models._model_schema import AIModelRegistry, APIProvider
 from lorebinders.ai.ai_models.json_file_model_handler import (
@@ -18,9 +20,13 @@ from lorebinders.ai.ai_models.json_file_model_handler import (
 from lorebinders.ai.rate_limiters.file_rate_limit_handler import (
     FileRateLimitHandler
 )
-from lorebinders.attributes import NameAnalyzer, NameExtractor, NameSummarizer
 from lorebinders.book import Book, Chapter
 from lorebinders.book_dict import BookDict
+from lorebinders.name_tools import (
+    name_analyzer,
+    name_extractor,
+    name_summarizer
+)
 
 
 def create_book(book_dict: BookDict) -> Book:
@@ -28,33 +34,45 @@ def create_book(book_dict: BookDict) -> Book:
 
 
 def perform_ner(
-    ner: NameExtractor,
+    ai: AIInterface,
     metadata: BookDict,
     chapter: Chapter,
 ) -> None:
-    ner.initialize_chapter(metadata, chapter)
-    ner.build_role_script()
-    names = ner.extract_names()
+    role_script = name_extractor.build_role_script(metadata.custom_categories)
+    names = name_extractor.extract_names(
+        ai, chapter, role_script, metadata.narrator
+    )
     chapter.add_names(names)
 
 
 def analyze_names(
-    analyzer: NameAnalyzer,
+    ai: AIInterface,
     metadata: BookDict,
     chapter: Chapter,
-) -> None:
-    analyzer.initialize_chapter(metadata, chapter)
-    analyzer.build_role_script()
-    analysis = analyzer.analyze_names()
+) -> dict:
+    absolute_max_tokens = ai.model.absolute_max_tokens
+    instruction_type = InstructionType("markdown")
+    helper = name_analyzer.initialize_helpers(
+        instruction_type=instruction_type,
+        absolute_max_tokens=absolute_max_tokens,
+        added_character_traits=metadata.character_traits,
+    )
+
+    role_scripts = name_analyzer.build_role_scripts(
+        chapter.names, helper, instruction_type
+    )
+    analysis = name_analyzer.analyze_names(
+        ai, instruction_type, role_scripts, chapter
+    )
     chapter.add_analysis(analysis)
+    return analysis
 
 
 def summarize_names(
-    summarizer: NameSummarizer,
+    ai: AIInterface,
     binder: dict,
 ) -> dict:
-    summarizer.build_role_script()
-    return summarizer.summarize_names(binder)
+    return name_summarizer.summarize_names(ai, binder)
 
 
 def initialize_ai(
@@ -69,57 +87,49 @@ def initialize_ai(
 
 def initializer_ner(
     provider: APIProvider, rate_limiter: RateLimitManager
-) -> NameExtractor:
-    ai = initialize_ai(
+) -> AIInterface:
+    return initialize_ai(
         provider=provider,
         family="openai",
         model_id=1,
         rate_limiter=rate_limiter,
     )
-    return NameExtractor(ai)
 
 
 def initializer_analyzer(
     provider: APIProvider, rate_limiter: RateLimitManager
-) -> NameAnalyzer:
-    model_id = 2
-    ai = initialize_ai(
+) -> AIInterface:
+    return initialize_ai(
         provider=provider,
         family="openai",
-        model_id=model_id,
+        model_id=2,
         rate_limiter=rate_limiter,
-    )
-    model = ai.get_model(model_id)
-    absolute_max_tokens = model.absolute_max_tokens
-    return NameAnalyzer(
-        ai,
-        instruction_type="markdown",
-        absolute_max_tokens=absolute_max_tokens,
     )
 
 
 def initializer_summarizer(
     provider: APIProvider, rate_limiter: RateLimitManager
-) -> NameSummarizer:
-    ai = initialize_ai(
+) -> AIInterface:
+    return initialize_ai(
         provider=provider,
         family="openai",
         model_id=1,
         rate_limiter=rate_limiter,
     )
-    return NameSummarizer(ai)
 
 
 def build_binder(
-    book: Book, ner: NameExtractor, analyzer: NameAnalyzer
+    ner: AIInterface, analyzer: AIInterface, metadata: BookDict, book: Book
 ) -> None:
     for chapter in book.chapters:
         perform_ner(ner, book.metadata, chapter)
-        analyze_names(analyzer, book.metadata, chapter)
+        analysis = analyze_names(analyzer, metadata, chapter)
+        book.build_binder(chapter.number, analysis)
+    data_cleaner.clean_lorebinders(book.binder, metadata.narrator or "")
 
 
-def summarize(book: Book, summarizer: NameSummarizer) -> None:
-    binder = summarize_names(summarizer, book.binder)
+def summarize(ai: AIInterface, book: Book) -> None:
+    binder = summarize_names(ai, book.binder)
     book.update_binder(binder)
 
 
@@ -203,8 +213,9 @@ def start(book_dict: BookDict, work_base_dir: str) -> None:
     analyzer = initializer_analyzer(provider, rate_handler)
     summarizer = initializer_summarizer(provider, rate_handler)
 
-    build_binder(book, ner, analyzer)
-    summarize(book, summarizer)
+    build_binder(ner, analyzer, book_dict, book)
+    summarize(summarizer, book)
+    data_cleaner.final_reshape(book.binder)
 
     if book_dict.user_folder is not None:
         make_pdf.create_pdf(book_dict.user_folder, book_dict.title)
