@@ -1,7 +1,7 @@
 import re
-from collections import ChainMap, defaultdict
+from collections import ChainMap
 from itertools import combinations
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Callable, Union
 
 from lorebinders._titles import TITLES
 
@@ -26,7 +26,7 @@ def remove_titles(name: str) -> str:
     if not isinstance(name, str):
         raise TypeError("name must be a string")
 
-    name_split: List[str] = name.split(" ")
+    name_split: list[str] = name.split(" ")
     if name_split[0].lower() in TITLES and name.lower() not in TITLES:
         return " ".join(name_split[1:])
     return name
@@ -192,7 +192,7 @@ class DeduplicateKeys:
             cleaned_dict[outer_key] = inner_dict
         return self._deduplicate_across_dictionaries(cleaned_dict)
 
-    def _prioritize_keys(self, key1: str, key2: str) -> Tuple[str, str]:
+    def _prioritize_keys(self, key1: str, key2: str) -> tuple[str, str]:
         """
         Determines priority of keys, based on whether one is standalone title
         or length. Order is lower priority, higher priority.
@@ -381,7 +381,13 @@ class DeduplicateKeys:
 def reshape_dict(binder: dict) -> dict:
     """
     Reshapes a dictionary of chapter summaries to demote chapter numbers
-    inside attribute names.
+    inside category names.
+
+    Args:
+        binder (dict): The dictionary to be reshaped.
+
+    Returns:
+        dict: The reshaped dictionary.
     """
     reshaped_data: dict = {}
     for chapter, chapter_data in binder.items():
@@ -399,18 +405,27 @@ def final_reshape(binder: dict) -> dict:
     """
     Demotes chapter numbers to lowest dictionary in Characters and
     Settings dictionaries.
+
+    Args:
+        binder (dict): The dictionary to be reshaped.
+
+    Returns:
+        dict: The reshaped dictionary.
     """
-    reshaped_data: dict = defaultdict(dict)
-    for attribute, names in binder.items():
-        if attribute not in {"Characters", "Settings"}:
-            reshaped_data[attribute] = names
+    reshaped_data: dict = {}
+    for category, names in binder.items():
+        if category not in ["Characters", "Settings"]:
+            reshaped_data[category] = names
             continue
+
+        reshaped_data.setdefault(category, {})
         for name, chapters in names.items():
+            name_data = reshaped_data[category].setdefault(name, {})
             for chapter, traits in chapters.items():
                 if not isinstance(traits, dict):
-                    reshaped_data[attribute][name][chapter] = traits
+                    name_data[chapter] = traits
                 for trait, detail in traits.items():
-                    reshaped_data[attribute][name][trait][chapter] = detail
+                    name_data.setdefault(trait, {})[chapter] = detail
     return reshaped_data
 
 
@@ -418,9 +433,12 @@ def sort_dictionary(binder: dict) -> dict:
     """
     Sorts the keys of a nested dictionary.
 
+    Args:
+        binder (dict): The dictionary to be sorted.
+
     Returns:
-        dict: A dictionary with the same structure as self.binder, but
-        with the keys sorted in ascending order.
+        dict: A dictionary with the same structure as binder, but with the
+        keys sorted in ascending order.
     """
 
     sorted_dict = {}
@@ -496,7 +514,7 @@ class ReplaceNarrator:
         return [self._replace_str(val) for val in value]
 
     def _handle_value(self, value: Union[dict, list, str]):
-        type_handlers: Dict[type, Callable] = {
+        type_handlers: dict[type, Callable] = {
             dict: self._clean_dict,
             list: self._clean_list,
             str: self._replace_str,
