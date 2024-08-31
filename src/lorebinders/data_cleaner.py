@@ -443,22 +443,23 @@ def sort_dictionary(binder: dict) -> dict:
 
     sorted_dict = {}
     for outer_key, nested_dict in binder.items():
-        middle_dict = {key: nested_dict[key] for key in sorted(nested_dict)}
-        for key, inner_dict in middle_dict.items():
+        sorted_middle_dict = {}
+        for key, inner_dict in sorted(nested_dict.items()):
             if isinstance(inner_dict, dict) and all(
-                isinstance(key, int) for key in inner_dict.keys()
+                isinstance(k, int) for k in inner_dict
             ):
                 sorted_inner_dict = {
-                    str(inner_key): inner_dict[str(inner_key)]
-                    for inner_key in sorted(map(int, inner_dict.keys()))
+                    str(k): inner_dict[k] for k in sorted(inner_dict)
                 }
-                middle_dict[key] = sorted_inner_dict
+                sorted_middle_dict[key] = sorted_inner_dict
             else:
-                raise KeyError(
-                    "Dictionary level should be chapter numbers"
-                    f"but was {inner_dict.keys()}"
+                raise TypeError(
+                    f"Expected a dictionary with integer keys for '{key}', "
+                    f"but got: {type(inner_dict).__name__} with keys "
+                    f"{list(inner_dict.keys())}"
                 )
-        sorted_dict[outer_key] = middle_dict
+            sorted_dict[outer_key] = sorted_middle_dict
+
     return sorted_dict
 
 
