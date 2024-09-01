@@ -170,6 +170,7 @@ class DeduplicateKeys:
 
         for outer_key, nested_dict in binder.items():
             if not isinstance(nested_dict, dict):
+                cleaned_dict[outer_key] = nested_dict
                 continue
             duplicate_keys = set()
             for key1, key2 in combinations(nested_dict.keys(), 2):
