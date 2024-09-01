@@ -500,21 +500,22 @@ class ReplaceNarrator:
 
     def _replace_str(self, value: str) -> str:
         narrator_list: str = (
-            r"\b(narrator|protagonist|the main character|main character)\b"
+            r"\b(narrator|the narrator|the protagonist|"
+            r"protagonist|the main character|main character)\b"
         )
-        return re.sub(narrator_list, self._narrator_name, value)
+        return re.sub(narrator_list, self._narrator_name, value.lower())
 
     def _clean_dict(self, value: dict) -> dict:
         new_dict: dict = {}
         for key, val in value.items():
             cleaned_key = self._replace_str(key)
-            new_dict[cleaned_key] = self._clean_dict(val)
+            new_dict[cleaned_key] = self._handle_value(val)
         return new_dict
 
     def _clean_list(self, value: list) -> list:
         return [self._replace_str(val) for val in value]
 
-    def _handle_value(self, value: Union[dict, list, str]):
+    def _handle_value(self, value: dict | list | str) -> dict | list | str:
         type_handlers: dict[type, Callable] = {
             dict: self._clean_dict,
             list: self._clean_list,
