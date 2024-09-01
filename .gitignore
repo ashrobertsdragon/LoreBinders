@@ -20,6 +20,7 @@ api_counter.json
 rate_limit_data.json
 role_scripts.json
 temp.py
+documentation-notes.txt
 
 # virtual environments
 venv/
