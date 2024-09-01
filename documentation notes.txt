@@ -1,0 +1,11 @@
+DeduplicateKeys
+deduplcate method
+If nested_dict is not a dictionary, add key-value pair to new dictionary
+Use combinations to get a generator iterable of two-key combinations of the middle dictionary keys
+Check if any individual key has been checked already
+Check if two keys are similar with boolean method
+Use priortize_keys to provide sorted order to keys (plural, singluar usually)
+Use merge_values to combine values of keys
+add key that values merged from to duplicate_keys set to be skipped in future iterations
+create new inner dictionary with keys that are not in duplicate_keys set
+add key-inner dictionary value to new dictionary
