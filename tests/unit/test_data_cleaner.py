@@ -88,7 +88,7 @@ def cleaned_dict():
     }
 
 @pytest.fixture
-def deduplicator(sample_lorebinder):
+def deduplicator():
     return DeduplicateKeys()
 
 @pytest.fixture
@@ -462,54 +462,144 @@ def test_deduplicate_keys_prioritize_keys(mock_is_title, key1, key2, is_titles, 
     assert result == expected
 
 @pytest.mark.parametrize(
-    ("key1", "key2", "is_title", "remove_title", "singular", "expected"),
+    ("key_1", "key_2", "is_title", "remove_title", "singular", "expected"),
     [
-        ("cat", "cats", [False, False], ["cat", "cats"], ["cat", "cat"], True), # 0
-        ("cats", "cat", [False, False], ["cats", "cat"], ["cat", "cat"], True), # 1
-        ("cats", "cats", [False, False], ["cats", "cats"], ["cat", "cat"], True), # 2
-        (" cat", "cat", [False, False], ["cat", "cat"], ["cat", "cat"], True), # 3
-        ("cat ", "cat", [False, False], ["cat", "cat"], ["cat", "cat"], True), # 4
-        (" cat ", "cat", [False, False], ["cat", "cat"], ["cat", "cat"], True), # 5
-        ("cat", " cat", [False, False], ["cat", "cat"], ["cat", "cat"], True), # 6
-        ("cat", "cat ", [False, False], ["cat", "cat"], ["cat", "cat"], True), # 7
-        ("cat", " cat ", [False, False], ["cat", "cat"], ["cat", "cat"], True), # 8
-        ("cat", "dog", [False, False],  ["cat", "dog"], ["cat", "dog"], False), # 9
-        ("cat", "CAT", [False, False],  ["cat", "cat"], ["cat", "cat"], True), # 10
-        ("Mr. Smith", "Smith", [False, False], ["smith", "smith"], ["mr. smith", "mr. smith"], True), # 11
-        ("Smith", "Mr. Smith", [False, False], ["smith", "smith"], ["mr. smith", "mr. smith"], True), # 12
-        ("Mr. Smith", "Mr. Smith", [False, False], ["smith", "smith"], ["mr. smith", "mr. smith"], True), # 13
-        ("Mr. Smith", "Smiths", [False, False], ["smith", "smith"], ["mr. smith", "smith"], True), # 14
-        ("Smiths", "Mr. Smith", [False, False], ["smith", "smith"], ["smith", "mr. smith"], True), # 15
-        ("Mr. Smith", "Mr. Smiths", [False, False], ["smith", "smiths"], ["mr. smith", "mr. smith"], True), # 16
-        ("Mr. Smiths", "Mr. Smith", [False, False], ["smith", "smith"], ["mr. smith", "mr. smith"], True), # 17
-        ("Mr. Smiths", "Mr. Smiths", [False, False], ["smiths", "smiths"], ["mr. smith", "mr. smith"], True), # 18
-        ("Mr. Smiths", "Smith", [False, False], ["smiths", "smith"], ["mr. smith", "smith"], False), # 19
-        ("King", "King Edward", [True, False], ["king", "edward"], ["king", "king edward"], True), # 20
-        ("King Edward", "King", [False, True], ["edward", "king"], ["king edward", "king"], True), # 21
-        ("KiNg", "kInG eDwArD", [True, False], ["king", "edward"], ["king", "king edward"], True), # 22
-        ("KiNg eDwArD", "kInG", [False, True], ["edward", "king"], ["king edward", "king"], True), # 23
-        ("Queen", "King Edward", [True, False], ["queen", "edward"], ["queen", "king edward"], False), # 24
-        ("King Edward", "Queen", [False, True], ["edward", "queen"], ["king edward", "queen"], False), # 25
-        ("Red Dragon", "Dragon", [False, False], ["red dragon", "dragon"], ["red dragon", "dragon"], False), # 26
-        ("Dragon", "Red Dragon", [False, False], ["dragon", "red dragon"], ["dragon", "red dragon"], False), # 27
-        ("dogs", "cats", [False, False], ["dogs", "cats"], ["dog", "cat"], False), # 28,
-        ("cats", "dogs", [False, False], ["cats", "dogs"], ["cat", "dog"], False), # 29
-        ("Mr. Smith", "Smith Hall", [True, False], ["smith", "metal smith"], ["mr. smith", "metal smith"], True), # 30
-        ("Smith Hall", "Mr. Smith", [False, True], ["metal smith", "smith"], ["metal smith", "mr. smith"], True), # 31
-        ("Mr. Smith", "blacksmith", [True, False], ["smith", "blacksmith"], ["mr. smith", "blacksmith"], False), # 32
-        ("blacksmith", "Mr. Smith", [False, True], ["blacksmith", "smith"], ["blacksmith", "mr. smith"], False), # 33
-        ("King", "Kingdom", [True, False], ["king", "kingdom"], ["king", "kingdom"], False), # 34
-        ("Kingdom", "King", [False, True], ["kingdom", "king"], ["kingdom", "king"], False), # 35
+        # whitespace stripping
+        (
+            " cat", "cat", [False, False], ["cat", "cat"], ["cat", "cat"], True
+        ),  # 0 key1 == key2
+        (
+            "cat ", "cat", [False, False], ["cat", "cat"], ["cat", "cat"], True
+        ),  # 1 key1 == key2
+        (
+            " cat ", "cat", [False, False], ["cat", "cat"], ["cat", "cat"], True
+        ),  # 2 key1 == key2
+        (
+            "cat", " cat", [False, False], ["cat", "cat"], ["cat", "cat"], True
+        ),  # 3 key1 == key2
+        (
+            "cat", "cat ", [False, False], ["cat", "cat"], ["cat", "cat"], True
+        ),  # 4 key1 == key2
+        (
+            "cat", " cat ", [False, False], ["cat", "cat"], ["cat", "cat"], True
+        ),  # 5 key1 == key2
+        # case insensitivity
+        (
+            "cat", "CAT", [False, False], ["cat", "cat"], ["cat", "cat"], True
+        ),  # 6 key1 == key2
+        (
+            "CAT", "cat", [False, False], ["cat", "cat"], ["cat", "cat"], True
+        ),  # 7 key1 == key2
+        # singularization
+        (
+            "cat", "cats", [False, False], ["cat", "cats"], ["cat", "cat"], True
+        ),  # 8 key1 == singular_key2
+        (
+            "cats", "cat", [False, False], ["cats", "cat"], ["cat", "cat"], True
+        ),  # 9 singular_key1 == key2
+        (
+            "cats", "cats", [False, False], ["cats", "cats"], ["cat", "cat"], True
+        ),  # 10 singular_key1 == singular_key2
+        # is_title check
+        (
+            "King", "King Edward", [True, False], ["king", "edward"], ["king", "king edward"], True
+        ),  # 11 key1_is_title and key1 + " " in key2
+        (
+            "King Edward", "King", [False, True], ["edward", "king"], ["king edward", "king"], True
+        ),  # 12 key2_is_title and key2 + " " in key1
+        (
+            "KiNg", "kInG eDwArD", [True, False], ["king", "edward"], ["king", "king edward"], True
+        ),  # 13 key1_is_title and key1 + " " in key2 and case insensitivity
+        (
+            "KiNg eDwArD", "kInG", [False, True], ["edward", "king"], ["king edward", "king"], True
+        ),  # 14 key2_is_title and key2 + " " in key1 and case insensitivity
+        (
+            "King", "Kingdom", [True, False], ["king", "kingdom"], ["king", "kingdom"], False
+        ),  # 15 key1_is_title + " " in key2 FALSE no space
+        (
+            "Kingdom", "King", [False, True], ["kingdom", "king"], ["kingdom", "king"], False
+        ),  # 16 key2_is_title + " " in key1 FALSE no space
+        (
+            "Queen", "Kingdom", [True, False], ["queen", "kingdom"], ["queen", "kingdom"], False
+        ),  # 17 key1_is_title + " " in key2 FALSE
+        (
+            "Kingdom", "Queen", [False, True], ["kingdom", "queen"], ["kingdom", "queen"], False
+        ),  # 18 key2_is_title + " " in key1 FALSE
+        # detitled key checks
+        (
+            "Mr. Smith", "Smith", [False, False], ["smith", "smith"], ["mr. smith", "mr. smith"], True
+        ),  # 19 detitled_key1 == key2
+        (
+            "Smith", "Mr. Smith", [False, False], ["smith", "smith"], ["mr. smith", "mr. smith"], True
+        ),  # 20 key1 == detitled_key2
+        (
+            "Mr. Smith", "Mr. Smith", [False, False], ["smith", "smith"], ["mr. smith", "mr. smith"], True
+        ),  # 21 detitled_key1 == detitled_key2
+        (
+            "Mr. Smith", "Smiths", [False, False], ["smith", "smith"], ["mr. smith", "smith"], True
+        ),  # 22 detitled_key1 == singular_key2
+        (
+            "Smiths", "Mr. Smith", [False, False], ["smith", "smith"], ["smith", "mr. smith"], True
+        ),  # 23 singular_key1 == detitled_key2
+        (
+            "Mr. Smith", "Mr. Smiths", [False, False], ["smith", "smiths"], ["mr. smith", "mr. smith"], True
+        ),  # 24 detitled_key1 != detitled_key2 plural
+        (
+            "Mr. Smiths", "Mr. Smith", [False, False], ["smith", "smith"], ["mr. smith", "mr. smith"], True
+        ),  # 25 detitled_key1 != detitled_key2 plural
+        (
+            "Mr. Smiths", "Mr. Smiths", [False, False], ["smiths", "smiths"], ["mr. smith", "mr. smith"], True
+        ),  # 26 detitled_key1 == detitled_key2 both plural
+        (
+            "Mr. Smiths", "Smith", [False, False], ["smiths", "smith"], ["mr. smith", "smith"], False
+        ),  # 27 detitled_key1 != key2
+        (
+            "Mr. Smith", "Smith Hall", [False, False], ["smith", "smith hall"], ["mr. smith", "smith hall"], True
+        ),  # 28 detitled_key1 + " " in key2
+        (
+            "Smith Hall", "Mr. Smith", [False, False], ["smith hall", "smith"], ["smith hall", "mr. smith"], True
+        ),  # 29 detitled_key2 + " " in key1
+        (
+            "Queen", "King Edward", [True, False], ["queen", "edward"], ["queen", "king edward"], False
+        ),  # 30 detitled_key2 + " " in key1 FALSE
+        (
+            "King Edward", "Queen", [False, True], ["edward", "queen"], ["king edward", "queen"], False
+        ),  # 31 detitled_key1 + " " in key2 FALSE
+        (
+            "Mr. Smith", "blacksmith", [False, False], ["smith", "blacksmith"], ["mr. smith", "blacksmith"], False
+        ),  # 32 detitled_key1 + " " in key2 FALSE no space
+        (
+            "blacksmith", "Mr. Smith", [False, False], ["blacksmith", "smith"], ["blacksmith", "mr. smith"], False
+        ),  # 33 detitled_key2 + " " in key1 FALSE no space
+        (
+            "Red Dragon", "Dragon", [False, False], ["red dragon", "dragon"], ["red dragon", "dragon"], False
+        ),  # 34 key1 != key2 two words
+        (
+            "Dragon", "Red Dragon", [False, False], ["dragon", "red dragon"], ["dragon", "red dragon"], False
+        ),  # 35 key1 != key2 two words
+        # AND NOW FOR SOMETHING COMPLETELY DIFFERENT!
+        (
+            "cat", "dog", [False, False], ["cat", "dog"], ["cat", "dog"], False
+        ),  # 36 
+        (
+            "dog", "cat", [False, False], ["dog", "cat"], ["dog", "cat"], False
+        ),  # 37 
+        (
+            "dogs", "cats", [False, False], ["dogs", "cats"], ["dog", "cat"], False
+        ),  # 3
+        (
+            "cats", "dogs", [False, False], ["cats", "dogs"], ["cat", "dog"], False
+        ),  # 39 
     ]
 )
 @patch("lorebinders.data_cleaner.to_singular")
 @patch("lorebinders.data_cleaner.remove_titles")
 @patch.object(DeduplicateKeys, "_is_title")
-def test_deduplicate_keys_is_similar(mock_is_title, mock_remove, mock_to_singular, key1, key2, is_title, remove_title, singular, expected, deduplicator):
+def test_deduplicate_keys_is_similar(mock_is_title, mock_remove, mock_to_singular, key_1, key_2, is_title, remove_title, singular, expected, deduplicator):
     mock_is_title.side_effect = is_title
     mock_remove.side_effect = remove_title
     mock_to_singular.side_effect = singular
-    result = deduplicator._is_similar_key(key1, key2)
+    result = deduplicator._is_similar_key(key_1, key_2)
     assert result == expected
 
 @pytest.mark.parametrize(
@@ -646,6 +736,17 @@ def test_deduplicate_keys_merge_values_merge_list_and_dic_overlap(mock_chainmap,
     assert result == [{"a": 1, "b": 2, "c": 3}, "test"]
 
 @patch("lorebinders.data_cleaner.ChainMap")
+def test_deduplicate_keys_merge_values_merge_list_and_dict_not_all_keys_list(mock_chainmap, deduplicator):
+    value1 = ["test1", "test2"]
+    value2 = {"a": 1,"b": 2}
+    expected_result = [
+        "test1", "test2", {"a": 1}, {"b": 2}
+    ]
+    result = deduplicator._merge_values(value1, value2)
+    assert result == expected_result
+    mock_chainmap.assert_not_called()
+
+@patch("lorebinders.data_cleaner.ChainMap")
 def test_deduplicate_keys_merge_values_invalid_type_with_dict(mock_chainmap, deduplicator):
     with pytest.raises(TypeError):
         deduplicator._merge_values(123, {"key": "value"})
@@ -666,19 +767,19 @@ def test_deduplicate_keys_merge_values_invalid_type_with_string(mock_chainmap, d
 @patch("lorebinders.data_cleaner.ChainMap")
 def test_deduplicate_keys_merge_values_dict_with_invalid_type(mock_chainmap, deduplicator):
     with pytest.raises(TypeError):
-        deduplicator._merge_values(123, {"key": "value"})
+        deduplicator._merge_values({"key": "value"}, 123)
     mock_chainmap.assert_not_called()
 
 @patch("lorebinders.data_cleaner.ChainMap")
 def test_deduplicate_keys_merge_values_list_with_invalid_type(mock_chainmap, deduplicator):
     with pytest.raises(TypeError):
-        deduplicator._merge_values(123, [1, 2])
+        deduplicator._merge_values([1, 2], 123)
     mock_chainmap.assert_not_called()
 
 @patch("lorebinders.data_cleaner.ChainMap")
 def test_deduplicate_keys_merge_values_string_with_invalid_type(mock_chainmap, deduplicator):
     with pytest.raises(TypeError):
-        deduplicator._merge_values(123, "string_value")
+        deduplicator._merge_values("string_value", 123)
     mock_chainmap.assert_not_called()
 
 @patch("lorebinders.data_cleaner.ChainMap")
