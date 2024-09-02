@@ -253,7 +253,7 @@ class DeduplicateKeys:
         ):
             return True
 
-        if detitled_key1 != key1 and detitled_key2 != key2:
+        if detitled_key1 != key1 or detitled_key2 != key2:
             return any([
                 detitled_key1 == key2,
                 key1 == detitled_key2,
