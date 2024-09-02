@@ -239,8 +239,7 @@ class DeduplicateKeys:
         singular_key2 = to_singular(key2)
 
         if (
-            key1 + " " in key2
-            or key2 + " " in key1
+            key1 == key2
             or key1 == singular_key2
             or singular_key1 == key2
             or singular_key1 == singular_key2
@@ -254,18 +253,18 @@ class DeduplicateKeys:
         ):
             return True
 
-        if detitled_key1 and detitled_key2:
-            return (
-                detitled_key1 == detitled_key2
-                or detitled_key1 == key2
-                or key1 == detitled_key2
-                or detitled_key1 == singular_key2
-                or singular_key1 == detitled_key2
-                or detitled_key1 + " " in key2
-                or detitled_key2 + " " in key1
-                or key1 + " " in detitled_key2
-                or key2 + " " in detitled_key1
-            )
+        if detitled_key1 != key1 and detitled_key2 != key2:
+            return any([
+                detitled_key1 == key2,
+                key1 == detitled_key2,
+                detitled_key1 == detitled_key2,
+                detitled_key1 == singular_key2,
+                singular_key1 == detitled_key2,
+                detitled_key1 + " " in key2,
+                detitled_key2 + " " in key1,
+                key1 + " " in detitled_key2,
+                key2 + " " in detitled_key1,
+            ])
         return False
 
     def _is_title(self, key: str) -> bool:
