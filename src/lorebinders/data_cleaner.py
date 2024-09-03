@@ -238,12 +238,12 @@ class DeduplicateKeys:
         singular_key1 = to_singular(key1)
         singular_key2 = to_singular(key2)
 
-        if (
-            key1 == key2
-            or key1 == singular_key2
-            or singular_key1 == key2
-            or singular_key1 == singular_key2
-        ):
+        if any([
+            key1 == key2,
+            key1 == singular_key2,
+            singular_key1 == key2,
+            singular_key1 == singular_key2,
+        ]):
             return True
 
         key1_is_title = self._is_title(key1)
