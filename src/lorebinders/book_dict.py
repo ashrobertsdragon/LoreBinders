@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Optional
 
 
 @dataclass
@@ -8,8 +8,8 @@ class BookDict:
     title: str
     author: str
     narrator: Optional[str] = None
-    character_traits: Optional[List[str]] = None
-    custom_categories: Optional[List[str]] = None
+    character_traits: Optional[list[str]] = None
+    custom_categories: Optional[list[str]] = None
     user_folder: Optional[str] = None
     txt_file: Optional[str] = None
 
