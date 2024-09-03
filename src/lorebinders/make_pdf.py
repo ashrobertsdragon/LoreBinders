@@ -42,7 +42,9 @@ def create_detail_list(
     return [
         ListItem(
             Paragraph(
-                "\n".join(details) if isinstance(details, list) else details,
+                "\n".join(details)
+                if isinstance(details, list)
+                else details.replace(", ", "\n"),
                 style["Normal"],
             ),
             bulletType="1",
