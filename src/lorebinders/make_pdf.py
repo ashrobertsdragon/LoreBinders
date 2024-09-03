@@ -1,7 +1,16 @@
-import os
+from __future__ import annotations
 
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+import os
+from enum import Enum
+from pathlib import Path
+from typing import TYPE_CHECKING, cast
+
+from reportlab.lib.pagesizes import LETTER
+from reportlab.lib.styles import (
+    ParagraphStyle,
+    StyleSheet1,
+    getSampleStyleSheet
+)
 from reportlab.platypus import (
     Image,
     ListFlowable,
@@ -13,33 +22,39 @@ from reportlab.platypus import (
 )
 from reportlab.platypus.tableofcontents import TableOfContents
 
-import lorebinders.file_handling as file_handling
+if TYPE_CHECKING:
+    from lorebinders._type_annotations import Book, BookDict
 
 
-def create_pdf(folder_name: str, title: str) -> None:
-    """
-    Create a PDF file from the chapter summaries.
+PAGE_SIZE = LETTER
+IMAGE_WIDTH = 200
+IMAGE_HEIGHT = 200
 
-    Arguments:
-        folder_name: Name of the folder containing the chapter summaries.
-        title: Name of the book.
-    """
 
-    story = []
+class AfterItem(Enum):
+    PAGE_BREAK = PageBreak()
+    SPACER = Spacer(1, 12)
 
-    input_path = os.path.join(folder_name, "lorebinder.json")
-    output_path = os.path.join(folder_name, f"{title}-lorebinder.pdf")
 
-    folder_split = folder_name.split("/")
-    user_name = folder_split[0]
+def create_detail_list(
+    chapters: dict[str, list | str], style: ParagraphStyle
+) -> list[ListItem]:
+    return [
+        ListItem(
+            Paragraph(
+                "\n".join(details) if isinstance(details, list) else details,
+                style["Normal"],
+            ),
+            bulletType="1",
+            value=int(chapter),
+        )
+        for chapter, details in chapters.items()
+        if chapter != "summary"
+    ]
 
-    chapter_summaries = file_handling.read_json_file(input_path)
 
-    doc = SimpleDocTemplate(
-        output_path, pagesize=letter, author=user_name, title=title
-    )
-    styles = getSampleStyleSheet()
-
+def setup_toc(styles: StyleSheet1) -> TableOfContents:
+    toc = TableOfContents()
     toc_style_attributes = ParagraphStyle(
         "TOCLevel0",
         parent=styles["Normal"],
@@ -58,14 +73,49 @@ def create_pdf(folder_name: str, title: str) -> None:
         spaceBefore=3,
         leftIndent=10,
     )
-
-    story.append(Paragraph(f"LoreBinder\nfor\n{title}", styles["Title"]))
-    story.append(PageBreak())
-
-    toc = TableOfContents()
     toc.levelStyles = [toc_style_attributes, toc_style_names]
-    story.append(toc)
-    story.append(PageBreak())
+    return toc
+
+
+def create_paragraph(text: str, style: ParagraphStyle) -> Paragraph:
+    return Paragraph(text, style)
+
+
+def add_item_to_story(story: list, after_item: AfterItem, *items) -> None:
+    story.extend(iter(items))
+    story.append(after_item)
+
+
+def initialize_pdf(metadata: BookDict) -> tuple[SimpleDocTemplate, str]:
+    title = metadata.title
+    author = metadata.author
+    if folder_name := metadata.user_folder:
+        output_path = Path(folder_name, f"{title}-lorebinder.pdf")
+    doc = SimpleDocTemplate(
+        output_path, pagesize=PAGE_SIZE, author=author, title=title
+    )
+    return doc, title
+
+
+def create_pdf(book: Book) -> None:
+    """
+    Create a PDF file from the chapter summaries.
+
+    Arguments:
+        folder_name: Name of the folder containing the chapter summaries.
+        title: Name of the book.
+    """
+    binder: dict[str, dict[str, dict[str, dict | str]]] = book.binder
+
+    story: list = []
+    styles: StyleSheet1 = getSampleStyleSheet()
+    doc, title = initialize_pdf(book.metadata)
+
+    title_page = create_paragraph(f"LoreBinder\nfor\n{title}", styles["Title"])
+    add_item_to_story(story, AfterItem.PAGE_BREAK, title_page)
+
+    toc = setup_toc(styles)
+    add_item_to_story(story, AfterItem.PAGE_BREAK, toc)
 
     def add_toc_entry(flowable):
         if isinstance(flowable, Paragraph) and flowable.style.name in [
@@ -76,52 +126,49 @@ def create_pdf(folder_name: str, title: str) -> None:
             text = flowable.getPlainText()
             toc.addEntry(level, text, doc.page)
 
-    def create_detail_list(chapters: dict) -> list:
-        detail_list = []
-        for chapter, details in chapters.items():
-            if chapter == "summary":
-                continue
-            detail_string = "\n".join(str(detail) for detail in details)
-            list_item = ListItem(
-                Paragraph(detail_string, styles["Normal"]),
-                bulletType="1",
-                value=int(chapter),
-            )
-            detail_list.append(list_item)
-        return detail_list
-
     doc.afterFlowable = add_toc_entry
 
-    for attribute, names in chapter_summaries.items():
-        story.append(Paragraph(attribute, styles["Heading1"]))
-        story.append(PageBreak())
+    for category, names in binder.items():
+        category_page = create_paragraph(category, styles["Heading1"])
+        add_item_to_story(story, AfterItem.PAGE_BREAK, category_page)
 
         for name, content in names.items():
-            story.append(Paragraph(name, styles["Heading2"]))
-            story.append(Spacer(1, 12))
+            name_header = create_paragraph(name, styles["Heading2"])
+            add_item_to_story(story, AfterItem.SPACER, name_header)
 
-            image_path = content.get("image")
+            image_path: str = cast(str, content.get("image", ""))
             if image_path and os.path.exists(image_path):
-                img = Image(image_path, width=200, height=200)
-                story.append(img)
-                story.append(Spacer(1, 12))
+                img = Image(image_path, width=IMAGE_WIDTH, height=IMAGE_HEIGHT)
+                add_item_to_story(story, AfterItem.SPACER, img)
 
-            summary = content.get("summary", "")
-            story.append(Paragraph(summary, styles["Normal"]))
-            story.append(Spacer(1, 12))
+            if summary := cast(str, content.get("summary", "")):
+                summary_paragraph = create_paragraph(summary, styles["Normal"])
+                add_item_to_story(story, AfterItem.SPACER, summary_paragraph)
 
-            if attribute in {"Characters", "Settings"}:
+            if category in {"Characters", "Settings"}:
                 for trait, chapters in content.items():
                     if trait == "summary":
                         continue
-                    story.append(Paragraph(trait, styles["Heading3"]))
-                    detail_list = create_detail_list(chapters)
-                    story.append(ListFlowable(detail_list))
+                    trait_paragraph = create_paragraph(
+                        trait, styles["Heading3"]
+                    )
+                    detail_list = create_detail_list(
+                        cast(dict, chapters), styles
+                    )
+                    add_item_to_story(
+                        story,
+                        AfterItem.PAGE_BREAK,
+                        trait_paragraph,
+                        ListFlowable(detail_list),
+                    )
 
             else:
-                story.append(Paragraph(trait, styles["Heading3"]))
-                detail_list = create_detail_list(content)
-                story.append(ListFlowable(detail_list))
-            story.append(PageBreak())
+                detail_list = create_detail_list(cast(dict, content), styles)
+                add_item_to_story(
+                    story,
+                    AfterItem.PAGE_BREAK,
+                    trait_paragraph,
+                    ListFlowable(detail_list),
+                )
 
     doc.multiBuild(story)
