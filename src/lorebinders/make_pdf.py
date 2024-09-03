@@ -31,14 +31,25 @@ IMAGE_WIDTH = 200
 IMAGE_HEIGHT = 200
 
 
-class AfterItem(Enum):
+class AfterSection(Enum):
     PAGE_BREAK = PageBreak()
     SPACER = Spacer(1, 12)
 
 
 def create_detail_list(
-    chapters: dict[str, list | str], style: ParagraphStyle
+    chapters: dict[str, list | str], style: StyleSheet1
 ) -> list[ListItem]:
+    """
+    Creates a list of ListItems from a dictionary of chapter summaries.
+
+    Args:
+        chapters (dict[str, list | str]): A dictionary of chapter summaries.
+        style (StyleSheet1): The style to use for the list items.
+
+    Returns:
+        list[ListItem]: A list of ListItems representing the chapter summaries.
+    """
+
     return [
         ListItem(
             Paragraph(
@@ -55,11 +66,20 @@ def create_detail_list(
     ]
 
 
-def setup_toc(styles: StyleSheet1) -> TableOfContents:
+def setup_toc(style: StyleSheet1) -> TableOfContents:
+    """
+    Sets up the table of contents.
+
+    Args:
+        style (StyleSheet1): The style to use for the table of contents.
+
+    Returns:
+        TableOfContents: The table of contents.
+    """
     toc = TableOfContents()
     toc_style_attributes = ParagraphStyle(
         "TOCLevel0",
-        parent=styles["Normal"],
+        parent=style["Normal"],
         fontSize=12,
         leading=14,
         spaceAfter=6,
@@ -68,7 +88,7 @@ def setup_toc(styles: StyleSheet1) -> TableOfContents:
 
     toc_style_names = ParagraphStyle(
         "TOCLevel1",
-        parent=styles["Normal"],
+        parent=style["Normal"],
         fontSize=10,
         leading=12,
         spaceAfter=3,
@@ -79,16 +99,46 @@ def setup_toc(styles: StyleSheet1) -> TableOfContents:
     return toc
 
 
-def create_paragraph(text: str, style: ParagraphStyle) -> Paragraph:
+def create_paragraph(text: str, style: StyleSheet1) -> Paragraph:
+    """
+    Creates a paragraph with the given text and style.
+
+    Args:
+        text (str): The text of the paragraph.
+        style (StyleSheet1): The style to use for the paragraph.
+
+    Returns:
+        Paragraph: The created paragraph.
+    """
     return Paragraph(text, style)
 
 
-def add_item_to_story(story: list, after_item: AfterItem, *items) -> None:
-    story.extend(iter(items))
-    story.append(after_item)
+def add_item_to_story(
+    story: list, after_section: AfterSection, *flowables
+) -> None:
+    """
+    Adds one or more flowables to the story.
+
+    Args:
+        story (list): The story to add the item to.
+        after_section (AfterSection): The item to add after the given items.
+        *flowables (Flowable): The Flowable objects to add to the story.
+    """
+    story.extend(iter(flowables))
+    story.append(after_section)
 
 
 def initialize_pdf(metadata: BookDict) -> tuple[SimpleDocTemplate, str]:
+    """
+    Initializes the PDF document.
+
+    Args:
+        metadata (BookDict): The book metadata.
+
+    Returns:
+        tuple[SimpleDocTemplate, str]: The initialized PDF document and
+        the title.
+    """
     title = metadata.title
     author = metadata.author
     if folder_name := metadata.user_folder:
@@ -103,9 +153,8 @@ def create_pdf(book: Book) -> None:
     """
     Create a PDF file from the chapter summaries.
 
-    Arguments:
-        folder_name: Name of the folder containing the chapter summaries.
-        title: Name of the book.
+    Args:
+        book (Book): The book object.
     """
     binder: dict[str, dict[str, dict[str, dict | str]]] = book.binder
 
@@ -114,10 +163,10 @@ def create_pdf(book: Book) -> None:
     doc, title = initialize_pdf(book.metadata)
 
     title_page = create_paragraph(f"LoreBinder\nfor\n{title}", styles["Title"])
-    add_item_to_story(story, AfterItem.PAGE_BREAK, title_page)
+    add_item_to_story(story, AfterSection.PAGE_BREAK, title_page)
 
     toc = setup_toc(styles)
-    add_item_to_story(story, AfterItem.PAGE_BREAK, toc)
+    add_item_to_story(story, AfterSection.PAGE_BREAK, toc)
 
     def add_toc_entry(flowable):
         if isinstance(flowable, Paragraph) and flowable.style.name in [
@@ -132,20 +181,22 @@ def create_pdf(book: Book) -> None:
 
     for category, names in binder.items():
         category_page = create_paragraph(category, styles["Heading1"])
-        add_item_to_story(story, AfterItem.PAGE_BREAK, category_page)
+        add_item_to_story(story, AfterSection.PAGE_BREAK, category_page)
 
         for name, content in names.items():
             name_header = create_paragraph(name, styles["Heading2"])
-            add_item_to_story(story, AfterItem.SPACER, name_header)
+            add_item_to_story(story, AfterSection.SPACER, name_header)
 
             image_path: str = cast(str, content.get("image", ""))
             if image_path and os.path.exists(image_path):
                 img = Image(image_path, width=IMAGE_WIDTH, height=IMAGE_HEIGHT)
-                add_item_to_story(story, AfterItem.SPACER, img)
+                add_item_to_story(story, AfterSection.SPACER, img)
 
             if summary := cast(str, content.get("summary", "")):
                 summary_paragraph = create_paragraph(summary, styles["Normal"])
-                add_item_to_story(story, AfterItem.SPACER, summary_paragraph)
+                add_item_to_story(
+                    story, AfterSection.SPACER, summary_paragraph
+                )
 
             if category in {"Characters", "Settings"}:
                 for trait, chapters in content.items():
@@ -159,7 +210,7 @@ def create_pdf(book: Book) -> None:
                     )
                     add_item_to_story(
                         story,
-                        AfterItem.PAGE_BREAK,
+                        AfterSection.PAGE_BREAK,
                         trait_paragraph,
                         ListFlowable(detail_list),
                     )
@@ -168,7 +219,7 @@ def create_pdf(book: Book) -> None:
                 detail_list = create_detail_list(cast(dict, content), styles)
                 add_item_to_story(
                     story,
-                    AfterItem.PAGE_BREAK,
+                    AfterSection.PAGE_BREAK,
                     trait_paragraph,
                     ListFlowable(detail_list),
                 )
