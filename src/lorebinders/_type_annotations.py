@@ -11,6 +11,7 @@ from openai.types.chat import (
     ChatCompletionUserMessageParam
 )
 from openai.types.chat.completion_create_params import ResponseFormat
+from reportlab.platypus import Flowable
 
 if TYPE_CHECKING:
     from lorebinders._managers import (
@@ -40,6 +41,7 @@ __all__ = [
     "ChatCompletionUserMessageParam",
     "AIInterface",
     "ResponseFormat",
+    "Flowable",
     "BookDict",
     "Book",
     "Chapter",
