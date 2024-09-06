@@ -68,7 +68,7 @@ def create_detail_list(
             value=int(chapter),
         )
         for chapter, details in chapters.items()
-        if chapter != "summary"
+        if chapter != "summary" or chapter != "image"
     ]
 
 
@@ -158,7 +158,7 @@ def add_content(
             section. Defaults to False.
     """
     for key, value in content.items():
-        if key == "summary":
+        if key in ["summary", "image"]:
             continue
         if is_traits:
             trait = Paragraph(key, style[STYLE_HEADING3])
