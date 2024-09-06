@@ -13,6 +13,7 @@ from reportlab.lib.styles import (
 )
 from reportlab.platypus import (
     Image,
+    ListFlowable,
     ListItem,
     PageBreak,
     Paragraph,
@@ -68,7 +69,7 @@ def create_detail_list(
             value=int(chapter),
         )
         for chapter, details in chapters.items()
-        if chapter != "summary" or chapter != "image"
+        if chapter not in ["summary", "image"]
     ]
 
 
@@ -165,10 +166,11 @@ def add_content(
         detail_list = create_detail_list(
             cast(dict, value) if is_traits else content, style
         )
+        details = ListFlowable(detail_list)
         add_item_to_story(
             story,
             AfterSection.PAGE_BREAK,
-            (trait, detail_list) if is_traits else detail_list,
+            *(trait, details) if is_traits else (details,),
         )
 
 
