@@ -172,6 +172,8 @@ def add_content(
             AfterSection.PAGE_BREAK,
             *(trait, details) if is_traits else (details,),
         )
+        if not is_traits:
+            break
 
 
 def initialize_pdf(metadata: BookDict) -> tuple[SimpleDocTemplate, str]:
