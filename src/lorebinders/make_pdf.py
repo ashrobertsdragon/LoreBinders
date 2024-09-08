@@ -115,7 +115,7 @@ def create_paragraph(text: str, style: StyleSheet1) -> Paragraph:
 
 def add_item_to_story(
     story: list[Flowable], after_section: AfterSection, *flowables
-) -> None:
+) -> list[Flowable]:
     """
     Adds one or more flowables to the story.
 
@@ -123,22 +123,30 @@ def add_item_to_story(
         story (list): The story to add the item to.
         after_section (AfterSection): The item to add after the given items.
         *flowables (Flowable): The Flowable objects to add to the story.
+
+    Returns:
+        list[Flowable]: The updated story.
     """
     story.extend(iter(flowables))
     story.append(after_section)
+    return story
 
 
-def add_image(story: list[Flowable], image_path: str) -> None:
+def add_image(story: list[Flowable], image_path: str) -> list[Flowable]:
     """
     Adds an image to the story.
 
     Args:
         story (list): The story to add the image to.
         image_path (str): The path to the image.
+
+    Returns:
+        list[Flowable]: The updated story.
     """
     if os.path.exists(image_path):
         img = Image(image_path, width=IMAGE_WIDTH, height=IMAGE_HEIGHT)
-        add_item_to_story(story, AfterSection.SPACER, img)
+        story = add_item_to_story(story, AfterSection.SPACER, img)
+    return story
 
 
 def add_content(
@@ -146,7 +154,7 @@ def add_content(
     content: NamesDict,
     style: StyleSheet1,
     is_traits: bool = False,
-) -> None:
+) -> list[Flowable]:
     """
     Adds content to the story.
 
@@ -157,6 +165,9 @@ def add_content(
         style (StyleSheet1): The style to use for the content.
         is_traits (bool, optional): Whether the content is for the traits
             section. Defaults to False.
+
+    Returns:
+        list[Flowable]: The updated story.
     """
     for key, value in content.items():
         if key in ["summary", "image"]:
@@ -167,13 +178,14 @@ def add_content(
             cast(dict, value) if is_traits else content, style
         )
         details = ListFlowable(detail_list)
-        add_item_to_story(
+        story = add_item_to_story(
             story,
             AfterSection.PAGE_BREAK,
             *(trait, details) if is_traits else (details,),
         )
         if not is_traits:
             break
+    return story
 
 
 def initialize_pdf(metadata: BookDict) -> tuple[SimpleDocTemplate, str]:
@@ -213,12 +225,14 @@ def create_pdf(book: Book) -> None:
     title_page = create_paragraph(
         f"LoreBinder\nfor\n{title}", styles[STYLE_TITLE]
     )
-    add_item_to_story(story, AfterSection.PAGE_BREAK, title_page)
+    story = add_item_to_story(story, AfterSection.PAGE_BREAK, title_page)
 
     toc = setup_toc(styles)
-    add_item_to_story(story, AfterSection.PAGE_BREAK, toc)
+    story = add_item_to_story(story, AfterSection.PAGE_BREAK, toc)
 
-    def add_toc_entry(flowable):
+    # this is not unit testable because of how it is called
+    # but exact copy of the function in test_make_pdf.py
+    def add_toc_entry(flowable):  # pragma: no cover
         if isinstance(flowable, Paragraph) and flowable.style.name in [
             STYLE_HEADING1,
             STYLE_HEADING2,
@@ -231,26 +245,28 @@ def create_pdf(book: Book) -> None:
 
     for category, names in binder.items():
         category_page = create_paragraph(category, styles[STYLE_HEADING1])
-        add_item_to_story(story, AfterSection.PAGE_BREAK, category_page)
+        story = add_item_to_story(
+            story, AfterSection.PAGE_BREAK, category_page
+        )
 
         for name, content in names.items():
             name_header = create_paragraph(name, styles[STYLE_HEADING2])
-            add_item_to_story(story, AfterSection.SPACER, name_header)
+            story = add_item_to_story(story, AfterSection.SPACER, name_header)
 
             if image_path := cast(str, content.get("image", "")):
-                add_image(story, image_path)
+                story = add_image(story, image_path)
 
             if summary := cast(str, content.get("summary", "")):
                 summary_paragraph = create_paragraph(
                     summary, styles[STYLE_NORMAL]
                 )
-                add_item_to_story(
+                story = add_item_to_story(
                     story,
                     AfterSection.SPACER,
                     summary_paragraph,
                 )
 
-            add_content(
+            story = add_content(
                 story,
                 content,
                 styles,
