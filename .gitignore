@@ -8,6 +8,7 @@ __pycache__/
 .vscode/
 .config/
 .env
+cspell.json
 
 # logs
 *.log
@@ -34,6 +35,8 @@ test-results/
 
 # Coverage data
 .coverage
+*/.coverage
+*/htmlcov/
 htmlcov/
 
 # build files
