@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 from lorebinders.ai.ai_factory import AIManager
 from lorebinders.ai.api_error_handler import APIErrorHandler
 from lorebinders.ai.exceptions import KeyNotFoundError, NoMessageError
-from lorebinders.json_tools import MergeJSON, RepairJSON
+from lorebinders.json_tools import merge_json, repair_json_str
 
 
 class OpenaiAPI(AIManager):
@@ -337,13 +337,9 @@ class OpenaiAPI(AIManager):
         Combine assistant message and new content based on response format.
         """
         if json_response:
-            merge = MergeJSON()
-            repair = RepairJSON()
             new_part = content[1:]
-            merge.set_ends(assistant_message, new_part)
-            return merge.merge() or repair.repair_str(
-                assistant_message + new_part
-            )
+            merged = merge_json(assistant_message, new_part)
+            return merged or repair_json_str(assistant_message + new_part)
         return assistant_message + content
 
     def _handle_length_limit(
