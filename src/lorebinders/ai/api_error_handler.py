@@ -5,6 +5,7 @@ import inspect
 import json
 import time
 import traceback
+from types import FrameType
 
 from loguru import logger
 
@@ -101,7 +102,7 @@ class UnresolvableErrorHandler:
         name and function name, and book name if available.
         """
 
-        frame: inspect.FrameType | None = inspect.currentframe()
+        frame: FrameType | None = inspect.currentframe()
         file_name, function_name = "Unknown", "Unknown"
 
         book_name: str = "Unknown"
