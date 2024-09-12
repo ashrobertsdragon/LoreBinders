@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from typing import cast
 
 from json_repair import repair_json
 from loguru import logger
@@ -30,7 +31,7 @@ def repair_json_str(bad_string: str) -> str:
         str: A valid JSON string after repairing any syntax errors.
 
     """
-    return repair_json(bad_string)
+    return cast(str, repair_json(bad_string))
 
 
 def json_str_to_dict(json_str: str) -> dict:
@@ -46,7 +47,7 @@ def json_str_to_dict(json_str: str) -> dict:
             repairing any syntax errors.
 
     """
-    return repair_json(json_str)
+    return cast(dict, repair_json(json_str))
 
 
 # Merge JSON objects
