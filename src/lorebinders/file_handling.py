@@ -30,7 +30,7 @@ def write_to_file(content: str, file_path: str) -> None:
 def separate_into_chapters(text: str) -> list:
     "Splits string at dimeter of three asterisks"
 
-    return re.split(r"\s*\*\*\s*", text)
+    return re.split(r"\s*\*\*\*\s*", text)
 
 
 def write_json_file(content: list | dict, file_path: str) -> None:
