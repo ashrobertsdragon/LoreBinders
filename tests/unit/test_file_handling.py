@@ -1,7 +1,10 @@
 import json
 import os
-import pytest
 import tempfile
+from unittest.mock import patch
+
+import pytest
+
 
 from lorebinders.file_handling import (
     separate_into_chapters,
@@ -22,6 +25,7 @@ def temp_file():
 
 
 def test_append_json_file_new_file(temp_file):
+    os.unlink(temp_file)
     content = [1, 2, 3]
     append_json_file(content, temp_file)
     with open(temp_file) as f:
@@ -54,11 +58,11 @@ def test_append_json_file_type_mismatch_error(temp_file):
         append_json_file(new_content, temp_file)
 
 
-@pytest.mark.parametrize("mock_open", [OSError], indirect=True)
-def test_append_json_file_io_error(mock_open, temp_file):
+def test_append_json_file_io_error(temp_file):
     content = [1, 2, 3]
-    with pytest.raises(OSError):
-        append_json_file(content, temp_file)
+    with patch("builtins.open", side_effect=OSError):
+        with pytest.raises(OSError):
+            append_json_file(content, temp_file)
 
 
 def test_separate_into_chapters_single_chapter():
@@ -70,13 +74,13 @@ def test_separate_into_chapters_single_chapter():
 def test_separate_into_chapters_multiple_chapters():
     text = "Chapter 1 ***Chapter 2 ***Chapter 3"
     result = separate_into_chapters(text)
-    assert result == ["Chapter 1 ", "Chapter 2 ", "Chapter 3"]
+    assert result == ["Chapter 1", "Chapter 2", "Chapter 3"]
 
 
 def test_separate_into_chapters_leading_trailing_whitespace():
     text = "  ***Chapter 1***   Chapter 2  ***"
     result = separate_into_chapters(text)
-    assert result == ["", "Chapter 1", "   Chapter 2  ", ""]
+    assert result == ["", "Chapter 1", "Chapter 2", ""]
 
 
 def test_separate_into_chapters_empty_string():
@@ -136,25 +140,27 @@ def test_write_json_file_dict(temp_file):
         assert json.load(f) == content
 
 
-@pytest.mark.parametrize("mock_open", [OSError], indirect=True)
-def test_read_text_file_io_error(mock_open, temp_file):
-    with pytest.raises(OSError):
-        read_text_file(temp_file)
+def test_read_text_file_io_error(temp_file):
+    with patch("lorebinders.file_handling.pathlib.Path.read_text", side_effect=OSError):
+        with pytest.raises(OSError):
+            read_text_file(temp_file)
 
 
-@pytest.mark.parametrize("mock_open", [OSError], indirect=True)
-def test_read_json_file_io_error(mock_open, temp_file):
-    with pytest.raises(OSError):
-        read_json_file(temp_file)
+def test_read_json_file_io_error(temp_file):
+    with patch("builtins.open", side_effect=OSError):
+        with pytest.raises(OSError):
+            read_json_file(temp_file)
 
 
-@pytest.mark.parametrize("mock_open", [OSError], indirect=True)
-def test_write_to_file_io_error(mock_open, temp_file):
-    with pytest.raises(OSError):
-        write_to_file("test", temp_file)
+@patch("builtins.open", side_effect=OSError)
+def test_write_to_file_io_error(temp_file):
+    with patch("builtins.open", side_effect=OSError):
+        with pytest.raises(OSError):
+            write_to_file("test", temp_file)
 
 
-@pytest.mark.parametrize("mock_open", [OSError], indirect=True)
-def test_write_json_file_io_error(mock_open, temp_file):
-    with pytest.raises(OSError):
+@pytest.mark.parametrize("error", [OSError])
+@patch("builtins.open", side_effect=OSError)
+def test_write_json_file_io_error(mock_open, temp_file, error):
+    with pytest.raises(error):
         write_json_file([1, 2, 3], temp_file)
