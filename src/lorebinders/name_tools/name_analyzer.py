@@ -459,9 +459,9 @@ def parse_response(response: str, json_mode: bool) -> dict:
             categories.
     """
     if json_mode:
-        from lorebinders.json_tools import RepairJSON
+        from lorebinders.json_tools import json_str_to_dict
 
-        return RepairJSON().json_str_to_dict(response)
+        return json_str_to_dict(response)
     else:
         from lorebinders.markdown_parser import markdown_to_dict
 

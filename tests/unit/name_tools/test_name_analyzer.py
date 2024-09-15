@@ -63,13 +63,13 @@ def test_get_tokens_per():  # sourcery skip: extract-duplicate-method
 # Test cases for generate_json_schema
 def test_generate_json_schema_with_default_traits(default_traits):
     category = "Characters"
-    expected_schema = '''{"Characters": {"Appearance": "Description", "Personality": "Description", "Mood": "Description", "Relationships with other characters": "Description"}}'''
+    expected_schema = ""'{"Characters": {"Appearance": "Description", "Personality": "Description", "Mood": "Description", "Relationships with other characters": "Description"}}'""
     result = generate_json_schema(category, None, default_traits)
     assert result == expected_schema
 
 def test_generate_json_schema_with_unknown_category(default_traits):
     category = "UnknownCategory"
-    expected_schema = '''{"UnknownCategory": "Description"}'''
+    expected_schema = ""'{"UnknownCategory": "Description"}'""
     result = generate_json_schema(category, None, default_traits)
     assert result == expected_schema
 
@@ -104,7 +104,7 @@ def test_generate_json_schema_valid_input(default_traits):
 
     result = generate_json_schema(category, added_traits, default_traits)
 
-    expected_result = '''{"Characters": {"Appearance": "Description", "Personality": "Description", "Mood": "Description", "Relationships with other characters": "Description", "Extra Trait": "Description"}}'''
+    expected_result = ""'{"Characters": {"Appearance": "Description", "Personality": "Description", "Mood": "Description", "Relationships with other characters": "Description", "Extra Trait": "Description"}}'""
     assert result == expected_result
 
 def test_generate_json_schema_combines_default_and_added_traits_correctly(default_traits):
@@ -113,7 +113,7 @@ def test_generate_json_schema_combines_default_and_added_traits_correctly(defaul
 
     result = generate_json_schema(category, added_traits, default_traits)
 
-    expected_schema = '''{"Characters": {"Appearance": "Description", "Personality": "Description", "Mood": "Description", "Relationships with other characters": "Description", "Custom Trait 1": "Description", "Custom Trait 2": "Description"}}'''
+    expected_schema = ""'{"Characters": {"Appearance": "Description", "Personality": "Description", "Mood": "Description", "Relationships with other characters": "Description", "Custom Trait 1": "Description", "Custom Trait 2": "Description"}}'""
 
     assert result == expected_schema
 
@@ -351,9 +351,9 @@ def test_create_instructions_base_and_multiple_other_category(Mock_Instructions)
 
     result = create_instructions(categories, Mock_Instructions)
     expected = (
-        'base\n'
-        'character\n'
-        'Provide descriptions of Sports, Art without referencing specific characters or plot points.\n'
+        "base\n"
+        "character\n"
+        "Provide descriptions of Sports, Art without referencing specific characters or plot points.\n"
         'You will format this information using the following schema where "description" is replaced with the actual information.\n'
     )
 
@@ -364,8 +364,8 @@ def test_create_instructions_no_base_multiple_other_category(Mock_Instructions):
 
     result = create_instructions(categories, Mock_Instructions)
     expected = (
-        'base\n'
-        'Provide descriptions of Sports, Art without referencing specific characters or plot points.\n'
+        "base\n"
+        "Provide descriptions of Sports, Art without referencing specific characters or plot points.\n"
         'You will format this information using the following schema where "description" is replaced with the actual information.\n'
     )
     assert result == expected
@@ -662,37 +662,36 @@ def test_combine_responses_three_values_non_json_mode():
     assert result == "value1\nvalue2\nvalue3"
 
 # Test cases for parse_response
-@patch('lorebinders.json_tools.RepairJSON')
-@patch('lorebinders.markdown_parser.markdown_to_dict')
-def test_parse_response_json_mode(mock_markdown_to_dict, mock_repair_json):
-    mock_repair_json.return_value.json_str_to_dict.return_value = {'key': 'value'}
+@patch("lorebinders.json_tools.json_str_to_dict")
+@patch("lorebinders.markdown_parser.markdown_to_dict")
+def test_parse_response_json_mode(mock_markdown_to_dict, mock_json_str_to_dict):
+    mock_json_str_to_dict.return_value = {"key": "value"}
     response = '{"key": "value"}'
     json_mode = True
 
     result = parse_response(response, json_mode)
 
-    mock_repair_json.assert_called_once()
-    mock_repair_json().json_str_to_dict.assert_called_once_with(response)
-    assert result == {'key': 'value'}
+    mock_json_str_to_dict.assert_called_once_with(response)
+    assert result == {"key": "value"}
     mock_markdown_to_dict.assert_not_called()
 
-@patch('lorebinders.json_tools.RepairJSON')
-@patch('lorebinders.markdown_parser.markdown_to_dict')
-def test_parse_response_non_json_mode(mock_markdown_to_dict, mock_repair_json):
-    mock_markdown_to_dict.return_value = {'key': 'value'}
-    response = 'key: value'
+@patch("lorebinders.json_tools.json_str_to_dict")
+@patch("lorebinders.markdown_parser.markdown_to_dict")
+def test_parse_response_non_json_mode(mock_markdown_to_dict, mock_json_str_to_dict):
+    mock_markdown_to_dict.return_value = {"key": "value"}
+    response = "key: value"
     json_mode = False
 
     result = parse_response(response, json_mode)
 
     mock_markdown_to_dict.assert_called_once_with(response)
-    assert result == {'key': 'value'}
-    mock_repair_json.assert_not_called()
+    assert result == {"key": "value"}
+    mock_json_str_to_dict.assert_not_called()
 
 # Test cases for analyze_names
-@patch('lorebinders.name_tools.name_analyzer.name_tools.get_ai_response')
-@patch('lorebinders.name_tools.name_analyzer.combine_responses')
-@patch('lorebinders.name_tools.name_analyzer.parse_response')
+@patch("lorebinders.name_tools.name_analyzer.name_tools.get_ai_response")
+@patch("lorebinders.name_tools.name_analyzer.combine_responses")
+@patch("lorebinders.name_tools.name_analyzer.parse_response")
 def test_analyze_names_json_mode(mock_parse_response, mock_combine_responses, mock_get_ai_response, MockChapter):
     ai = "AIInterface"
     RoleScript = "RoleScript"
@@ -711,9 +710,9 @@ def test_analyze_names_json_mode(mock_parse_response, mock_combine_responses, mo
     mock_parse_response.assert_called_once_with(response="combined_response", json_mode=True)
     assert result == {"parsed_key": "parsed_value"}
 
-@patch('lorebinders.name_tools.name_analyzer.name_tools.get_ai_response')
-@patch('lorebinders.name_tools.name_analyzer.combine_responses')
-@patch('lorebinders.name_tools.name_analyzer.parse_response')
+@patch("lorebinders.name_tools.name_analyzer.name_tools.get_ai_response")
+@patch("lorebinders.name_tools.name_analyzer.combine_responses")
+@patch("lorebinders.name_tools.name_analyzer.parse_response")
 def test_analyze_names_markdown_mode(mock_parse_response, mock_combine_responses, mock_get_ai_response, MockChapter):
     ai = "AIInterface"
     RoleScript = "RoleScript"
