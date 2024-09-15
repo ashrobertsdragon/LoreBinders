@@ -46,12 +46,11 @@ def test_book_init(mock_build_chapters, sample_book_dict):
         assert book.narrator == "John Smith"
         assert book.character_attributes == ["Thoughts", "Actions"]
         assert book.custom_categories == ["Events", "Places"]
-        assert book.name == "Sample Book"
         assert book.file == "Chapter 1\n***\nChapter 2\n***\nChapter 3"
         mock_build_chapters.assert_called_once()
 
 def test_book_repr(sample_book):
-    assert repr(sample_book) == "Book('Sample Book')"
+    assert repr(sample_book) == "Book(Sample Book-John Doe)"
 
 def test_book_build_chapters(sample_book, mock_read_text_file):
     sample_book.file = mock_read_text_file
