@@ -52,7 +52,7 @@ def ai_interface(mock_ai_implementation, mock_rate_limiter):
 
 def test_ai_model_config_init(model_config):
     assert model_config.provider == "mock_provider"
-    assert model_config.provider_models.api == "mock_provider"
+    assert model_config.api_provider.api == "mock_provider"
 
 
 @patch("importlib.import_module")
@@ -79,7 +79,7 @@ def test_ai_model_config_initialize_api_invalid(model_config):
 def test_ai_interface_set_family(ai_interface, model_config):
     family = "test_family"
     ai_interface.set_family(model_config, family)
-    model_config.provider_models.get_ai_family.assert_called_once_with(family)
+    model_config.api_provider.get_ai_family.assert_called_once_with(family)
 
 
 def test_ai_interface_set_model(ai_interface, mock_rate_limiter):
