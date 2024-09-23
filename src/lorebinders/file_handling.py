@@ -1,26 +1,25 @@
 from __future__ import annotations
 
 import json
-import os
-import pathlib
 import re
+from pathlib import Path
 
 from lorebinders._types import T
 
 
-def read_text_file(file_path: str) -> str:
+def read_text_file(file_path: Path) -> str:
     "Opens and reads text file"
-    return pathlib.Path(file_path).read_text()
+    return file_path.read_text()
 
 
-def read_json_file(file_path: str) -> T:  # type: ignore
+def read_json_file(file_path: Path) -> T:  # type: ignore
     "Opens and reads JSON file"
     with open(file_path) as f:
         read_file = json.load(f)
     return read_file
 
 
-def write_to_file(content: str, file_path: str) -> None:
+def write_to_file(content: str, file_path: Path) -> None:
     "Appends content to text file on new line"
 
     with open(file_path, "a") as f:
@@ -33,18 +32,18 @@ def separate_into_chapters(text: str) -> list:
     return re.split(r"\s*\*\*\*\s*", text)
 
 
-def write_json_file(content: list | dict, file_path: str) -> None:
+def write_json_file(content: list | dict, file_path: Path) -> None:
     "Writes JSON file"
 
     with open(file_path, "w") as f:
         json.dump(content, f, indent=2)
 
 
-def append_json_file(content: list | dict, file_path: str) -> None:
+def append_json_file(content: list | dict, file_path: Path) -> None:
     "Reads JSON file, and adds content to datatype before overwriting"
 
     read_file: list | dict = {} if isinstance(content, dict) else []
-    if os.path.exists(file_path):
+    if file_path.exists():
         read_file = read_json_file(file_path)
         if isinstance(content, list) and not isinstance(read_file, list):
             raise TypeError(f"Expected list, got {type(read_file)}")
