@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import os
+from json import JSONDecodeError
+from pathlib import Path
 
 from loguru import logger
 
@@ -23,7 +24,7 @@ class JSONFileProviderHandler(AIProviderManager):
     def __init__(
         self, schema_directory: str, schema_filename: str = "ai_models.json"
     ) -> None:
-        self.schema_path = os.path.join(schema_directory, schema_filename)
+        self.schema_path = Path(schema_directory, schema_filename)
 
         self._registry: AIModelRegistry | None = None
 
@@ -37,11 +38,11 @@ class JSONFileProviderHandler(AIProviderManager):
         try:
             data = read_json_file(self.schema_path)
             return AIModelRegistry.model_validate(data)
-        except Exception as e:
+        except JSONDecodeError as e:
             logger.error(
                 f"Failed to load registry from {self.schema_path}: {str(e)}"
             )
-            raise
+            raise JSONDecodeError(e.msg, e.doc, e.pos) from e
 
     def get_all_providers(self) -> list[APIProvider]:
         return self.registry.providers
