@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import cast
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -25,15 +25,15 @@ class Model(BaseModel):
 class ModelFamily(BaseModel):
     family: str
     tokenizer: str
-    models: List[Model] = Field(default_factory=list)
+    models: list[Model] = Field(default_factory=list)
 
     def __str__(self) -> str:
         return self.family
 
     @model_validator(mode="before")
     @classmethod
-    def set_ids(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        models = values.get("models", [])
+    def set_ids(cls, values: dict[str, str | list]) -> dict[str, str | list]:
+        models = cast(list, values.get("models", []))
         for model in models:
             if isinstance(model, dict) and "id" not in model:
                 model["id"] = Model._increment_counter()
@@ -50,7 +50,7 @@ class ModelFamily(BaseModel):
 
 class APIProvider(BaseModel):
     api: str
-    ai_families: List[ModelFamily] = Field(default_factory=list)
+    ai_families: list[ModelFamily] = Field(default_factory=list)
 
     def __str__(self) -> str:
         return self.api
@@ -78,7 +78,7 @@ class APIProvider(BaseModel):
 
 
 class AIModelRegistry(BaseModel):
-    providers: List[APIProvider] = Field(default_factory=list)
+    providers: list[APIProvider] = Field(default_factory=list)
 
     def get_provider(self, name: str) -> APIProvider:
         return next(
