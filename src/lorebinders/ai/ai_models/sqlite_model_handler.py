@@ -6,6 +6,7 @@ from typing import cast
 
 from loguru import logger
 
+from lorebinders._decorators import log_db_error
 from lorebinders._managers import AIProviderManager
 from lorebinders.ai.ai_models._model_schema import (
     AIModelRegistry,
@@ -13,11 +14,10 @@ from lorebinders.ai.ai_models._model_schema import (
     Model,
     ModelFamily
 )
-from lorebinders.ai.exceptions import MissingModelFamilyError
-
-
-class DatabaseOperationError(Exception):
-    pass
+from lorebinders.ai.exceptions import (
+    DatabaseOperationError,
+    MissingModelFamilyError
+)
 
 
 class SQLite:
@@ -45,13 +45,16 @@ class SQLite:
 class SQLiteProviderHandler(AIProviderManager):
     def __init__(self, schema_directory: str, schema_filename="ai_models.db"):
         self.db = Path(schema_directory, schema_filename)
-        self._registry = None
-        try:
-            self._initialize_database()
-        except DatabaseOperationError as e:
-            logger.exception(f"Failed to initialize database: {e}")
+        self._registry: AIModelRegistry | None = None
 
-    def _initialize_database(self):
+    @property
+    def registry(self) -> AIModelRegistry:
+        if not self._registry:
+            self._registry = self._load_registry()
+        return self._registry
+
+    @log_db_error
+    def _create_tables(self):
         with SQLite(self.db) as cursor:
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS providers (
@@ -82,17 +85,23 @@ class SQLiteProviderHandler(AIProviderManager):
             """)
         logger.info("Database initialized")
 
+    @log_db_error
     def _execute_query(self, query: str, params: tuple | None = None) -> list:
-        try:
-            with SQLite(self.db) as cursor:
-                if params:
-                    cursor.execute(query, params)
-                else:
-                    cursor.execute(query)
-                return cursor.fetchall()
-        except DatabaseOperationError as e:
-            logger.exception(e)
-            raise
+        with SQLite(self.db) as cursor:
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+            return cursor.fetchall()
+
+    def _check_for_tables(self) -> None:
+        check_table_query = """
+            SELECT name FROM sqlite_master
+            WHERE type="table"
+        """
+        existing_tables = self._execute_query(check_table_query)
+        if len(existing_tables) < 3:
+            self._create_tables()
 
     def _registry_query(self) -> list[dict]:
         """Returns the list of AI models in the database"""
@@ -152,6 +161,7 @@ class SQLiteProviderHandler(AIProviderManager):
         return registry
 
     def _load_registry(self) -> AIModelRegistry:
+        self._check_for_tables()
         db_response = self._registry_query()
         registry_data = self._process_db_response(db_response)
         return AIModelRegistry.model_validate(registry_data)
