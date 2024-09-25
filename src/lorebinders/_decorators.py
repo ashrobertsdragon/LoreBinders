@@ -1,6 +1,10 @@
 from functools import wraps
 from typing import Callable
 
+from loguru import logger
+
+from lorebinders.ai.exceptions import DatabaseOperationError
+
 
 def required_string(
     func: Callable,
@@ -18,5 +22,17 @@ def required_string(
                 return result
             else:
                 print(f"{input_type} is required.")
+
+    return wrapper
+
+
+def log_db_error(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except DatabaseOperationError as e:
+            logger.exception(f"Error: {e}")
+            raise
 
     return wrapper
