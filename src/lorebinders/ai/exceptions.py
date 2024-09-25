@@ -28,3 +28,7 @@ class MissingModelFamilyError(MissingAIError):
 
 class MissingModelError(MissingAIError):
     pass
+
+
+class DatabaseOperationError(Exception):
+    pass
