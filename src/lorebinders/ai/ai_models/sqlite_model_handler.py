@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import os
 import sqlite3
+from pathlib import Path
+from typing import cast
 
 from loguru import logger
 
@@ -20,7 +21,7 @@ class DatabaseOperationError(Exception):
 
 
 class SQLite:
-    def __init__(self, file: str) -> None:
+    def __init__(self, file: Path) -> None:
         self.file = file
 
     def __enter__(self):
@@ -43,7 +44,7 @@ class SQLite:
 
 class SQLiteProviderHandler(AIProviderManager):
     def __init__(self, schema_directory: str, schema_filename="ai_models.db"):
-        self.db = os.path.join(schema_directory, schema_filename)
+        self.db = Path(schema_directory, schema_filename)
         self._registry = None
         try:
             self._initialize_database()
@@ -113,41 +114,41 @@ class SQLiteProviderHandler(AIProviderManager):
             JOIN models m
             ON m.family = family
             """
-        try:
-            return self._execute_query(query)
-        except DatabaseOperationError as e:
-            logger.exception(e)
-            raise
+        return self._execute_query(query)
 
     def _process_db_response(self, data: list[dict]) -> list[dict]:
         registry: list[dict] = []
-        provider = {}
         for row in data:
-            provider_api = row["provider"]
-            family = row["family"]
-            if provider_api not in provider:
-                provider = {
-                    "api": provider_api,
-                    "ai_families": [],
-                }
-            current_family = None
-            if family != current_family:
-                current_family = family
-                ai_family = {
+            provider_api: str = row["provider"]
+            family: str = row["family"]
+            provider: dict[str, str | list[dict]] = next(
+                (p for p in registry if p["api"] == provider_api),
+                {"api": provider_api, "ai_families": []},
+            )
+            if provider not in registry:
+                registry.append(provider)
+            ai_families = cast(list, provider["ai_families"])
+            ai_family: dict[str, str | int | list[dict]] = next(
+                (f for f in ai_families if f["family"] == family),
+                {
                     "family": family,
                     "tokenizer": row["tokenizer"],
                     "models": [],
-                }
-                provider["ai_families"].append(ai_family)
-            model_data = {
+                },
+            )
+            if ai_family not in ai_families:
+                ai_families.append(ai_family)
+            models = cast(list, ai_family["models"])
+            model_data: dict[str, str | int] = {
                 "id": row["id"],
                 "name": row["name"],
                 "api_model": row["api_model"],
                 "context_window": row["context_window"],
                 "rate_limit": row["rate_limit"],
             }
-            current_family["models"].append(model_data)
-            registry.append(provider)
+            models.append(model_data)
+            ai_family["models"] = models
+            provider["ai_families"] = ai_families
         return registry
 
     def _load_registry(self) -> AIModelRegistry:
