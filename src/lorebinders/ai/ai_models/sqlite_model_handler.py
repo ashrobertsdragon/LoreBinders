@@ -188,8 +188,10 @@ class SQLiteProviderHandler(AIProviderManager):
 
     def get_ai_family(self, provider: str, family: str) -> ModelFamily:
         api_provider = self.get_provider(provider)
+
         if ai_family := api_provider.get_ai_family(family):
-            return ai_family
+            if ai_family.family == family:
+                return ai_family
         missing_family_error_msg = (
             f"No family {family} found for provider {provider}"
         )
