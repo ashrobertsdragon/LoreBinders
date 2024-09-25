@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class Model(BaseModel):
-    id: int = Field(default_factory=lambda: Model._id_counter)
+    id: int = Field(default=0)
     name: str
     api_model: str
     context_window: int
@@ -12,11 +12,6 @@ class Model(BaseModel):
     absolute_max_tokens: int = Field(default_factory=lambda: 4096)
 
     _id_counter: int = 0
-
-    @classmethod
-    def _increment_counter(cls):
-        cls._id_counter += 1
-        return cls._id_counter
 
     def __str__(self) -> str:
         return self.name
@@ -32,11 +27,15 @@ class ModelFamily(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def set_ids(cls, values: dict[str, str | list]) -> dict[str, str | list]:
-        models = cast(list, values.get("models", []))
-        for model in models:
-            if isinstance(model, dict) and "id" not in model:
-                model["id"] = Model._increment_counter()
+    def set_ids(
+        cls, values: dict[str, str | list[Model | dict]]
+    ) -> dict[str, str | list[Model | dict]]:
+        models = cast(list, values["models"])
+        for id_counter, model in enumerate(models, start=1):
+            if isinstance(model, dict) and model.get("id") == 0:
+                model["id"] = id_counter
+            if isinstance(model, Model) and model.id == 0:
+                model.id = id_counter
         return values
 
     def get_model_by_id(self, model_id: int) -> Model:
