@@ -27,16 +27,19 @@ classifiers = [
 requires-python = ">= 3.10"
 dependencies = [
     "ebook2text>=1.1.2",
-    "python-dotenv>=1.0.1",
-    "openai>=1.30.1",
-    "tiktoken>=0.6.0",
+    "python-decouple>=3.8",
     "json-repair>=0.22.0",
-    "reportlab>=4.1.0"
+    "reportlab>=4.1.0",
+    "pydantic>=2.9.2"
 ]
 
 [project.optional-dependencies]
-production = ["supabase>=2.3.4"]
-dev = ["black", "isort", "ruff", "pytest", "pytest-cov", "pytest-xdist","pytest-html","pytest-sugar","pytest-clarity"]
+production = ["SupaSaas@git+https://github.com/ashrobertsdragon/SupaSaaS.git"]
+dev = ["ruff", "pytest", "pytest-cov", "pytest-xdist","pytest-html","pytest-sugar","pytest-clarity"]
+openai = [
+    "openai>=1.30.1",
+    "tiktoken>=0.6.0"
+]
 
 [project.urls]
 "Homepage" = "https://prosepal.io"
