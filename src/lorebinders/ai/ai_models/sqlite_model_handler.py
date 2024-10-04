@@ -7,17 +7,9 @@ from typing import cast
 from loguru import logger
 
 from lorebinders._decorators import log_db_error
-from lorebinders._managers import AIProviderManager
-from lorebinders.ai.ai_models._model_schema import (
-    AIModelRegistry,
-    APIProvider,
-    Model,
-    ModelFamily
-)
-from lorebinders.ai.exceptions import (
-    DatabaseOperationError,
-    MissingModelFamilyError
-)
+from lorebinders.ai.ai_models._model_schema import AIModelRegistry
+from lorebinders.ai.ai_models.sql_model_manager import SQLProviderHandler
+from lorebinders.ai.exceptions import DatabaseOperationError
 
 
 class SQLite:
@@ -42,16 +34,39 @@ class SQLite:
         self.connection.close()
 
 
-class SQLiteProviderHandler(AIProviderManager):
+class SQLiteProviderHandler(SQLProviderHandler):
+    """SQLite database handler for AI model data."""
+
+    query_templates = {
+        "delete": {
+            "providers": "DELETE FROM providers WHERE api = ?",
+            "ai_families": "DELETE FROM ai_families WHERE "
+            "family = ? AND provider_api = ?",
+            "models": "DELETE FROM models WHERE id = ? AND family = ?",
+        },
+        "insert": {
+            "providers": "INSERT INTO providers (api) VALUES (?)",
+            "ai_families": "INSERT INTO ai_families "
+            "(family, tokenizer, provider_api) VALUES (?, ?, ?)",
+            "models": "INSERT INTO models "
+            "(id, name, api_model, context_window, rate_limit, family) VALUES "
+            "(?, ?, ?, ?, ?, ?)",
+        },
+        "update": {
+            "models": """
+            UPDATE models SET
+                name = ?,
+                api_model = ?,
+                context_window = ?,
+                rate_limit = ?
+            WHERE id = ? AND family = ?
+            """
+        },
+    }
+
     def __init__(self, schema_directory: str, schema_filename="ai_models.db"):
         self.db = Path(schema_directory, schema_filename)
         self._registry: AIModelRegistry | None = None
-
-    @property
-    def registry(self) -> AIModelRegistry:
-        if not self._registry:
-            self._registry = self._load_registry()
-        return self._registry
 
     @log_db_error
     def _create_tables(self):
@@ -93,6 +108,13 @@ class SQLiteProviderHandler(AIProviderManager):
             else:
                 cursor.execute(query)
             return cursor.fetchall()
+
+    def _form_query(self, action: str, table: str) -> str:
+        return self.query_templates[action][table]
+
+    def _query_db(self, action: str, table: str, params: tuple) -> list:
+        query = self._form_query(action, table)
+        return self._execute_query(query, params)
 
     def _check_for_tables(self) -> None:
         check_table_query = """
@@ -165,115 +187,3 @@ class SQLiteProviderHandler(AIProviderManager):
         db_response = self._registry_query()
         registry_data = self._process_db_response(db_response)
         return AIModelRegistry.model_validate(registry_data)
-
-    def get_all_providers(self) -> list[APIProvider]:
-        return self.registry.providers
-
-    def get_provider(self, provider: str) -> APIProvider:
-        return self.registry.get_provider(provider)
-
-    def add_provider(self, provider: APIProvider) -> None:
-        self.registry.providers.append(provider)
-        self._execute_query(
-            "INSERT INTO providers (api) VALUES (?)", (provider.api,)
-        )
-        for family in provider.ai_families:
-            self.add_ai_family(provider.api, family)
-
-    def delete_provider(self, provider: str) -> None:
-        self.registry.providers = [
-            p for p in self.registry.providers if p.api != provider
-        ]
-        self._execute_query("DELETE FROM providers WHERE api = ?", (provider,))
-
-    def get_ai_family(self, provider: str, family: str) -> ModelFamily:
-        api_provider = self.get_provider(provider)
-
-        if ai_family := api_provider.get_ai_family(family):
-            if ai_family.family == family:
-                return ai_family
-        missing_family_error_msg = (
-            f"No family {family} found for provider {provider}"
-        )
-        logger.error(missing_family_error_msg)
-        raise MissingModelFamilyError(missing_family_error_msg)
-
-    def add_ai_family(self, provider: str, ai_family: ModelFamily) -> None:
-        api_provider = self.get_provider(provider)
-        api_provider.ai_families.append(ai_family)
-        self._execute_query(
-            """
-            INSERT INTO ai_families
-            (family, tokenizer, provider_api)
-            VALUES (?, ?, ?)
-            """,
-            (ai_family.family, ai_family.tokenizer, provider),
-        )
-        models = ai_family.models
-        for model in models:
-            self.add_model(provider, ai_family.family, model)
-
-    def delete_ai_family(self, provider: str, family: str) -> None:
-        api_provider = self.get_provider(provider)
-        api_provider.ai_families = [
-            f for f in api_provider.ai_families if f.family != family
-        ]
-        self._execute_query(
-            "DELETE FROM ai_families WHERE family = ? " "AND provider_api = ?",
-            (family, provider),
-        )
-
-    def add_model(self, provider: str, family: str, model: Model) -> None:
-        ai_family = self.get_ai_family(provider, family)
-        ai_family.models.append(model)
-        name, api_model, context_window, rate_limit, id = self.get_model_attr(
-            model
-        )
-        self._execute_query(
-            """
-            INSERT INTO models (
-                id, name, api_model, context_window, rate_limit, family
-            ) VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (id, api_model, name, context_window, rate_limit, family),
-        )
-
-    def replace_model(
-        self, model: Model, model_id: int, family: str, provider: str
-    ) -> None:
-        ai_family = self.get_ai_family(provider, family)
-        model.id = model_id
-        ai_family.models = [
-            model if m.id == model_id else m for m in ai_family.models
-        ]
-        name, api_model, context_window, rate_limit, id = self.get_model_attr(
-            model
-        )
-        self._execute_query(
-            """
-            UPDATE models SET
-                name = ?,
-                api_model = ?,
-                context_window = ?,
-                rate_limit = ?,
-            WHERE id = ? AND family = ?
-            """,
-            (name, api_model, context_window, rate_limit, id, family),
-        )
-
-    def delete_model(self, provider: str, family: str, model_id: int) -> None:
-        ai_family = self.get_ai_family(provider, family)
-        ai_family.models = [m for m in ai_family.models if m.id != model_id]
-        self._execute_query(
-            "DELETE FROM models WHERE id = ? AND family = ?",
-            (model_id, family),
-        )
-
-    @staticmethod
-    def get_model_attr(model: Model):
-        name = model.name
-        api_model = model.api_model
-        context_window = model.context_window
-        rate_limit = model.rate_limit
-        model_id = model.id
-        return name, api_model, context_window, rate_limit, model_id
