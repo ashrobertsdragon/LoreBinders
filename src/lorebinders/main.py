@@ -1,5 +1,3 @@
-from dotenv import load_dotenv
-
 import lorebinders.build_lorebinder as builder
 import lorebinders.user_input as user_input
 
@@ -11,5 +9,4 @@ def main():
 
 
 if __name__ == "__main__":
-    load_dotenv()
     main()

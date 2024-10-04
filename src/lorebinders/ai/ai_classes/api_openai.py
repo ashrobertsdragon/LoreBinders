@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import os
 from typing import TYPE_CHECKING, cast
 
 import openai
 import tiktoken
+from decouple import config
 from loguru import logger
 from openai import OpenAI
 
@@ -46,7 +46,7 @@ class OpenaiAPI(AIManager):
     def _initialize_client(self) -> None:
         """Create the OpenAI API client with the API key"""
         try:
-            if api_key := os.environ.get("OPENAI_API_KEY"):
+            if api_key := config("OPENAI_API_KEY"):
                 self.client = OpenAI(api_key=api_key)
             else:
                 raise KeyNotFoundError(
