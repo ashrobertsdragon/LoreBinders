@@ -1,3 +1,15 @@
+"""
+Supabase model handler for AI models.
+
+Usage:
+    from lorebinders.ai.ai_models import SupaSaaSAIProviderHandler, init_db
+
+    handler = SupaSaaSAIProviderHandler(init_db())
+
+    # Access the AIModelRegistry
+    registry = handler.registry
+"""
+
 from collections.abc import Callable
 
 from supasaas import SupabaseClient, SupabaseDB, SupabaseLogin
@@ -7,6 +19,12 @@ from lorebinders.ai.ai_models.sql_provider_handler import SQLProviderHandler
 
 
 def init_db() -> SupabaseDB:
+    """
+    Initialize a Supabase database client from environment variables.
+
+    Returns:
+        SupabaseDB: An instance of the SupabaseDB class.
+    """
     login = SupabaseLogin.from_config()
     client = SupabaseClient(login)
     return SupabaseDB(client)
