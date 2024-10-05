@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from typing import cast
 
 from loguru import logger
 
@@ -15,6 +16,8 @@ from lorebinders.ai.exceptions import MissingModelFamilyError
 class SQLProviderHandler(AIProviderManager):
     """Abstract SQL database handler for AI model data."""
 
+    query_templates: dict = {}  # Must be implemented in child class
+
     @property
     def registry(self) -> AIModelRegistry:
         if not self._registry:
@@ -26,10 +29,48 @@ class SQLProviderHandler(AIProviderManager):
         "Must be implemented in child class"
         ...
 
+    def _form_query(self, action: str, table: str) -> str:
+        return self.query_templates[action][table]
+
     @abstractmethod
     def _query_db(self, action: str, table: str, params: tuple) -> list:
-        "Must be implemented in child class"
+        """Must be implemented in child class"""
         ...
+
+    def _process_db_response(self, data: list[dict]) -> list[dict]:
+        registry: list[dict] = []
+        for row in data:
+            provider_api: str = row["provider"]
+            family: str = row["family"]
+            provider: dict[str, str | list[dict]] = next(
+                (p for p in registry if p["api"] == provider_api),
+                {"api": provider_api, "ai_families": []},
+            )
+            if provider not in registry:
+                registry.append(provider)
+            ai_families = cast(list, provider["ai_families"])
+            ai_family: dict[str, str | int | list[dict]] = next(
+                (f for f in ai_families if f["family"] == family),
+                {
+                    "family": family,
+                    "tokenizer": row["tokenizer"],
+                    "models": [],
+                },
+            )
+            if ai_family not in ai_families:
+                ai_families.append(ai_family)
+            models = cast(list, ai_family["models"])
+            model_data: dict[str, str | int] = {
+                "id": row["id"],
+                "name": row["name"],
+                "api_model": row["api_model"],
+                "context_window": row["context_window"],
+                "rate_limit": row["rate_limit"],
+            }
+            models.append(model_data)
+            ai_family["models"] = models
+            provider["ai_families"] = ai_families
+        return registry
 
     def get_all_providers(self) -> list[APIProvider]:
         return self.registry.providers
