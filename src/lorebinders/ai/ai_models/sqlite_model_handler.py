@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
-from typing import cast
 
 from loguru import logger
 
 from lorebinders._decorators import log_db_error
 from lorebinders.ai.ai_models._model_schema import AIModelRegistry
-from lorebinders.ai.ai_models.sql_model_manager import SQLProviderHandler
+from lorebinders.ai.ai_models.sql_provider_handler import SQLProviderHandler
 from lorebinders.ai.exceptions import DatabaseOperationError
 
 
@@ -109,9 +108,6 @@ class SQLiteProviderHandler(SQLProviderHandler):
                 cursor.execute(query)
             return cursor.fetchall()
 
-    def _form_query(self, action: str, table: str) -> str:
-        return self.query_templates[action][table]
-
     def _query_db(self, action: str, table: str, params: tuple) -> list:
         query = self._form_query(action, table)
         return self._execute_query(query, params)
@@ -146,41 +142,6 @@ class SQLiteProviderHandler(SQLProviderHandler):
             ON m.family = family
             """
         return self._execute_query(query)
-
-    def _process_db_response(self, data: list[dict]) -> list[dict]:
-        registry: list[dict] = []
-        for row in data:
-            provider_api: str = row["provider"]
-            family: str = row["family"]
-            provider: dict[str, str | list[dict]] = next(
-                (p for p in registry if p["api"] == provider_api),
-                {"api": provider_api, "ai_families": []},
-            )
-            if provider not in registry:
-                registry.append(provider)
-            ai_families = cast(list, provider["ai_families"])
-            ai_family: dict[str, str | int | list[dict]] = next(
-                (f for f in ai_families if f["family"] == family),
-                {
-                    "family": family,
-                    "tokenizer": row["tokenizer"],
-                    "models": [],
-                },
-            )
-            if ai_family not in ai_families:
-                ai_families.append(ai_family)
-            models = cast(list, ai_family["models"])
-            model_data: dict[str, str | int] = {
-                "id": row["id"],
-                "name": row["name"],
-                "api_model": row["api_model"],
-                "context_window": row["context_window"],
-                "rate_limit": row["rate_limit"],
-            }
-            models.append(model_data)
-            ai_family["models"] = models
-            provider["ai_families"] = ai_families
-        return registry
 
     def _load_registry(self) -> AIModelRegistry:
         self._check_for_tables()
