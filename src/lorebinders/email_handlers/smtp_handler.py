@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import pathlib
 import smtplib
 from email import encoders
@@ -9,6 +8,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import TYPE_CHECKING
 
+from decouple import config
 from loguru import logger
 
 from lorebinders._exceptions import BadEmailError
@@ -20,10 +20,10 @@ if TYPE_CHECKING:
 
 class SMTPHandler(EmailManager):
     def __init__(self) -> None:
-        self.password: str = os.environ["MAIL_PASSWORD"]
-        self.admin_email: str = os.environ["MAIL_USERNAME"]
-        self.server: str = os.environ["MAIL_SERVER"]
-        self.port: int = int(os.environ["MAIL_PORT"])
+        self.password: str = config("MAIL_PASSWORD")
+        self.admin_email: str = config("MAIL_USERNAME")
+        self.server: str = config("MAIL_SERVER")
+        self.port: int = config("MAIL_PORT", cast=int)
         self._email_server: smtplib.SMTP_SSL | None = None
 
     def _create_server(self) -> smtplib.SMTP_SSL:
@@ -138,7 +138,7 @@ class SMTPHandler(EmailManager):
             MIMEBase: The MIMEBase object for the attachment.
         """
         try:
-            with open(file_path, "rb") as attachment_file:
+            with file_path.open("rb") as attachment_file:
                 part = MIMEBase("application", "octet-stream")
                 part.set_payload(attachment_file.read())
                 encoders.encode_base64(part)

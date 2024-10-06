@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -27,8 +26,7 @@ def create_user_folder(author: str, work_dir: str) -> Path:
 
 
 def add_txt_filename(book_dict: BookDict, book_file: str) -> None:
-    base, _ = os.path.splitext(book_file)
-    txt_filename = f"{base}.txt"
+    txt_filename: str = Path(book_file).with_suffix(".txt").name
     book_dict.txt_file = txt_filename
 
 

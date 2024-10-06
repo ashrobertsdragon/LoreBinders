@@ -14,7 +14,7 @@ def read_text_file(file_path: Path) -> str:
 
 def read_json_file(file_path: Path) -> T:  # type: ignore
     "Opens and reads JSON file"
-    with open(file_path) as f:
+    with file_path.open("r") as f:
         read_file = json.load(f)
     return read_file
 
@@ -22,7 +22,7 @@ def read_json_file(file_path: Path) -> T:  # type: ignore
 def write_to_file(content: str, file_path: Path) -> None:
     "Appends content to text file on new line"
 
-    with open(file_path, "a") as f:
+    with file_path.open("a") as f:
         f.write(content + "\n")
 
 
@@ -35,7 +35,7 @@ def separate_into_chapters(text: str) -> list:
 def write_json_file(content: list | dict, file_path: Path) -> None:
     "Writes JSON file"
 
-    with open(file_path, "w") as f:
+    with file_path.open("w") as f:
         json.dump(content, f, indent=2)
 
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import os
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -25,7 +25,7 @@ def get_instruction_text(
     """
 
     prompt_type = instruction_type.value if instruction_type else ""
-    file_path: str = os.path.join("instructions", prompt_type or "", file_name)
+    file_path = Path("instructions", prompt_type or "", file_name)
     return file_handling.read_text_file(file_path)
 
 
