@@ -66,6 +66,8 @@ class SQLProviderHandler(AIProviderManager):
                 "api_model": row["api_model"],
                 "context_window": row["context_window"],
                 "rate_limit": row["rate_limit"],
+                "max_output_tokens": row["max_output_tokens"],
+                "generation": row["generation"],
             }
             models.append(model_data)
             ai_family["models"] = models
@@ -128,13 +130,28 @@ class SQLProviderHandler(AIProviderManager):
     def add_model(self, provider: str, family: str, model: Model) -> None:
         ai_family = self.get_ai_family(provider, family)
         ai_family.models.append(model)
-        name, api_model, context_window, rate_limit, id = self.get_model_attr(
-            model
-        )
+        (
+            name,
+            api_model,
+            context_window,
+            rate_limit,
+            max_output_tokens,
+            generation,
+            id,
+        ) = self.get_model_attr(model)
         self._query_db(
             "insert",
             "models",
-            (id, api_model, name, context_window, rate_limit, family),
+            (
+                id,
+                api_model,
+                name,
+                context_window,
+                rate_limit,
+                max_output_tokens,
+                generation,
+                family,
+            ),
         )
 
     def replace_model(
@@ -169,5 +186,15 @@ class SQLProviderHandler(AIProviderManager):
         api_model = model.api_model
         context_window = model.context_window
         rate_limit = model.rate_limit
+        max_output_tokens = model.max_output_tokens
+        generation: str = model.generation
         model_id = model.id
-        return name, api_model, context_window, rate_limit, model_id
+        return (
+            name,
+            api_model,
+            context_window,
+            rate_limit,
+            max_output_tokens,
+            generation,
+            model_id,
+        )

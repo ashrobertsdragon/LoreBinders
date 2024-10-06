@@ -92,6 +92,8 @@ class SQLiteProviderHandler(SQLProviderHandler):
                     api_model TEXT NOT NULL,
                     context_window INTEGER NOT NULL,
                     rate_limit INTEGER NOT NULL,
+                    max_output_tokens INTEGER NOT NULL,
+                    generation TEXT NOT NULL,
                     family TEXT NOT NULL,
                     PRIMARY KEY(id, family),
                     FOREIGN KEY(family) REFERENCES ai_families(family)
@@ -134,6 +136,8 @@ class SQLiteProviderHandler(SQLProviderHandler):
                 m.api_model,
                 m.context_window,
                 m.rate_limit,
+                m.max_output_tokens,
+                m.generation,
                 m.family
             FROM providers p
             JOIN ai_families af

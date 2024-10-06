@@ -9,7 +9,8 @@ class Model(BaseModel):
     api_model: str
     context_window: int
     rate_limit: int
-    absolute_max_tokens: int = Field(default_factory=lambda: 4096)
+    max_output_tokens: int
+    generation: str
 
     _id_counter: int = 0
 
