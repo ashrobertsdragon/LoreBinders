@@ -10,11 +10,11 @@ from openai import OpenAI
 
 if TYPE_CHECKING:
     from lorebinders._type_annotations import (
-        EmailManager,
         ChatCompletion,
         ChatCompletionAssistantMessageParam,
         ChatCompletionSystemMessageParam,
         ChatCompletionUserMessageParam,
+        EmailManager,
         FinishReason,
         ResponseFormat,
     )

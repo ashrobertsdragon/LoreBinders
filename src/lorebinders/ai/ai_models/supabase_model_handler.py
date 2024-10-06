@@ -143,7 +143,7 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
             tuple[dict, dict]: A tuple containing the data to insert as a
                 dictionary and an empty dictionary as the match parameters.
         """
-        return dict(zip(match_params, params)), {}
+        return dict(zip(match_params, params, strict=False)), {}
 
     def _prepare_update(
         self, params: tuple, match_params: list[str]
@@ -166,7 +166,7 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
         """
 
         return {match_params[0]: params[0]}, dict(
-            zip(match_params[1:], params[1:])
+            zip(match_params[1:], params[1:], strict=False)
         )
 
     def _prepare_delete(

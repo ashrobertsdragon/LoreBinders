@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from lorebinders._type_annotations import AIProviderManager
     from lorebinders._managers import RateLimitManager
+    from lorebinders._type_annotations import AIProviderManager
 
 from lorebinders.ai.ai_interface import AIInterface, AIModelConfig
 from lorebinders.ai.ai_models._model_schema import AIModelRegistry, APIProvider
