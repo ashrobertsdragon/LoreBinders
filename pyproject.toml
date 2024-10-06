@@ -22,10 +22,17 @@ classifiers = [
 ]
 requires-python = ">= 3.10"
 dependencies = [
+
     "ebook2text>=1.1.2",
+
     "json-repair>=0.29.8",
+
+    "loguru>=0.7.2",
+
     "pydantic>=2.9.2",
+
     "python-decouple>=3.8",
+
     "reportlab>=4.2.5",
 ]
 
