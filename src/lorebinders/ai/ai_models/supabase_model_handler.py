@@ -13,6 +13,7 @@ Usage:
 from collections.abc import Callable
 
 from supasaas import SupabaseClient, SupabaseDB, SupabaseLogin
+
 # loguru_config script runs at import time
 from supasaas._logging import loguru_config  # noqa F401
 
