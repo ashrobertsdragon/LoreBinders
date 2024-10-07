@@ -38,6 +38,12 @@ openai = [
 supabase = [
     "supasaas",
 ]
+anthropic = [
+    "anthropic>=0.35.0",
+]
+gemini = [
+    "google-generativeai>=0.8.2",
+]
 
 [project.urls]
 "Homepage" = "https://prosepal.io"
