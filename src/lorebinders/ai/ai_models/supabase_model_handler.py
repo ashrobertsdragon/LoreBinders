@@ -46,11 +46,20 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
                 "api_model",
                 "context_window",
                 "rate_limit",
+                "max_output_tokens",
+                "generation",
                 "family",
             ],
         },
         "update": {
-            "models": ["name", "api_model", "context_window", "rate_limit"]
+            "models": [
+                "name",
+                "api_model",
+                "context_window",
+                "rate_limit",
+                "max_output_tokens",
+                "generation",
+            ]
         },
         "delete": {
             "providers": ["api"],
@@ -58,9 +67,18 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
             "models": ["id", "family"],
         },
         "select": {
-            "providers": "api",
-            "ai_families": "provider_api",
-            "models": "family",
+            "providers": ["api"],
+            "ai_families": ["family", "tokenizer", "provider_api"],
+            "models": [
+                "id",
+                "name",
+                "api_model",
+                "context_window",
+                "rate_limit",
+                "max_output_tokens",
+                "generation",
+                "family",
+            ],
         },
     }
 
@@ -68,7 +86,7 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
         self.db = db
         self._registry: AIModelRegistry | None = None
 
-    def _fetch_rows(self, table_name: str, match_column: str) -> list[dict]:
+    def _fetch_rows(self, table_name: str, columns: list[str]) -> list[dict]:
         """
         Fetches all rows from the given table that have a non-null value in the
         given column.
@@ -85,8 +103,7 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
         """
         return self.db.select_row(
             table_name=table_name,
-            match={match_column: "IS NOT NULL"},
-            match_type=str,
+            columns=columns,
             use_service_role=True,
         )
 
@@ -101,10 +118,78 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
                 name, and each dictionary value is the value of that column in
                 the row.
         """
-        registry_data = self._fetch_rows("providers", "api")
-        registry_data.extend(self._fetch_rows("ai_families", "provider_api"))
-        registry_data.extend(self._fetch_rows("models", "name"))
+        registry_data = self._fetch_rows(
+            "providers", self.query_templates["select"]["providers"]
+        )
+        registry_data.extend(
+            self._fetch_rows(
+                "ai_families", self.query_templates["select"]["ai_families"]
+            )
+        )
+        registry_data.extend(
+            self._fetch_rows(
+                "models", self.query_templates["select"]["models"]
+            )
+        )
         return registry_data
+
+    def _process_db_response(self, data: list[dict]) -> dict[str, list[dict]]:
+        registry: list[dict] = []
+
+        for row in data:
+            if "api" in row:
+                provider_api = row["api"]
+                provider = next(
+                    (p for p in registry if p["api"] == provider_api),
+                    {"api": provider_api, "ai_families": []},
+                )
+                if provider not in registry:
+                    registry.append(provider)
+
+            elif "family" in row and "provider_api" in row:
+                family = row["family"]
+                provider_api = row["provider_api"]
+                provider = next(
+                    p for p in registry if p["api"] == provider_api
+                )
+                ai_families = provider["ai_families"]
+                ai_family = next(
+                    (f for f in ai_families if f["family"] == family),
+                    {
+                        "family": family,
+                        "tokenizer": row["tokenizer"],
+                        "models": [],
+                    },
+                )
+                if ai_family not in ai_families:
+                    ai_families.append(ai_family)
+                provider["ai_families"] = ai_families
+
+            elif "id" in row and "family" in row:
+                family = row["family"]
+                provider = next(
+                    p
+                    for p in registry
+                    if any(f["family"] == family for f in p["ai_families"])
+                )
+                ai_families = provider["ai_families"]
+                ai_family = next(
+                    f for f in ai_families if f["family"] == family
+                )
+                models = ai_family["models"]
+                model_data = {
+                    "id": row["id"],
+                    "name": row["name"],
+                    "api_model": row["api_model"],
+                    "context_window": row["context_window"],
+                    "rate_limit": row["rate_limit"],
+                    "max_output_tokens": row["max_output_tokens"],
+                    "generation": row["generation"],
+                }
+                models.append(model_data)
+                ai_family["models"] = models
+
+        return registry
 
     def _load_registry(self) -> AIModelRegistry:
         """
@@ -116,7 +201,7 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
 
         db_response = self._registry_query()
         registry_data = self._process_db_response(db_response)
-        return AIModelRegistry.model_validate(registry_data)
+        return AIModelRegistry(providers=registry_data)
 
     def _get_match_params(self, action: str, table: str) -> list[str]:
         """

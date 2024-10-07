@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
+from typing import cast
 
 from loguru import logger
 
@@ -114,6 +115,43 @@ class SQLiteProviderHandler(SQLProviderHandler):
         query = self._form_query(action, table)
         return self._execute_query(query, params)
 
+    def _process_db_response(self, data: list[dict]) -> list[dict]:
+        registry: list[dict] = []
+        for row in data:
+            provider_api: str = row["api"]
+            family: str = row["family"]
+            provider: dict[str, str | list[dict]] = next(
+                (p for p in registry if p["api"] == provider_api),
+                {"api": provider_api, "ai_families": []},
+            )
+            if provider not in registry:
+                registry.append(provider)
+            ai_families = cast(list, provider["ai_families"])
+            ai_family: dict[str, str | int | list[dict]] = next(
+                (f for f in ai_families if f["family"] == family),
+                {
+                    "family": family,
+                    "tokenizer": row["tokenizer"],
+                    "models": [],
+                },
+            )
+            if ai_family not in ai_families:
+                ai_families.append(ai_family)
+            models = cast(list, ai_family["models"])
+            model_data: dict[str, str | int] = {
+                "id": row["id"],
+                "name": row["name"],
+                "api_model": row["api_model"],
+                "context_window": row["context_window"],
+                "rate_limit": row["rate_limit"],
+                "max_output_tokens": row["max_output_tokens"],
+                "generation": row["generation"],
+            }
+            models.append(model_data)
+            ai_family["models"] = models
+            provider["ai_families"] = ai_families
+        return registry
+
     def _check_for_tables(self) -> None:
         check_table_query = """
             SELECT name FROM sqlite_master
@@ -127,7 +165,7 @@ class SQLiteProviderHandler(SQLProviderHandler):
         """Returns the list of AI models in the database"""
         query = """
             SELECT
-                p.api as provider,
+                p.api as api,
                 af.provider_api,
                 af.family as family,
                 af.tokenizer,
@@ -151,4 +189,4 @@ class SQLiteProviderHandler(SQLProviderHandler):
         self._check_for_tables()
         db_response = self._registry_query()
         registry_data = self._process_db_response(db_response)
-        return AIModelRegistry.model_validate(registry_data)
+        return AIModelRegistry(providers=registry_data)
