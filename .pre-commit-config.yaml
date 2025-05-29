@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v5.0.0
     hooks:
       - id: check-added-large-files
         # Prevent giant files from being committed.
@@ -34,18 +34,23 @@ repos:
         # Trims trailing whitespace.
         exclude: ".*(data.*|extern.*|licenses.*|_parsetab.py|test_cds.py)$"
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.4
+  - repo: local
     hooks:
-      - id: ruff
-        exclude: ^ebook2text/ebooklib/|^tests|^stubs|cache|work|json|temp|^|to_refactor
-        args: [ --fix, --force-exclude, --target-version=310]
       - id: ruff-format
-        exclude: ^ebook2text/ebooklib/|^tests|^stubs|cache|work|json|temp|^|to_refactor
-        args: [--force-exclude, --target-version=310, --line-length=79]
-
-  - repo: https://github.com/asottile/pyupgrade
-    rev: v3.15.2
-    hooks:
-      - id: pyupgrade
-exclude: ^ebook2text/ebooklib/
+        name: Ruff Format
+        entry: uv run ruff
+        args: [format]
+        language: system
+        types: [python]
+      - id: ruff
+        name: Ruff
+        entry: uv run ruff
+        args: ["check", "--fix", "--exit-non-zero-on-fix"]
+        types: [python]
+        language: system
+      - id: uv-lock-check
+        name: Check uv.lock is up to date
+        entry: uv lock --check
+        language: system
+        files: ^(pyproject\.toml|uv\.lock)$
+        pass_filenames: false
