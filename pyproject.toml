@@ -18,7 +18,8 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "Topic :: Text Processing"
+    "Topic :: Text Processing",
+    "Typing :: Typed",
 ]
 keywords = ["writing", "fiction", "AI", "manuscript", "story bible"]
 requires-python = ">= 3.10"
