@@ -20,29 +20,30 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Text Processing"
 ]
+keywords = ["writing", "fiction", "AI", "manuscript", "story bible"]
 requires-python = ">= 3.10"
 dependencies = [
-    "ebook2text>=1.1.2",
-    "json-repair>=0.29.8",
-    "loguru>=0.7.2",
-    "pydantic>=2.9.2",
+    "ebook2text>=2.1.2",
+    "loguru>=0.7.3",
+    "pydantic>=2.11.5",
     "python-decouple>=3.8",
-    "reportlab>=4.2.5",
+    "reportlab>=4.4.1",
 ]
 
 [project.optional-dependencies]
 openai = [
-    "openai>=1.51.0",
-    "tiktoken>=0.8.0",
+    "openai>=1.82.0",
+    "tiktoken>=0.9.0",
 ]
 supabase = [
     "supasaas",
 ]
 anthropic = [
-    "anthropic>=0.35.0",
+    "anthropic>=0.52.1",
 ]
+
 gemini = [
-    "google-generativeai>=0.8.2",
+    "google-genai>=1.16.1",
 ]
 
 [project.urls]
@@ -51,38 +52,41 @@ gemini = [
 "Issues" = "https://github.com/ashrobertsdragon/LoreBinders/issues"
 "Pull Requests" = "https://github.com/ashrobertsdragon/LoreBinders/pulls"
 
-[tool.uv]
-dev-dependencies = [
-    "pytest>=8.3.3",
-    "pytest-clarity>=1.0.1",
-    "pytest-cov>=5.0.0",
-    "pytest-html>=4.1.1",
-    "pytest-sugar>=1.0.0",
-    "pytest-xdist>=3.6.1",
-    "ruff>=0.6.9",
-    "pre-commit>=4.0.0",
-]
-
 [tool.uv.sources]
 supasaas = { git = "https://github.com/ashrobertsdragon/SupaSaaS.git" }
 
+[tool.mypy]
+ignore_missing_imports = true
+python_version = "3.10"
+files = ["src/lorebinders/**/*.py"]
+
 [tool.ruff]
-line-length = 79
+line-length = 80
 force-exclude = true
-exclude = [".git", ".__pycache__", ".venv", ".vscode", "test*", "stubs" , "temp.py", "*cov", "*cache", "work", "*.json"]
+exclude = [".git", "__pycache__", ".venv", ".vscode", "test*", "*cov", "*cache", "work", "*.json"]
+
+[tool.ruff.format]
+line-ending = "lf"
+docstring-code-format = true
 
 [tool.ruff.lint]
-select = ["E", "F", "B", "I", "PTH", "W"]
-ignore = ["E203"]
+ignore = ["A002", "ANN204", "ANN401", "D100", "D417"]
+select = ["A", "ANN", "D", "DOC", "E", "F", "I", "N", "UP"]
 
 [tool.ruff.lint.isort]
 section-order = ["future", "standard-library", "third-party", "local-folder", "first-party"]
 
+[tool.ruff.lint.flake8-annotations]
+allow-star-arg-any = true
+mypy-init-return = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
 [tool.pytest.ini_options]
-addopts = "-v --cov=lorebinders --cov-report=html --html=test-results/report.html"
-pythonpath = [
-  "src"
-]
+addopts = ["-v --cov=lorebinders --cov-fail-under=80"]
+pythonpath = ["src"]
+testpaths = ["tests"]
 
 [tool.coverage.run]
 omit = ["*/_types.py"]
@@ -100,3 +104,18 @@ exclude_also = [
     "class .*\\bProtocol\\):",
     "@(abc\\.)?abstractmethod",
     ]
+
+[dependency-groups]
+testing = [
+    "pytest>=8.3.3",
+    "pytest-cov>=5.0.0",
+    "pytest-xdist>=3.6.1",
+]
+lint = [
+    "mypy>=1.15.0",
+    "ruff>=0.11.11",
+]
+dev = [
+    "pre-commit>=4.2.0",
+    {include-group = "testing"},
+]
