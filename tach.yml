@@ -1,75 +1,75 @@
 modules:
-- path: src.lorebinders._decorators
-- path: src.lorebinders._managers
-  depends_on:
-  - src.lorebinders.ai.ai_models._model_schema
-- path: src.lorebinders._titles
-- path: src.lorebinders._type_annotations
-- path: src.lorebinders.abstract_name_tools
-  depends_on:
-  - src.lorebinders.ai.ai_interface
-  - src.lorebinders.ai.ai_models._model_schema
-  - src.lorebinders.role_script
-- path: src.lorebinders.ai.ai_classes.api_openai
-- path: src.lorebinders.ai.ai_factory
-  depends_on:
-  - src.lorebinders.ai.api_error_handler
-  - src.lorebinders.ai.rate_limit
-- path: src.lorebinders.ai.ai_interface
-  depends_on:
-  - src.lorebinders.ai.ai_models._model_schema
-  - src.lorebinders.ai.ai_type
-  - src.lorebinders.ai.exceptions
-- path: src.lorebinders.ai.ai_models._model_schema
-- path: src.lorebinders.ai.ai_models.json_file_model_handler
-  depends_on:
-  - src.lorebinders.ai.ai_models._model_schema
-- path: src.lorebinders.ai.ai_type
-- path: src.lorebinders.ai.api_error_handler
-  depends_on:
-  - src.lorebinders.ai.exceptions
-- path: src.lorebinders.ai.exceptions
-- path: src.lorebinders.ai.rate_limit
-- path: src.lorebinders.ai.rate_limiters.file_rate_limit_handler
-- path: src.lorebinders.attributes
-  depends_on:
-  - src.lorebinders.abstract_name_tools
-  - src.lorebinders.ai.ai_models._model_schema
-  - src.lorebinders.json_tools
-  - src.lorebinders.role_script
-  - src.lorebinders.sort_names
-- path: src.lorebinders.binders
-  depends_on:
-  - src.lorebinders.ai.ai_models._model_schema
-  - src.lorebinders.attributes
-  - src.lorebinders.file_handling
-- path: src.lorebinders.book
-  depends_on:
-  - src.lorebinders.file_handling
-- path: src.lorebinders.book_dict
-- path: src.lorebinders.build_lorebinder
-- path: src.lorebinders.data_cleaner
-  depends_on:
-  - src.lorebinders._titles
-- path: src.lorebinders.email_handlers.smtp_handler
-- path: src.lorebinders.file_handling
-  depends_on:
-  - src.lorebinders._type_annotations
-- path: src.lorebinders.json_tools
-- path: src.lorebinders.main
-- path: src.lorebinders.make_pdf
-- path: src.lorebinders.role_script
-- path: src.lorebinders.sort_names
-  depends_on:
-  - src.lorebinders.data_cleaner
-- path: src.lorebinders.user_input
-- path: <root>
-  depends_on:
-  - src.lorebinders.ai.ai_models._model_schema
+  - path: src.lorebinders._decorators
+  - path: src.lorebinders._managers
+    depends_on:
+      - src.lorebinders.ai.ai_models._model_schema
+  - path: src.lorebinders._titles
+  - path: src.lorebinders._type_annotations
+  - path: src.lorebinders.abstract_name_tools
+    depends_on:
+      - src.lorebinders.ai.ai_interface
+      - src.lorebinders.ai.ai_models._model_schema
+      - src.lorebinders.role_script
+  - path: src.lorebinders.ai.ai_classes.api_openai
+  - path: src.lorebinders.ai.ai_factory
+    depends_on:
+      - src.lorebinders.ai.api_error_handler
+      - src.lorebinders.ai.rate_limit
+  - path: src.lorebinders.ai.ai_interface
+    depends_on:
+      - src.lorebinders.ai.ai_models._model_schema
+      - src.lorebinders.ai.ai_type
+      - src.lorebinders.ai.exceptions
+  - path: src.lorebinders.ai.ai_models._model_schema
+  - path: src.lorebinders.ai.ai_models.json_file_model_handler
+    depends_on:
+      - src.lorebinders.ai.ai_models._model_schema
+  - path: src.lorebinders.ai.ai_type
+  - path: src.lorebinders.ai.api_error_handler
+    depends_on:
+      - src.lorebinders.ai.exceptions
+  - path: src.lorebinders.ai.exceptions
+  - path: src.lorebinders.ai.rate_limit
+  - path: src.lorebinders.ai.rate_limiters.file_rate_limit_handler
+  - path: src.lorebinders.attributes
+    depends_on:
+      - src.lorebinders.abstract_name_tools
+      - src.lorebinders.ai.ai_models._model_schema
+      - src.lorebinders.json_tools
+      - src.lorebinders.role_script
+      - src.lorebinders.sort_names
+  - path: src.lorebinders.binders
+    depends_on:
+      - src.lorebinders.ai.ai_models._model_schema
+      - src.lorebinders.attributes
+      - src.lorebinders.file_handling
+  - path: src.lorebinders.book
+    depends_on:
+      - src.lorebinders.file_handling
+  - path: src.lorebinders.book_dict
+  - path: src.lorebinders.build_lorebinder
+  - path: src.lorebinders.data_cleaner
+    depends_on:
+      - src.lorebinders._titles
+  - path: src.lorebinders.email_handlers.smtp_handler
+  - path: src.lorebinders.file_handling
+    depends_on:
+      - src.lorebinders._type_annotations
+  - path: src.lorebinders.json_tools
+  - path: src.lorebinders.main
+  - path: src.lorebinders.make_pdf
+  - path: src.lorebinders.role_script
+  - path: src.lorebinders.sort_names
+    depends_on:
+      - src.lorebinders.data_cleaner
+  - path: src.lorebinders.user_input
+  - path: <root>
+    depends_on:
+      - src.lorebinders.ai.ai_models._model_schema
 exclude:
-- .*__pycache__
-- .*egg-info
-- docs
-- tests
-- venv
+  - .*__pycache__
+  - .*egg-info
+  - docs
+  - tests
+  - venv
 source_root: .

@@ -1,11 +1,11 @@
 # TODO
 
-**Improvements
+\*\*Improvements
 
 - refactor codebase - Active project
 - create stylesheet for pdf
 
-**Upcoming Features
+\*\*Upcoming Features
 
 - inconsistencies
 - series
