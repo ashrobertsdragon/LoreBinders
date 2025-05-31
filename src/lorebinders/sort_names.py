@@ -166,7 +166,7 @@ class SortNames:
             line: The line to process.
 
         Returns:
-            Line with non-interior/exterior parentheticals removed.
+            Line with non-interior/exterior parantheticals removed.
         """
         return self._not_int_ext_parenthetical_pattern.sub(r"\1", line)
 
