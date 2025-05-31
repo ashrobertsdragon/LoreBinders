@@ -1,27 +1,25 @@
 import re
 from collections import ChainMap
+from collections.abc import Callable
 from itertools import combinations
-from typing import Callable, Union
 
 from lorebinders._titles import TITLES
 
 
 def remove_titles(name: str) -> str:
-    """
-    Removes titles from a given name.
+    """Remove titles from a given name.
 
-    This method takes a name as input and removes any titles from the
-    beginning of the name. It checks if the first word of the name is a
-    title, based on a predefined list of titles. If the first word is a
-    title, it returns the name without the title. Otherwise, it returns
-    the original name.
+    Checks if the first word is a title from a predefined list and
+    removes it if found.
 
     Args:
-        value (str): The name from which titles need to be removed.
+        name: The name from which titles need to be removed.
 
     Returns:
-        str: The name without any titles.
+        The name without any titles.
 
+    Raises:
+        TypeError: If name is not a string.
     """
     if not isinstance(name, str):
         raise TypeError("name must be a string")
@@ -33,16 +31,21 @@ def remove_titles(name: str) -> str:
 
 
 def to_singular(plural: str) -> str:
-    """
-    Converts a plural word to its singular form based on common English
-    pluralization rules.
+    """Convert a plural word to its singular form.
+
+    Uses common English pluralization rules to convert plural words to
+    their singular forms.
 
     Args:
         plural: A string representing the plural form of a word.
 
     Returns:
-        (str) The singular form of the given word if a pattern matches,
-            otherwise the original word.
+        The singular form of the word if a pattern matches, otherwise
+        the original word.
+
+    Raises:
+        TypeError: If plural is not a string.
+        ValueError: If plural is empty.
     """
     if not isinstance(plural, str):
         raise TypeError("plural must be a string")
@@ -72,15 +75,14 @@ def to_singular(plural: str) -> str:
     return next(singular, lower_plural[:-1])
 
 
-def clean_list(unparsed_list) -> list:
-    """
-    Removes "none found" from values in a list.
+def clean_list(unparsed_list: list) -> list:
+    """Remove "none found" from values in a list.
 
     Args:
-        unparsed_list (list): The list to be cleaned.
+        unparsed_list: The list to be cleaned.
 
     Returns:
-        list: The cleaned list.
+        The cleaned list.
     """
     new_list: list = []
     for item in unparsed_list:
@@ -97,27 +99,25 @@ def clean_list(unparsed_list) -> list:
 
 
 def clean_str(unparsed_str: str) -> str:
-    """
-    Removes "none found" from a string.
+    """Remove "none found" from a string.
 
     Args:
-        unparsed_str (str): The string to be cleaned.
+        unparsed_str: The string to be cleaned.
 
     Returns:
-        str: The cleaned string.
+        The cleaned string.
     """
     return unparsed_str if unparsed_str.lower() != "none found" else ""
 
 
 def clean_none_found(unparsed_dict: dict) -> dict:
-    """
-    Removes "none found" from values in a dictionary.
+    """Remove "none found" from values in a dictionary.
 
     Args:
-        d (dict): The dictionary to be cleaned.
+        unparsed_dict: The dictionary to be cleaned.
 
     Returns:
-        dict: the cleaned dictionary.
+        The cleaned dictionary.
     """
     new_dict: dict = {}
     for key, value in unparsed_dict.items():
@@ -137,35 +137,22 @@ def clean_none_found(unparsed_dict: dict) -> dict:
 
 
 class DeduplicateKeys:
-    """
-    This class removes duplicate keys in a dictionary by merging singular and
-    plural forms of keys.
+    """Remove duplicate keys by merging singular and plural forms.
 
-    Methods:
-        deduplicate_keys: Removes duplicate keys in a dictionary by merging
-            singular and plural forms of keys.
-        _prioritize_keys: Determines the priority of keys based on whether one
-            is a standalone title or length.
-        _is_similar_key: Determines if two keys are similar based on certain
-            conditions.
-        _is_title: Checks if a key is a title in the TITLES list.
-        _deduplicate_across_dictionaries: Finds duplicates across dictionaries
-            and merges their values.
-        _merge_values: Merges two dictionary key values of unknown datatypes
-            into one.
+    This class identifies and merges similar keys in dictionaries,
+    particularly focusing on singular/plural variations and title
+    matching.
     """
 
     def deduplicate(self, binder: dict) -> dict:
-        """
-        Removes duplicate keys in a dictionary by merging singular and plural
-        forms of keys.
+        """Remove duplicate keys by merging singular and plural forms.
 
         Args:
-            dictionary: The dictionary to deduplicate.
+            binder: The dictionary to deduplicate.
 
-        Returns the deduplicated dictionary.
+        Returns:
+            The deduplicated dictionary.
         """
-
         cleaned_dict: dict = {}
 
         for outer_key, nested_dict in binder.items():
@@ -194,9 +181,14 @@ class DeduplicateKeys:
         return self._deduplicate_across_dictionaries(cleaned_dict)
 
     def _prioritize_keys(self, key1: str, key2: str) -> tuple[str, str]:
-        """
-        Determines priority of keys, based on whether one is standalone title
-        or length. Order is lower priority, higher priority.
+        """Determine priority of keys based on title status or length.
+
+        Args:
+            key1: First key to compare.
+            key2: Second key to compare.
+
+        Returns:
+            Tuple of (lower_priority, higher_priority) keys.
         """
         lower_key1: str = key1.lower()
         lower_key2: str = key2.lower()
@@ -214,22 +206,17 @@ class DeduplicateKeys:
         return lower_p, higher_p
 
     def _is_similar_key(self, key_1: str, key_2: str) -> bool:
-        """
-        Determines if two keys are similar.
+        """Determine if two keys are similar.
 
-        This method takes two keys as input and determines if they are similar
-        based on certain conditions. It checks if the keys have similar words,
-        if one key is a singular or plural form of the other, or if they have
-        similar titles. The method also removes titles from the keys and
-        converts them to their singular forms before making the comparison.
+        Checks for similarity based on singular/plural forms, title
+        matching, and word containment after removing titles.
 
         Args:
-            key_1 (str): The first key to compare.
-            key_2 (str): The second key to compare.
+            key_1: The first key to compare.
+            key_2: The second key to compare.
 
         Returns:
-            bool: True if the keys are similar, False otherwise.
-
+            True if the keys are similar, False otherwise.
         """
         key1 = key_1.strip().lower()
         key2 = key_2.strip().lower()
@@ -268,25 +255,28 @@ class DeduplicateKeys:
         return False
 
     def _is_title(self, key: str) -> bool:
-        """Checks if key is a title in TITLES list. Returns Boolean"""
+        """Check if key is a title in TITLES list.
+
+        Args:
+            key: The key to check.
+
+        Returns:
+            True if key is a title, False otherwise.
+        """
         return key.lower() in TITLES
 
     def _deduplicate_across_dictionaries(self, summaries: dict) -> dict:
-        """
-        Finds duplicates across dictionaries.
+        """Find duplicates across dictionaries and merge their values.
 
-        This method takes a dictionary 'summaries' as input and finds
-        duplicates across dictionaries within it. It specifically looks for
-        duplicate keys in the 'names' dictionaries and merges their values.
+        Specifically looks for duplicate keys in character dictionaries
+        and merges their values.
 
         Args:
-            summaries (dict): The dictionary containing the summaries.
+            summaries: The dictionary containing the summaries.
 
         Returns:
-            dict: The updated 'summaries' dictionary with duplicates merged.
-
+            The updated summaries dictionary with duplicates merged.
         """
-
         characters_dict: dict = summaries.setdefault("Characters", {})
 
         deduplicated_summaries: dict = {}
@@ -319,16 +309,20 @@ class DeduplicateKeys:
 
     def _merge_values(
         self,
-        value1: Union[dict, list, str],
-        value2: Union[dict, list, str],
-    ) -> Union[dict, list, str]:
-        """
-        Merges two dictionary key values of unknown datatypes into one
-        Args:
-            value1: A dictionary key value
-            value2: A dictionary key value
+        value1: dict | list | str,
+        value2: dict | list | str,
+    ) -> dict | list | str:
+        """Merge two dictionary key values of unknown datatypes.
 
-        Returns merged dictionary key value
+        Args:
+            value1: A dictionary key value.
+            value2: A dictionary key value.
+
+        Returns:
+            Merged dictionary key value.
+
+        Raises:
+            TypeError: If values are not dict, list, or str.
         """
         if not isinstance(value1, (dict, list, str)):
             raise TypeError(
@@ -339,7 +333,7 @@ class DeduplicateKeys:
                 "Value2 must be either a dictionary, list, or string"
             )
 
-        ALSO_KEY = "Also"
+        also_key = "Also"
         if isinstance(value1, dict) and isinstance(value2, dict):
             return dict(ChainMap(value1, value2))
         elif isinstance(value1, list) and isinstance(value2, list):
@@ -358,18 +352,18 @@ class DeduplicateKeys:
             return merged_list
         elif isinstance(value1, dict) and isinstance(value2, list):
             merged_dict: dict = value1.copy()
-            if value1.get(ALSO_KEY) is not None:
-                merged_dict[ALSO_KEY] = self._merge_values(
-                    merged_dict[ALSO_KEY], value2
+            if value1.get(also_key) is not None:
+                merged_dict[also_key] = self._merge_values(
+                    merged_dict[also_key], value2
                 )
                 return merged_dict
             else:
-                value1[ALSO_KEY] = value2
+                value1[also_key] = value2
         elif isinstance(value1, dict):
             for key in value1:
                 if key == value2:
                     return value1
-            value1[ALSO_KEY] = value2
+            value1[also_key] = value2
         elif isinstance(value2, list):
             value2.append(value1)
             return value2
@@ -379,15 +373,13 @@ class DeduplicateKeys:
 
 
 def reshape_dict(binder: dict) -> dict:
-    """
-    Reshapes a dictionary of chapter summaries to demote chapter numbers
-    inside category names.
+    """Reshape dictionary to demote chapter numbers inside category names.
 
     Args:
-        binder (dict): The dictionary to be reshaped.
+        binder: The dictionary to be reshaped.
 
     Returns:
-        dict: The reshaped dictionary.
+        The reshaped dictionary.
     """
     reshaped_data: dict = {}
     for chapter, chapter_data in binder.items():
@@ -402,15 +394,13 @@ def reshape_dict(binder: dict) -> dict:
 
 
 def final_reshape(binder: dict) -> dict:
-    """
-    Demotes chapter numbers to lowest dictionary in Characters and
-    Settings dictionaries.
+    """Demote chapter numbers to lowest level in Characters/Settings.
 
     Args:
-        binder (dict): The dictionary to be reshaped.
+        binder: The dictionary to be reshaped.
 
     Returns:
-        dict: The reshaped dictionary.
+        The reshaped dictionary.
     """
     reshaped_data: dict = {}
     for category, names in binder.items():
@@ -430,17 +420,18 @@ def final_reshape(binder: dict) -> dict:
 
 
 def sort_dictionary(binder: dict) -> dict:
-    """
-    Sorts the keys of a nested dictionary.
+    """Sort the keys of a nested dictionary.
 
     Args:
-        binder (dict): The dictionary to be sorted.
+        binder: The dictionary to be sorted.
 
     Returns:
-        dict: A dictionary with the same structure as binder, but with the
-        keys sorted in ascending order.
-    """
+        Dictionary with the same structure but keys sorted in ascending
+        order.
 
+    Raises:
+        TypeError: If inner dictionary doesn't have integer keys.
+    """
     sorted_dict = {}
     for outer_key, nested_dict in binder.items():
         sorted_middle_dict = {}
@@ -464,41 +455,30 @@ def sort_dictionary(binder: dict) -> dict:
 
 
 class ReplaceNarrator:
-    """
-    A class that replaces occurrences of the word 'narrator', 'protagonist',
-    'the main character', or 'main character' with a specified narrator name
-    in a given dictionary.
+    """Replace narrator references with a specified character name.
 
-    Args:
-        binder (dict): The dictionary to be cleaned.
-
-    Attributes:
-        _binder (dict): The dictionary to be cleaned.
-        _narrator_name (str): The name of the narrator to replace the
-            occurrences with.
-
-    Methods:
-        _replace_str(self, value: str) -> str:
-            Replaces the occurrences of the words in a string with the
-                narrator name.
-
-        _clean_dict(self, value: dict) -> dict:
-            Recursively replaces the occurrences of the words in a dictionary
-                with the narrator name.
-
-        _clean_list(self, value: list) -> list:
-            Recursively replaces the occurrences of the words in a list with
-                the narrator name.
-
-        replace(self, narrator_name: str) -> dict:
-            Replaces the occurrences of the words in the specified dictionary
-                with the narrator name.
+    Replaces occurrences of 'narrator', 'protagonist', 'main character'
+    and similar terms with a specified narrator name throughout a
+    dictionary structure.
     """
 
     def __init__(self, binder: dict):
+        """Initialize the ReplaceNarrator instance.
+
+        Args:
+            binder: The dictionary to process.
+        """
         self._binder = binder
 
     def _replace_str(self, value: str) -> str:
+        """Replace narrator references in a string.
+
+        Args:
+            value: The string to process.
+
+        Returns:
+            String with narrator references replaced.
+        """
         narrator_list: str = (
             r"\b(narrator|the narrator|the protagonist|"
             r"protagonist|the main character|main character)\b"
@@ -506,6 +486,14 @@ class ReplaceNarrator:
         return re.sub(narrator_list, self._narrator_name, value.lower())
 
     def _clean_dict(self, value: dict) -> dict:
+        """Recursively replace narrator references in a dictionary.
+
+        Args:
+            value: The dictionary to process.
+
+        Returns:
+            Dictionary with narrator references replaced.
+        """
         new_dict: dict = {}
         for key, val in value.items():
             cleaned_key = self._replace_str(key)
@@ -513,9 +501,25 @@ class ReplaceNarrator:
         return new_dict
 
     def _clean_list(self, value: list) -> list:
+        """Replace narrator references in a list.
+
+        Args:
+            value: The list to process.
+
+        Returns:
+            List with narrator references replaced.
+        """
         return [self._replace_str(val) for val in value]
 
     def _handle_value(self, value: dict | list | str) -> dict | list | str:
+        """Handle value replacement based on type.
+
+        Args:
+            value: The value to process (dict, list, or str).
+
+        Returns:
+            Processed value with narrator references replaced.
+        """
         type_handlers: dict[type, Callable] = {
             dict: self._clean_dict,
             list: self._clean_list,
@@ -528,15 +532,28 @@ class ReplaceNarrator:
             return value
 
     def replace(self, narrator_name: str) -> dict:
-        """
-        Replaces the word narrator, protagonist and synonyms with the
-        character's name
+        """Replace narrator, protagonist and synonyms with character name.
+
+        Args:
+            narrator_name: The name to replace narrator references with.
+
+        Returns:
+            Dictionary with narrator references replaced.
         """
         self._narrator_name = narrator_name
         return self._clean_dict(self._binder)
 
 
-def clean_lorebinders(lorebinder: dict, narrator: str):
+def clean_lorebinders(lorebinder: dict, narrator: str) -> dict:
+    """Clean and process lorebinder dictionary.
+
+    Args:
+        lorebinder: The lorebinder dictionary to process.
+        narrator: The narrator name for replacement.
+
+    Returns:
+        Cleaned and processed lorebinder dictionary.
+    """
     reshaped: dict = reshape_dict(lorebinder)
 
     only_found: dict = clean_none_found(reshaped)

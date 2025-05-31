@@ -11,8 +11,13 @@ from lorebinders.role_script import RoleScript
 
 
 def build_role_script(max_tokens: int = 200) -> RoleScript:
-    """
-    Builds the RoleScript
+    """Builds the RoleScript.
+
+    Args:
+        max_tokens: Maximum number of tokens for the response.
+
+    Returns:
+        RoleScript: The configured role script for summarization.
     """
     system_message = (
         "You are an expert summarizer. Please summarize the description "
@@ -24,9 +29,9 @@ def build_role_script(max_tokens: int = 200) -> RoleScript:
 def update_lorebinder(
     response: str, lorebinder: dict, category: str, name: str
 ) -> dict:
-    """
-    Adds the response as a value to a new summary key in the appropriate
-    section of the Lorebinder dictionary.
+    """Adds the response as a value to a new summary key.
+
+    Adds to the appropriate section of the Lorebinder dictionary.
 
     Args:
         response (str): The response from the AI.
@@ -43,8 +48,7 @@ def update_lorebinder(
 
 
 def summarize_names(ai: AIInterface, lorebinder: dict) -> dict:
-    """
-    Summarize the names in the lorebinder.
+    """Summarize the names in the lorebinder.
 
     Args:
         ai (AIInterface): The AIInterface object.

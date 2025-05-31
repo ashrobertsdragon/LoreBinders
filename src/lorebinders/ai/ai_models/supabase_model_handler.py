@@ -1,5 +1,4 @@
-"""
-Supabase model handler for AI models.
+"""Supabase model handler for AI models.
 
 Usage:
     from lorebinders.ai.ai_models import SupaSaaSAIProviderHandler, init_db
@@ -22,8 +21,7 @@ from lorebinders.ai.ai_models.sql_provider_handler import SQLProviderHandler
 
 
 def init_db() -> SupabaseDB:
-    """
-    Initialize a Supabase database client from environment variables.
+    """Initialize a Supabase database client from environment variables.
 
     Returns:
         SupabaseDB: An instance of the SupabaseDB class.
@@ -83,13 +81,16 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
     }
 
     def __init__(self, db: SupabaseDB):
+        """Initialize the Supabase model handler.
+
+        Args:
+            db: Supabase database connection instance.
+        """
         self.db = db
         self._registry: AIModelRegistry | None = None
 
     def _fetch_rows(self, table_name: str, columns: list[str]) -> list[dict]:
-        """
-        Fetches all rows from the given table that have a non-null value in the
-        given column.
+        """Fetches all rows from the given table that have a non-null value.
 
         Args:
             table_name (str): The name of the table to query.
@@ -108,9 +109,7 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
         )
 
     def _registry_query(self) -> list[dict]:
-        """
-        Queries the database for all the data needed to construct the
-        AIModelRegistry.
+        """Queries database for all data needed to construct AIModelRegistry.
 
         Returns:
             list[dict]: A list of dictionaries, where each dictionary is a row
@@ -127,9 +126,7 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
             )
         )
         registry_data.extend(
-            self._fetch_rows(
-                "models", self.query_templates["select"]["models"]
-            )
+            self._fetch_rows("models", self.query_templates["select"]["models"])
         )
         return registry_data
 
@@ -149,9 +146,7 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
             elif "family" in row and "provider_api" in row:
                 family = row["family"]
                 provider_api = row["provider_api"]
-                provider = next(
-                    p for p in registry if p["api"] == provider_api
-                )
+                provider = next(p for p in registry if p["api"] == provider_api)
                 ai_families = provider["ai_families"]
                 ai_family = next(
                     (f for f in ai_families if f["family"] == family),
@@ -192,21 +187,17 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
         return registry
 
     def _load_registry(self) -> AIModelRegistry:
-        """
-        Loads the AIModelRegistry from the database.
+        """Loads the AIModelRegistry from the database.
 
         Returns:
             AIModelRegistry: The AIModelRegistry constructed from the database.
         """
-
         db_response = self._registry_query()
         registry_data = self._process_db_response(db_response)
         return AIModelRegistry(providers=registry_data)
 
     def _get_match_params(self, action: str, table: str) -> list[str]:
-        """
-        Returns the list of column names to match for the given action and
-        table.
+        """Returns column names to match for the given action and table.
 
         Args:
             action (str): The name of the action to perform.
@@ -220,8 +211,7 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
     def _prepare_insert(
         self, params: tuple, match_params: list[str]
     ) -> tuple[dict, dict]:
-        """
-        Prepares the data for insertion into the database.
+        """Prepares the data for insertion into the database.
 
         Args:
             params (tuple): The data to insert.
@@ -236,8 +226,7 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
     def _prepare_update(
         self, params: tuple, match_params: list[str]
     ) -> tuple[dict, dict]:
-        """
-        Prepares the data for updating in the database.
+        """Prepares the data for updating in the database.
 
         Args:
             params (tuple): The data to update.
@@ -252,7 +241,6 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
                 of match_params, and the value is the first element of
                 params.
         """
-
         return {match_params[0]: params[0]}, dict(
             zip(match_params[1:], params[1:], strict=False)
         )
@@ -260,8 +248,7 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
     def _prepare_delete(
         self, params: tuple, match_params: list[str]
     ) -> tuple[dict, dict]:
-        """
-        Prepares the data for deletion from the database.
+        """Prepares the data for deletion from the database.
 
         Args:
             params (tuple): The data to delete.
@@ -278,8 +265,7 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
     def _prepare_data(
         self, action: str, table: str, params: tuple
     ) -> tuple[dict, dict]:
-        """
-        Prepares the data for an operation in the database.
+        """Prepares the data for an operation in the database.
 
         Args:
             action (str): The operation to perform on the database.
@@ -309,8 +295,7 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
     def _execute_insert(
         self, table: str, data: dict, match: dict, use_service_role: bool
     ) -> bool:
-        """
-        Executes an insert operation on the database.
+        """Executes an insert operation on the database.
 
         Args:
             table (str): The name of the table to insert into.
@@ -333,8 +318,7 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
         match_type: type,
         use_service_role: bool,
     ) -> bool:
-        """
-        Executes an update operation on the database.
+        """Executes an update operation on the database.
 
         Args:
             table (str): The name of the table to update.
@@ -346,7 +330,6 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
         Returns:
             bool: True if the update was successful, False otherwise.
         """
-
         return self.db.update_row(
             table_name=table,
             info=data,
@@ -358,8 +341,7 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
     def _execute_delete(
         self, table: str, match: dict, match_type: type, use_service_role: bool
     ) -> bool:
-        """
-        Executes a delete operation on the database.
+        """Executes a delete operation on the database.
 
         Args:
             table (str): The name of the table to delete from.
@@ -370,7 +352,6 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
         Returns:
             bool: True if the delete was successful, False otherwise.
         """
-
         return self.db.delete_row(
             table_name=table,
             match=match,
@@ -381,8 +362,7 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
     def _execute_query(
         self, action: str, table: str, data: dict, match: dict
     ) -> bool:
-        """
-        Executes a query on the database.
+        """Executes a query on the database.
 
         Args:
             action (str): The query type to execute (insert, update, delete).
@@ -407,8 +387,7 @@ class SupaSaaSAIProviderHandler(SQLProviderHandler):
         )
 
     def _query_db(self, action: str, table: str, params: tuple) -> list:
-        """
-        Queries the database based on the given action and table.
+        """Queries the database based on the given action and table.
 
         Args:
             action (str): The query type to execute (insert, update, delete).

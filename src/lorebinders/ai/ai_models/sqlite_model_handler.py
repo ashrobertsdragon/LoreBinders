@@ -13,10 +13,25 @@ from lorebinders.ai.exceptions import DatabaseOperationError
 
 
 class SQLite:
+    """SQLite database context manager."""
+
     def __init__(self, file: Path) -> None:
+        """Initialize SQLite connection.
+
+        Args:
+            file: Path to the SQLite database file.
+        """
         self.file = file
 
     def __enter__(self):
+        """Enter the context manager and create database connection.
+
+        Returns:
+            Database cursor.
+
+        Raises:
+            DatabaseOperationError: If connection fails.
+        """
         try:
             self.connection = sqlite3.connect(self.file)
             self.connection.row_factory = sqlite3.Row
@@ -25,10 +40,22 @@ class SQLite:
             logger.error(e)
             raise DatabaseOperationError from e
 
-    def __exit__(self, type, value, traceback):
-        if type is not None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: object | None,
+    ) -> None:
+        """Exit the context manager and close database connection.
+
+        Args:
+            exc_type: Exception type if any.
+            exc_value: Exception value if any.
+            traceback: Exception traceback if any.
+        """
+        if exc_type is not None:
             self.connection.rollback()
-            logger.error(f"An error occurred: {value}")
+            logger.error(f"An error occurred: {exc_value}")
         else:
             self.connection.commit()
         self.connection.close()
@@ -64,12 +91,22 @@ class SQLiteProviderHandler(SQLProviderHandler):
         },
     }
 
-    def __init__(self, schema_directory: str, schema_filename="ai_models.db"):
+    def __init__(
+        self, schema_directory: str, schema_filename: str = "ai_models.db"
+    ):
+        """Initialize the SQLite model handler.
+
+        Args:
+            schema_directory: Directory path where the database file will be
+                stored.
+            schema_filename: Name of the database file. Defaults to
+                "ai_models.db".
+        """
         self.db = Path(schema_directory, schema_filename)
         self._registry: AIModelRegistry | None = None
 
     @log_db_error
-    def _create_tables(self):
+    def _create_tables(self) -> None:
         with SQLite(self.db) as cursor:
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS providers (
@@ -162,7 +199,7 @@ class SQLiteProviderHandler(SQLProviderHandler):
             self._create_tables()
 
     def _registry_query(self) -> list[dict]:
-        """Returns the list of AI models in the database"""
+        """Returns the list of AI models in the database."""
         query = """
             SELECT
                 p.api as api,

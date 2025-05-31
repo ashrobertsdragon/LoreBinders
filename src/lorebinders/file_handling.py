@@ -8,40 +8,75 @@ from lorebinders._types import T
 
 
 def read_text_file(file_path: Path) -> str:
-    "Opens and reads text file"
+    """Open and read text file.
+
+    Args:
+        file_path: Path to the text file.
+
+    Returns:
+        Content of the text file.
+    """
     return file_path.read_text()
 
 
 def read_json_file(file_path: Path) -> T:  # type: ignore
-    "Opens and reads JSON file"
+    """Open and read JSON file.
+
+    Args:
+        file_path: Path to the JSON file.
+
+    Returns:
+        Parsed JSON content.
+    """
     with file_path.open("r") as f:
         read_file = json.load(f)
     return read_file
 
 
 def write_to_file(content: str, file_path: Path) -> None:
-    "Appends content to text file on new line"
+    """Append content to text file on new line.
 
+    Args:
+        content: Content to append.
+        file_path: Path to the text file.
+    """
     with file_path.open("a") as f:
         f.write(content + "\n")
 
 
 def separate_into_chapters(text: str) -> list:
-    "Splits string at dimeter of three asterisks"
+    """Splits string at delimiter of three asterisks.
 
+    Args:
+        text: The text to split into chapters.
+
+    Returns:
+        List of chapter strings.
+    """
     return re.split(r"\s*\*\*\*\s*", text)
 
 
 def write_json_file(content: list | dict, file_path: Path) -> None:
-    "Writes JSON file"
+    """Writes JSON file.
 
+    Args:
+        content: Data to write to the JSON file.
+        file_path: Path to the JSON file.
+    """
     with file_path.open("w") as f:
         json.dump(content, f, indent=2)
 
 
 def append_json_file(content: list | dict, file_path: Path) -> None:
-    "Reads JSON file, and adds content to datatype before overwriting"
+    """Reads JSON file, and adds content to datatype before overwriting.
 
+    Args:
+        content: Data to append to the JSON file.
+        file_path: Path to the JSON file.
+
+    Raises:
+        TypeError: If content type doesn't match existing file type.
+    """
     read_file: list | dict = {} if isinstance(content, dict) else []
     if file_path.exists():
         read_file = read_json_file(file_path)

@@ -8,8 +8,7 @@ from lorebinders.file_handling import read_text_file, separate_into_chapters
 
 
 class Book:
-    """
-    A book or collection of chapters
+    """A book or collection of chapters.
 
     Attributes:
         _metadata (dict): A dictionary containing the book data.
@@ -40,9 +39,10 @@ class Book:
     """
 
     def __init__(self, book_dict: BookDict):
-        """
-        Initializes the Book object by reading the input file and splitting it
-        into chapters.
+        """Initializes the Book object by reading and splitting into chapters.
+
+        Args:
+            book_dict: Configuration object containing book metadata.
         """
         self.metadata = book_dict
 
@@ -63,12 +63,11 @@ class Book:
         self._build_chapters()
 
     def __repr__(self) -> str:
+        """Return string representation of the Book."""
         return f"Book({self.title}-{self.author})"
 
     def _build_chapters(self) -> list:
-        """
-        Returns a list of Chapter objects
-        """
+        """Returns a list of Chapter objects."""
         chapters: list[Chapter] = [
             Chapter(number, text)
             for number, text in enumerate(
@@ -79,17 +78,39 @@ class Book:
         return self._chapters
 
     def add_binder(self, binder: dict) -> None:
+        """Add a binder dictionary to the Book object.
+
+        Args:
+            binder: Dictionary containing analysis data.
+
+        Raises:
+            TypeError: If binder is not a dictionary.
+        """
         if not isinstance(binder, dict):
             raise TypeError("Binder must be a dictionary")
         self._binder = binder
 
     def update_binder(self, binder: dict) -> None:
+        """Update the binder dictionary in the Book object.
+
+        Args:
+            binder: Dictionary containing updated analysis data.
+
+        Raises:
+            TypeError: If binder is not a dictionary.
+        """
         if not isinstance(binder, dict):
             raise TypeError("Binder must be a dictionary")
         if self._binder != binder:
             self.add_binder(binder)
 
     def build_binder(self, chapter_number: int, analysis: dict) -> None:
+        """Build binder by adding chapter analysis.
+
+        Args:
+            chapter_number: The chapter number to add analysis for.
+            analysis: Dictionary containing the chapter analysis.
+        """
         if self._binder:
             self._binder |= {chapter_number: analysis}
         else:
@@ -97,16 +118,17 @@ class Book:
 
     @property
     def chapters(self) -> list:
+        """Get the list of chapters."""
         return self._chapters
 
     @property
     def binder(self) -> dict:
+        """Get the binder dictionary."""
         return self._binder
 
 
 class Chapter:
-    """
-    Represents a single chapter.
+    """Represents a single chapter.
 
     Attributes:
         number (int): The number of the chapter.
@@ -120,30 +142,32 @@ class Chapter:
     """
 
     def __init__(self, number: int, text: str) -> None:
-        """
-        Initializes the Chapter object with the chapter text and number.
-        """
+        """Initializes the Chapter object with the chapter text and number."""
         self.number: int = number
         self.text: str = text
 
     def add_analysis(self, analysis: dict) -> None:
-        """
-        Adds an analysis dictionary to the Chapter object.
+        """Adds an analysis dictionary to the Chapter object.
 
         Args:
             analysis (dict): The dictionary of the analysis from the names
                 found in the chapter.
+
+        Raises:
+            TypeError: If analysis is not a dictionary.
         """
         if not isinstance(analysis, dict):
             raise TypeError("Analysis must be a dictionary")
         self.analysis: dict = analysis
 
     def add_names(self, names: dict) -> None:
-        """
-        Adds an analysis dictionary to the Chapter object.
+        """Adds a names dictionary to the Chapter object.
 
         Args:
-            Names (dict): The dictionary of names found in the chapter.
+            names (dict): The dictionary of names found in the chapter.
+
+        Raises:
+            TypeError: If names is not a dictionary.
         """
         if not isinstance(names, dict):
             raise TypeError("Names must be a dictionary")

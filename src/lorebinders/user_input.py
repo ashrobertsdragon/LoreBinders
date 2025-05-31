@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Callable
+from collections.abc import Callable
 
 from lorebinders._decorators import required_string
 from lorebinders.book_dict import BookDict
@@ -9,21 +9,20 @@ from lorebinders.book_dict import BookDict
 
 @required_string
 def get_is_third_person() -> str:
-    """
-    Prompt the user to input whether the book is written in third person.
+    """Prompt the user to input whether the book is written in third person.
 
+    Returns:
+        User input string indicating third person perspective.
     """
     return input("Is the book written in third person? Y/n > ")
 
 
 def is_third_person() -> bool:
-    """
-    Check if the user input indicates third person perspective.
+    """Check if the user input indicates third person perspective.
 
     Returns:
-        True if the input starts with 'Y' (case insensitive),
-        False if it starts with 'N',and continues to prompt the user until a
-            valid input is provided.
+        True if input starts with 'Y', False if starts with 'N'.
+        Continues to prompt until valid input is provided.
     """
     valid_input: bool = False
     while not valid_input:
@@ -40,15 +39,11 @@ def is_third_person() -> bool:
 
 
 def get_narrator() -> str:
-    """
-    Checks if the book was written in third person and ask's for the
-    narrator's name if not.
+    """Check if book is third person and ask for narrator's name if not.
 
     Returns:
-        narrator (str): The name of the narrator or "" if book is in
-            third-person.
+        The name of the narrator or empty string if third-person.
     """
-
     if is_third_person():
         return ""
     else:
@@ -59,23 +54,26 @@ def get_narrator() -> str:
 
 
 def set_input_label(attribute_type: str | None = None) -> str:
-    """
-    Sets the input label based on the attribute type
+    """Set the input label based on the attribute type.
+
+    Args:
+        attribute_type: Optional attribute type name.
+
+    Returns:
+        Input label string.
     """
     return "category" if attribute_type is None else f"{attribute_type} trait"
 
 
 def get_attributes(attribute_type: str | None = None) -> list:
-    """
-    Asks for additional attributes and returns them as a list.
+    """Ask for additional attributes and return them as a list.
 
     Args:
-        attribute_type (str): Optional.  If set, the function returns a list
-            for a specific attribute type. If None, the attribute type is
-            "other attributes"
+        attribute_type: Optional attribute type. If None, uses
+            "other attributes".
 
     Returns:
-        A list of user inputted attributes.
+        List of user inputted attributes.
     """
     input_label = set_input_label(attribute_type)
     attribute_list: list[str] = []
@@ -90,31 +88,54 @@ def get_attributes(attribute_type: str | None = None) -> list:
 
 
 def parse_file_path(path: str) -> str:
-    """
-    Normalize the file path
+    """Normalize the file path.
+
+    Args:
+        path: File path to normalize.
+
+    Returns:
+        Normalized file path.
     """
     return os.path.normpath(path)
 
 
 @required_string
 def input_title() -> str:
+    """Prompt user to input book title.
+
+    Returns:
+        Book title string.
+    """
     return input("Enter book title > ")
 
 
 @required_string
 def input_author() -> str:
+    """Prompt user to input author name.
+
+    Returns:
+        Author name string.
+    """
     return input("Enter author name > ")
 
 
 @required_string
 def input_book_path() -> str:
-    file_path: str = input(
-        "Enter the absolute path to the ebook to process > "
-    )
+    """Prompt user to input book file path.
+
+    Returns:
+        Normalized book file path.
+    """
+    file_path: str = input("Enter the absolute path to the ebook to process > ")
     return parse_file_path(file_path)
 
 
 def get_inputs() -> BookDict:
+    """Collect all user inputs and return as BookDict.
+
+    Returns:
+        BookDict containing all user-provided book information.
+    """
     title: str = input_title()
     author: str = input_author()
     book_path = input_book_path()
@@ -133,12 +154,11 @@ def get_inputs() -> BookDict:
 
 
 def display_book_metadata(book_dict: BookDict, key_name_map: dict) -> None:
-    """
-    Prints the book metadata in a user-friendly format.
+    """Print the book metadata in a user-friendly format.
 
     Args:
-        book_dict (BookDict): The dictionary containing book metadata.
-        key_name_map (dict): A dictionary mapping keys to user-friendly names.
+        book_dict: The dictionary containing book metadata.
+        key_name_map: Dictionary mapping keys to user-friendly names.
     """
     print("\nBook metadata:")
     for key, value in key_name_map.items():
@@ -146,14 +166,13 @@ def display_book_metadata(book_dict: BookDict, key_name_map: dict) -> None:
 
 
 def get_user_choice(key_name_map: dict) -> str:
-    """
-    Prompts the user for a choice and returns the user's input.
+    """Prompt the user for a choice and return the user's input.
 
     Args:
-        key_name_map (dict): A dictionary mapping keys to user-friendly names.
+        key_name_map: Dictionary mapping keys to user-friendly names.
 
     Returns:
-        str: The user's input.
+        The user's input.
     """
     return input(
         "\nIf this is correct, type Y to continue. "
@@ -164,30 +183,25 @@ def get_user_choice(key_name_map: dict) -> str:
 def edit_book_dict(
     book_dict: BookDict, key_name: str, input_function: Callable
 ) -> None:
-    """
-    Edits the specified key in the book_dict dictionary using the provided
-    input function.
+    """Edit the specified key in the book_dict using input function.
 
     Args:
-        book_dict (BookDict): The dictionary containing book metadata.
-        key_name (str): The name of the key to edit.
-        input_function (Callable): The function to call to get the new value
-        for the key.
+        book_dict: The dictionary containing book metadata.
+        key_name: The name of the key to edit.
+        input_function: Function to call to get the new value.
     """
     new_value = input_function()
     setattr(book_dict, key_name, new_value)
 
 
 def confirm_inputs(book_dict: BookDict) -> BookDict:
-    """
-    Displays the book metadata in a user-friendly format, allows editing, and
-    returns the final data.
+    """Display book metadata, allow editing, and return final data.
 
     Args:
-        book_dict (dict): The dictionary containing book metadata.
+        book_dict: The dictionary containing book metadata.
 
     Returns:
-        dict: The updated book_dict dictionary.
+        The updated book_dict dictionary.
     """
     key_name_map = {
         "book_file": "Book File Path",
@@ -221,5 +235,10 @@ def confirm_inputs(book_dict: BookDict) -> BookDict:
 
 
 def get_book() -> BookDict:
+    """Get user inputs and confirm them before returning.
+
+    Returns:
+        Confirmed BookDict with all user inputs.
+    """
     book_dict = get_inputs()
     return confirm_inputs(book_dict)

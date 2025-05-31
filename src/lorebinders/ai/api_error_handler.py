@@ -15,16 +15,29 @@ from lorebinders.ai.exceptions import MaxRetryError
 
 
 class APIErrorHandler(ErrorManager):
-    """ """
+    """Handle API errors with retry logic and error classification."""
 
     def __init__(
         self, email_manager: EmailManager, unresolvable_errors: tuple
     ) -> None:
+        """Initialize the API error handler.
+
+        Args:
+            email_manager: Manager for sending error notifications.
+            unresolvable_errors: Tuple of unresolvable error types.
+        """
         self.email = email_manager
         self.unresolvable_errors = unresolvable_errors
 
     def _extract_error_info(self, e: Exception) -> tuple[int, str]:
-        """Extracts error code and message from a potential API exception."""
+        """Extract error code and message from a potential API exception.
+
+        Args:
+            e: Exception to extract information from.
+
+        Returns:
+            Tuple of (status_code, error_message).
+        """
         error_details: dict = {}
         status_code: int = 0
         with contextlib.suppress(AttributeError, json.JSONDecodeError):
@@ -36,7 +49,16 @@ class APIErrorHandler(ErrorManager):
     def _is_unresolvable_error(
         self, e: Exception, error_code: int, error_message: str
     ) -> bool:
-        """Checks if the error is unresolvable."""
+        """Check if the error is unresolvable.
+
+        Args:
+            e: Exception to check.
+            error_code: HTTP status code.
+            error_message: Error message text.
+
+        Returns:
+            True if error is unresolvable, False otherwise.
+        """
         return (
             isinstance(e, self.unresolvable_errors)
             or error_code == 401
@@ -44,6 +66,15 @@ class APIErrorHandler(ErrorManager):
         )
 
     def handle_error(self, e: Exception, retry_count: int = 0) -> int:
+        """Handle an error and determine retry behavior.
+
+        Args:
+            e: Exception to handle.
+            retry_count: Current retry attempt count.
+
+        Returns:
+            Updated retry count.
+        """
         error_code, error_message = self._extract_error_info(e)
         if self._is_unresolvable_error(e, error_code, error_message):
             end_app = UnresolvableErrorHandler(self.email)
@@ -53,26 +84,27 @@ class APIErrorHandler(ErrorManager):
 
 
 class RetryHandler:
+    """Handle retry logic with exponential backoff."""
+
     def __init__(self, email_handler: EmailManager) -> None:
+        """Initialize the retry handler.
+
+        Args:
+            email_handler: Manager for sending error notifications.
+        """
         self.max_retries: int = 5
         self.email_handler = email_handler
 
     def _calculate_sleep_time(self) -> int:
-        """
-        The function calculates the sleep time based on the retry count and a
-        predefined maximum number of retries.
-        """
+        """Calculate sleep time based on retry count and maximum retries.
 
+        Returns:
+            Sleep time in seconds.
+        """
         return (self.max_retries - self.retry_count) + (self.retry_count**2)
 
     def _sleep(self) -> None:
-        """
-        Calculates the sleep time based on the retry count,logs a warning
-        message with the retry count and sleep time, and then sleeps for the
-        calculated time.
-
-        """
-
+        """Calculate sleep time, log warning, and sleep for calculated time."""
         sleep_time: int = self._calculate_sleep_time()
         logger.warning(
             f"Retry attempt #{self.retry_count} in {sleep_time} seconds."
@@ -80,7 +112,17 @@ class RetryHandler:
         time.sleep(sleep_time)
 
     def increment_retry_count(self, retry_count: int) -> int:
-        """Handles resolvable errors with exponential backoff."""
+        """Handle resolvable errors with exponential backoff.
+
+        Args:
+            retry_count: Current retry attempt count.
+
+        Returns:
+            Updated retry count.
+
+        Raises:
+            MaxRetryError: If maximum retry count is reached.
+        """
         self.retry_count = retry_count + 1
         try:
             if self.retry_count == self.max_retries:
@@ -93,15 +135,22 @@ class RetryHandler:
 
 
 class UnresolvableErrorHandler:
+    """Handle unresolvable errors by saving progress and terminating."""
+
     def __init__(self, email_handler: EmailManager) -> None:
+        """Initialize the unresolvable error handler.
+
+        Args:
+            email_handler: Manager for sending error notifications.
+        """
         self.email = email_handler
 
     def _get_frame_info(self) -> tuple[str, str, str]:
-        """
-        Retrieve information about the exception frame, including the file
-        name and function name, and book name if available.
-        """
+        """Retrieve information about the exception frame.
 
+        Returns:
+            Tuple of (book_name, file_name, function_name).
+        """
         frame: FrameType | None = inspect.currentframe()
         file_name, function_name = "Unknown", "Unknown"
 
@@ -127,21 +176,26 @@ class UnresolvableErrorHandler:
 
     @staticmethod
     def _save_data(book_name: str) -> str:
+        """Save progress data for the given book.
+
+        Args:
+            book_name: Name of the book to save progress for.
+
+        Returns:
+            Status message indicating save success or failure.
+        """
         success: bool = save_data.save_progress(book_name)
         return f"Progress {'was' if success else 'was not'} saved."
 
     def _build_error_msg(self, e: Exception) -> str:
-        """
-        Generate an error message with detailed information including the
-        function name, line number, file name, stack trace, and timestamp.
+        """Generate detailed error message with stack trace and context.
 
         Args:
-            e (Exception): The exception that was raised.
+            e: The exception that was raised.
 
         Returns:
-            str: The formatted error message.
+            The formatted error message.
         """
-
         book_name, file_name, function_name = self._get_frame_info()
 
         progress_saved: str = self._save_data(book_name)
@@ -159,8 +213,7 @@ class UnresolvableErrorHandler:
         )
 
     def kill_app(self, e: Exception) -> None:
-        """
-        Exit the application with an error message.
+        """Exit the application with an error message.
 
         Args:
             e (Exception): The exception that was raised.

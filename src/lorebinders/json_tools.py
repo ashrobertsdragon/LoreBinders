@@ -9,8 +9,14 @@ import lorebinders.file_handling as file_handling
 
 
 def is_valid_json_file(file_path: str) -> bool:
-    "Checks to see if JSON file exists and is non-empty"
+    """Checks to see if JSON file exists and is non-empty.
 
+    Args:
+        file_path: Path to the JSON file to check.
+
+    Returns:
+        True if file exists and contains valid JSON, False otherwise.
+    """
     return (
         bool(file_handling.read_json_file(file_path))
         if file_path.exists()
@@ -19,8 +25,7 @@ def is_valid_json_file(file_path: str) -> bool:
 
 
 def repair_json_str(bad_string: str) -> str:
-    """
-    Repairs any syntax errors in a given JSON string.
+    """Repairs any syntax errors in a given JSON string.
 
     Args:
         bad_string (str): The JSON string with syntax errors to be
@@ -34,9 +39,9 @@ def repair_json_str(bad_string: str) -> str:
 
 
 def json_str_to_dict(json_str: str) -> dict:
-    """
-    Converts a JSON string to a Python dictionary by repairing any syntax
-    errors in the JSON string.
+    """Converts a JSON string to a Python dictionary by repairing syntax errors.
+
+    Repairs any syntax errors found in the JSON string before conversion.
 
     Args:
         json_str (str): The JSON string to be converted to a dictionary.
@@ -44,15 +49,13 @@ def json_str_to_dict(json_str: str) -> dict:
     Returns:
         dict: A Python dictionary representing the JSON data after
             repairing any syntax errors.
-
     """
     return cast(dict, repair_json(json_str))
 
 
 # Merge JSON objects
 def build_repair_stub(first_part: str, second_part: str) -> str:
-    """
-    Builds a string containing details of the merge operation.
+    """Builds a string containing details of the merge operation.
 
     Args:
         first_part (str): The first potential partial JSON object.
@@ -73,26 +76,19 @@ def build_repair_stub(first_part: str, second_part: str) -> str:
 
 
 def log_merge_warning(first_part: str, second_part: str) -> None:
-    """
-    Logs a warning with details of the merge operation.
+    """Logs a warning with details of the merge operation.
 
     Args:
         first_part (str): The first partial JSON object.
         second_part (str): The second partial JSON object.
-
-    Returns:
-        None
     """
-
     repair_stub = build_repair_stub(first_part, second_part)
     log = f"Could not combine.\n{repair_stub}"
     logger.warning(log)
 
 
 def find_last_full_object(string: str) -> int:
-    """
-    Finds the position of the last full object of a string representation
-    of a partial JSON object.
+    """Finds the position of the last full object in a partial JSON string.
 
     Iterates from the beginning of a partial JSON object and returns the
     position of the end of the last complete object in the string. If no
@@ -118,8 +114,7 @@ def find_last_full_object(string: str) -> int:
 
 
 def merge_json(first_part: str, second_part: str) -> str:
-    """
-    Merges two strings of a partial JSON object
+    """Merges two strings of a partial JSON object.
 
     Args:
         first_part: str - the first segment of a partial JSON object in
@@ -127,10 +122,9 @@ def merge_json(first_part: str, second_part: str) -> str:
         second_part: str - the second segment of a partial JSON object in
             string form
 
-    Returns either the combined string of a full JSON object or empty
-        string.
+    Returns:
+        str: The combined string of a full JSON object or empty string.
     """
-
     if first_end := find_last_full_object(first_part):
         return f"{first_part[: first_end + 1]},{second_part.lstrip('{')}"
     log_merge_warning(first_part, second_part)

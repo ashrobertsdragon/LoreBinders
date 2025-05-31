@@ -1,27 +1,27 @@
 import re
 from collections import defaultdict
-from typing import Callable, List, Optional, Tuple
+from collections.abc import Callable
 
 import lorebinders.data_cleaner as data_cleaner
 
 
 class SortNames:
-    """
-    Class to sort and categorize names extracted from a response using AI
-    model.
+    """Class to sort and categorize names extracted from AI response.
 
-    Args:
-        name_list (str): The raw NER response from the AI.
-        narrator (str): The narrator's name if set.
+    This class processes raw named entity recognition (NER) responses from
+    AI models and sorts them into categorized dictionaries.
 
     Attributes:
-        ner_dict (defaultdict): A defaultdict to store categorized names.
-
-    Methods:
-        sort: Parse the raw NER string into a nested dictionary.
+        ner_dict: Dictionary to store categorized names.
     """
 
-    def __init__(self, name_list: str, narrator: Optional[str] = None) -> None:
+    def __init__(self, name_list: str, narrator: str | None = None) -> None:
+        """Initialize the SortNames instance.
+
+        Args:
+            name_list: The raw NER response from the AI.
+            narrator: The narrator's name if set.
+        """
         self._lines = name_list.split("\n")
         self._narrator = narrator or ""
 
@@ -54,9 +54,7 @@ class SortNames:
         }
 
     def _set_regex_patterns(self) -> None:
-        """
-        Compile regex patterns for various text processing needs.
-        """
+        """Compile regex patterns for various text processing needs."""
         self._not_int_ext_parenthetical_pattern = re.compile(
             r"\((?!interior|exterior).+\)$", re.IGNORECASE
         )
@@ -76,8 +74,13 @@ class SortNames:
         self._missing_newline_after_pattern = re.compile(r"(?<=\w):\s*(?=\w)")
 
     def _missing_newline_patterns(self, line: str) -> list:
-        """
-        Apply patterns to add missing newlines to the line.
+        """Apply patterns to add missing newlines to the line.
+
+        Args:
+            line: The line to process.
+
+        Returns:
+            List of processed line variations.
         """
         return [
             self._missing_newline_before_pattern.sub("\n", line),
@@ -87,8 +90,13 @@ class SortNames:
 
     @staticmethod
     def _lowercase_interior_exterior(line: str) -> str:
-        """
-        Lowercase 'interior' and 'exterior' in the line.
+        """Lowercase 'interior' and 'exterior' in the line.
+
+        Args:
+            line: The line to process.
+
+        Returns:
+            Line with lowercased interior/exterior words.
         """
         return re.sub(
             r"(interior|exterior)",
@@ -98,53 +106,84 @@ class SortNames:
         )
 
     def _remove_leading_colon_pattern(self, line: str) -> str:
-        """
-        Remove leading colons from the line.
+        """Remove leading colons from the line.
+
+        Args:
+            line: The line to process.
+
+        Returns:
+            Line with leading colons removed.
         """
         return self._leading_colon_pattern.sub("", line)
 
     def _remove_list_formatting(self, line: str) -> str:
-        """
-        Remove list formatting characters from the line.
+        """Remove list formatting characters from the line.
+
+        Args:
+            line: The line to process.
+
+        Returns:
+            Line with list formatting removed.
         """
         return self._list_formatting_pattern.sub("", line)
 
     @staticmethod
     def _remove_parentheses(line: str) -> str:
-        """
-        Remove parentheses from the line.
+        """Remove parentheses from the line.
+
+        Args:
+            line: The line to process.
+
+        Returns:
+            Line with parentheses removed.
         """
         return line.replace("(", "").replace(")", "")
 
     @staticmethod
     def _replace_bad_setting() -> str:
-        """
-        Replace invalid setting indicator with 'Settings:'.
+        """Replace invalid setting indicator with 'Settings:'.
+
+        Returns:
+            String 'Settings:' as replacement.
         """
         return "Settings:"
 
     def _replace_inverted_setting(self, line: str) -> str:
-        """
-        Correct the order of inverted setting values in the line.
+        """Correct the order of inverted setting values in the line.
+
+        Args:
+            line: The line to process.
+
+        Returns:
+            Line with corrected setting order.
         """
         return self._inverted_setting_pattern.sub(r"\2 (\1)", line)
 
     def _remove_parantheticals_pattern(self, line: str) -> str:
-        """
-        Remove non-interior/exterior parantheticals from the line.
+        """Remove non-interior/exterior parantheticals from the line.
+
+        Args:
+            line: The line to process.
+
+        Returns:
+            Line with non-interior/exterior parentheticals removed.
         """
         return self._not_int_ext_parenthetical_pattern.sub(r"\1", line)
 
     @staticmethod
     def _num_added_lines(split_lines: list) -> int:
-        """
-        Calculate the number of added lines.
+        """Calculate the number of added lines.
+
+        Args:
+            split_lines: List of split lines.
+
+        Returns:
+            Number of lines added (length - 1).
         """
         return len(split_lines) - 1
 
     def _needs_newline(self, line: str) -> bool:
-        """
-        Check if the line needs a newline based on the patterns.
+        """Check if the line needs a newline based on the patterns.
 
         Args:
             line (str): The line to check.
@@ -156,8 +195,7 @@ class SortNames:
         return any(pattern != line for pattern in patterns)
 
     def _add_missing_newline(self, line: str) -> tuple[list[str], int]:
-        """
-        Add missing newlines to the line.
+        """Add missing newlines to the line.
 
         Args:
             line (str): The line to check.
@@ -176,26 +214,26 @@ class SortNames:
             ([line], 0),
         )
 
-    def _split_at_commas(self, line: str) -> Tuple[List[str], int]:
-        """
-        Split the line at commas.
+    def _split_at_commas(self, line: str) -> tuple[list[str], int]:
+        """Split the line at commas.
+
+        Args:
+            line: The line to split.
 
         Returns:
-            split_lines (List[str]): A list of the split lines.
-            (int): The number of lines to add to the index. This is one less
-                than the total number of lines in split_lines.
+            Tuple of split lines and number of lines added.
         """
         split_lines = line.split(", ")
         return split_lines, self._num_added_lines(split_lines)
 
-    def _split_settings_line(self, line: str) -> Tuple[List[str], int]:
-        """
-        Split settings line into individual place settings.
+    def _split_settings_line(self, line: str) -> tuple[list[str], int]:
+        """Split settings line into individual place settings.
+
+        Args:
+            line: The settings line to split.
 
         Returns:
-            split_lines (List[str]): A list of the split lines.
-            (int): The number of lines to add to the index. This is one less
-                than the total number of lines in split_lines.
+            Tuple of split lines and number of lines added.
         """
         prefix, places = line.split(":", 1)
         setting = "(interior)" if prefix == "interior" else "(exterior)"
@@ -206,15 +244,25 @@ class SortNames:
 
     @staticmethod
     def _ends_with_colon(line: str) -> bool:
-        """
-        Check if the line ends with a colon.
+        """Check if the line ends with a colon.
+
+        Args:
+            line: The line to check.
+
+        Returns:
+            True if line ends with colon, False otherwise.
         """
         return line.endswith(":")
 
     @staticmethod
     def _has_bad_setting(line: str) -> bool:
-        """
-        Check if the line has a bad setting indicator.
+        """Check if the line has a bad setting indicator.
+
+        Args:
+            line: The line to check.
+
+        Returns:
+            True if line has bad setting indicator, False otherwise.
         """
         return line.lower() in {
             "setting:",
@@ -226,30 +274,51 @@ class SortNames:
 
     @staticmethod
     def _has_narrator(line: str) -> bool:
-        """
-        Check if the line mentions a narrator or main character.
+        """Check if the line mentions a narrator or main character.
+
+        Args:
+            line: The line to check.
+
+        Returns:
+            True if line mentions narrator/main character, False otherwise.
         """
         narrator_phrases = ["narrator", "protagonist", "main character"]
         return any(phrase in line.lower() for phrase in narrator_phrases)
 
     @staticmethod
     def _has_odd_parentheses(line: str) -> bool:
-        """
-        Check if the line has mismatched parentheses.
+        """Check if the line has mismatched parentheses.
+
+        Args:
+            line: The line to check.
+
+        Returns:
+            True if parentheses are mismatched, False otherwise.
         """
         return line.count("(") != line.count(")")
 
     @staticmethod
     def _is_list_as_str(line: str) -> bool:
-        """
-        Check if the line is a list in string format.
+        """Check if the line is a list in string format.
+
+        Args:
+            line: The line to check.
+
+        Returns:
+            True if line contains comma-separated values, False otherwise.
         """
         return ", " in line
 
     @staticmethod
     def _should_compare_values(value_i: str, value_j: str) -> bool:
-        """
-        Determine if two values should be compared.
+        """Determine if two values should be compared.
+
+        Args:
+            value_i: First value to compare.
+            value_j: Second value to compare.
+
+        Returns:
+            True if values should be compared, False otherwise.
         """
         return (
             value_i != value_j
@@ -259,10 +328,14 @@ class SortNames:
         )
 
     def _should_skip_line(self, line: str) -> bool:
-        """
-        Determine if the line should be skipped based on junk words.
-        """
+        """Determine if the line should be skipped based on junk words.
 
+        Args:
+            line: The line to check.
+
+        Returns:
+            True if line should be skipped, False otherwise.
+        """
         if line != "":
             line_set = set(line.lower().split())
             return not line_set.isdisjoint(self._junk_words)
@@ -270,16 +343,22 @@ class SortNames:
 
     @staticmethod
     def _starts_with_location(line: str) -> bool:
-        """
-        Check if the line starts with a location indicator.
+        """Check if the line starts with a location indicator.
+
+        Args:
+            line: The line to check.
+
+        Returns:
+            True if line starts with interior: or exterior:, False otherwise.
         """
         return line.startswith("interior:") or line.startswith("exterior:")
 
     def _add_to_dict(self, line: str) -> None:
-        """
-        Add the line to the category dictionary.
-        """
+        """Add the line to the category dictionary.
 
+        Args:
+            line: The line to add to the dictionary.
+        """
         if self._ends_with_colon(line):
             if self._category_name:
                 self._set_category_dict()
@@ -288,18 +367,14 @@ class SortNames:
             self._inner_values.append(line)
 
     def _set_category_dict(self) -> None:
-        """
-        Set the category dictionary with the current category name and its
-        corresponding inner values.        .
-        """
+        """Set category dictionary with current category name and values."""
         self._category_dict.setdefault(self._category_name, []).extend(
             self._inner_values
         )
         self._inner_values.clear()
 
     def _combine_singular_to_plural(self, category_name: str) -> list:
-        """
-        Combine singular and plural forms of the category name.
+        """Combine singular and plural forms of the category name.
 
         Args:
             category_name (str): The name of the category to combine.
@@ -319,20 +394,14 @@ class SortNames:
         return inner_values
 
     def _build_ner_dict(self) -> dict[str, list[str]]:
-        """
-        Builds a Named Entity Recognition (NER) dictionary based on the
-        categories and inner values stored in the category dictionary.
+        """Build a Named Entity Recognition (NER) dictionary.
 
-        This method iterates through the categories and inner values in the
-        `_category_dict` dictionary. If a category name ends with 's' and its
-        singular form exists in the `_category_dict`, it combines the inner
-        values of both forms. It then compares and standardizes the names
-        within the inner values using the `_compare_names` method. If
-        standardized values are obtained, they are added to the `ner_dict`
-        under the respective category name.
+        Iterates through categories and inner values in the category
+        dictionary. Combines singular and plural forms, then compares and
+        standardizes names within the inner values.
 
         Returns:
-            None
+            Dictionary containing categorized and standardized names.
         """
         ner_dict: dict[str, list[str]] = {}
         for category_name, inner_values in list(self._category_dict.items()):
@@ -342,26 +411,17 @@ class SortNames:
         return ner_dict
 
     def _compare_names(self, inner_values: list) -> list:
-        """
-        Compares and standardizes names in the inner_values list.
+        """Compare and standardize names in the inner_values list.
 
-        This method compares the names in the inner_values list and
-        standardizes them based on certain conditions. It removes titles from
-        the names using the _remove_titles method. Then, it iterates through
-        each pair of names and checks if they are similar. If a pair of names
-        is similar, it determines the singular and plural forms of the names
-        and selects the shorter and longer values. It creates a name_map
-        dictionary to map the shorter value to the longer value. Finally, it
-        creates a set of standardized names by applying the name_map to each
-        name in the inner_values list.
+        Removes titles from names, compares pairs for similarity, creates
+        name mapping from shorter to longer values, and returns standardized
+        names.
 
         Args:
-            inner_values (list): A list of names to be compared and
-                standardized.
+            inner_values: List of names to be compared and standardized.
 
         Returns:
-            list: A list of standardized names.
-
+            List of standardized names.
         """
         name_map: dict = defaultdict(str)
 
@@ -387,8 +447,16 @@ class SortNames:
         return list(standardized_names)
 
     @staticmethod
-    def _sort_shorter_longer(clean_i: str, clean_j: str) -> Tuple[str, str]:
-        """Get the shorter and longer of two cleaned names."""
+    def _sort_shorter_longer(clean_i: str, clean_j: str) -> tuple[str, str]:
+        """Get the shorter and longer of two cleaned names.
+
+        Args:
+            clean_i: First cleaned name.
+            clean_j: Second cleaned name.
+
+        Returns:
+            Tuple of (shorter_name, longer_name).
+        """
         if clean_i == data_cleaner.to_singular(clean_j):
             return clean_i, clean_j
         elif clean_j == data_cleaner.to_singular(clean_i):
@@ -398,17 +466,17 @@ class SortNames:
             return shorter, longer
 
     def _finalize_dict(self) -> dict:
-        """
-        Finalizes the dictionary by adding the category dictionary to the
-        `ner_dict` dictionary.
+        """Finalize the dictionary by building the NER dictionary.
+
+        Returns:
+            The finalized NER dictionary.
         """
         if self._category_name:
             self._set_category_dict()
         return self._build_ner_dict()
 
     def _process_remaining_modifications(self, line: str) -> str:
-        """
-        Process the remaining modifications to the line.
+        """Process the remaining modifications to the line.
 
         Args:
             line (str): The line to process.
@@ -425,36 +493,27 @@ class SortNames:
         return self._remove_parantheticals_pattern(line)
 
     def _split_and_update_lines(
-        self, index: int, split_func: Callable[[str], Tuple[List[str], int]]
+        self, index: int, split_func: Callable[[str], tuple[list[str], int]]
     ) -> None:
-        """
-        Split the line at index i using the provided split function and
-        update the lines list.
+        """Split line at index using split function and update lines list.
 
         Args:
-            index (int): The index of the line to split.
-            split_func (Callable[[str], Tuple[list[str], int]]): The function
-                to split the line.
-
-        Returns:
-            None
+            index: Index of the line to split.
+            split_func: Function to split the line.
         """
-        split_lines: List[str]
+        split_lines: list[str]
 
         split_lines, _ = split_func(self._lines[index])
         self._lines[index : index + 1] = split_lines  # noqa: E203
 
     def sort(self) -> dict:
-        """
-        Cleans the lines and sorts into a dictionary.
+        """Clean the lines and sort into a dictionary.
 
-        This method performs several operations on the split string to
-        standardize and organize them before sorting into a dictionary of
-        names from a named entity recognition (NER) model.
+        Performs operations on split strings to standardize and organize
+        them before sorting into a categorized NER dictionary.
 
         Returns:
-            dict: A dictionary containing the sorted names categorized by
-                their respective categories.
+            Dictionary containing sorted names categorized by type.
         """
         split_conditions = [
             (self._is_list_as_str, self._split_at_commas),

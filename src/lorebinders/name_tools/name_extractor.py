@@ -13,8 +13,7 @@ from lorebinders.sort_names import SortNames
 
 
 def create_instructions() -> tuple[str, str]:
-    """
-    Creates the instructions for the name extractor.
+    """Creates the instructions for the name extractor.
 
     Returns:
         tuple[str, str]: A tuple containing the base instruction and the
@@ -30,9 +29,9 @@ def create_instructions() -> tuple[str, str]:
 
 
 def build_custom_role(custom_categories: list[str] | None) -> str:
-    """
-    Creates a sample string to be added to the instructions based on a custom
-    category list.
+    """Creates a sample string to be added to the instructions.
+
+    Based on a custom category list, creates sample instruction text.
 
     Args:
         custom_categories (list[str] | None): The user added categories to
@@ -54,13 +53,13 @@ def build_custom_role(custom_categories: list[str] | None) -> str:
 def build_role_script(
     custom_categories: list[str] | None, max_tokens: int = 1000
 ) -> RoleScript:
-    """
-    Builds the role script.
+    """Builds the role script.
 
     Args:
         max_tokens (int): The maximum number of tokens for the AI to use.
         custom_categories (list[str] | None): The user added categories to
             include in the instructions.
+
     Returns:
         None
     """
@@ -84,8 +83,7 @@ def extract_names(
     role_script: RoleScript,
     narrator: str | None,
 ) -> dict:
-    """
-    Extracts names from the chapter text using the AI model.
+    """Extracts names from the chapter text using the AI model.
 
     Args:
         ai (AIInterface): The AI interface to use.
@@ -109,9 +107,9 @@ def extract_names(
 
 
 def parse_response(response: str, narrator: str | None) -> dict:
-    """
-    Parses the response from the AI model to extract names and create a
-    dictionary.
+    """Parses the response from the AI model to extract names.
+
+    Extracts names from the AI response and creates a dictionary.
 
     Args:
         response (str): The response from the AI model.

@@ -9,7 +9,7 @@ from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.styles import (
     ParagraphStyle,
     StyleSheet1,
-    getSampleStyleSheet
+    getSampleStyleSheet,
 )
 from reportlab.platypus import (
     Image,
@@ -18,7 +18,7 @@ from reportlab.platypus import (
     PageBreak,
     Paragraph,
     SimpleDocTemplate,
-    Spacer
+    Spacer,
 )
 from reportlab.platypus.tableofcontents import TableOfContents
 
@@ -39,6 +39,8 @@ NamesDict = dict[str, dict[str, list[str] | str] | list[str] | str]
 
 
 class AfterSection(Enum):
+    """Enumeration for section formatting options."""
+
     PAGE_BREAK = PageBreak()
     SPACER = Spacer(1, 12)
 
@@ -46,8 +48,7 @@ class AfterSection(Enum):
 def create_detail_list(
     chapters: dict[str, list | str], style: StyleSheet1
 ) -> list[ListItem]:
-    """
-    Creates a list of ListItems from a dictionary of chapter summaries.
+    """Creates a list of ListItems from a dictionary of chapter summaries.
 
     Args:
         chapters (dict[str, list | str]): A dictionary of chapter summaries.
@@ -56,7 +57,6 @@ def create_detail_list(
     Returns:
         list[ListItem]: A list of ListItems representing the chapter summaries.
     """
-
     return [
         ListItem(
             Paragraph(
@@ -74,8 +74,7 @@ def create_detail_list(
 
 
 def setup_toc(style: StyleSheet1) -> TableOfContents:
-    """
-    Sets up the table of contents.
+    """Sets up the table of contents.
 
     Args:
         style (StyleSheet1): The style to use for the table of contents.
@@ -100,8 +99,7 @@ def setup_toc(style: StyleSheet1) -> TableOfContents:
 
 
 def create_paragraph(text: str, style: StyleSheet1) -> Paragraph:
-    """
-    Creates a paragraph with the given text and style.
+    """Creates a paragraph with the given text and style.
 
     Args:
         text (str): The text of the paragraph.
@@ -116,8 +114,7 @@ def create_paragraph(text: str, style: StyleSheet1) -> Paragraph:
 def add_item_to_story(
     story: list[Flowable], after_section: AfterSection, *flowables
 ) -> list[Flowable]:
-    """
-    Adds one or more flowables to the story.
+    """Adds one or more flowables to the story.
 
     Args:
         story (list): The story to add the item to.
@@ -133,8 +130,7 @@ def add_item_to_story(
 
 
 def add_image(story: list[Flowable], image_path: str) -> list[Flowable]:
-    """
-    Adds an image to the story.
+    """Adds an image to the story.
 
     Args:
         story (list): The story to add the image to.
@@ -155,8 +151,7 @@ def add_content(
     style: StyleSheet1,
     is_traits: bool = False,
 ) -> list[Flowable]:
-    """
-    Adds content to the story.
+    """Adds content to the story.
 
     Args:
         story (list): The story to add the content to.
@@ -189,8 +184,7 @@ def add_content(
 
 
 def initialize_pdf(metadata: BookDict) -> tuple[SimpleDocTemplate, str]:
-    """
-    Initializes the PDF document.
+    """Initializes the PDF document.
 
     Args:
         metadata (BookDict): The book metadata.
@@ -210,8 +204,7 @@ def initialize_pdf(metadata: BookDict) -> tuple[SimpleDocTemplate, str]:
 
 
 def create_pdf(book: Book) -> None:
-    """
-    Create a PDF file from the chapter summaries.
+    """Create a PDF file from the chapter summaries.
 
     Args:
         book (Book): The book object.
@@ -232,7 +225,7 @@ def create_pdf(book: Book) -> None:
 
     # this is not unit testable because of how it is called
     # but exact copy of the function in test_make_pdf.py
-    def add_toc_entry(flowable):  # pragma: no cover
+    def add_toc_entry(flowable: Flowable) -> None:  # pragma: no cover
         if isinstance(flowable, Paragraph) and flowable.style.name in [
             STYLE_HEADING1,
             STYLE_HEADING2,
@@ -245,9 +238,7 @@ def create_pdf(book: Book) -> None:
 
     for category, names in binder.items():
         category_page = create_paragraph(category, styles[STYLE_HEADING1])
-        story = add_item_to_story(
-            story, AfterSection.PAGE_BREAK, category_page
-        )
+        story = add_item_to_story(story, AfterSection.PAGE_BREAK, category_page)
 
         for name, content in names.items():
             name_header = create_paragraph(name, styles[STYLE_HEADING2])

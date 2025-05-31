@@ -56,16 +56,14 @@ class APIProvider(BaseModel):
         return self.api
 
     def get_ai_family(self, family: str) -> ModelFamily:
-        """
-        Retrieves the AI family that matches the given family name,
-        case-insensitively.
+        """Retrieve the AI family that matches the given family name.
 
         Args:
-            family (str): The name of the AI family to retrieve.
+            family: The name of the AI family to retrieve.
 
         Returns:
-            ModelFamily: The AI family that matches the given name, or the
-            first AI family in the list if no match is found.
+            The AI family that matches the given name, or the first AI
+            family in the list if no match is found.
         """
         return next(
             (

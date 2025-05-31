@@ -6,21 +6,30 @@ from lorebinders._managers import RateLimitManager
 
 
 class RateLimit:
+    """Manages rate limiting for AI API calls."""
+
     def __init__(
         self,
         name: str,
         rate_limit: int,
         rate_handler: RateLimitManager,
     ) -> None:
+        """Initialize the rate limit manager.
+
+        Args:
+            name: Name identifier for this rate limiter.
+            rate_limit: Maximum tokens allowed per minute.
+            rate_handler: The rate limit manager instance.
+        """
         self.name = name
         self.rate_limit = rate_limit
         self._rate_handler = rate_handler
         self.read_rate_limit_dict()
 
-    def cool_down(self):
-        """
-        Pause the application thread while the rate limit is in danger of
-        being exceeded.
+    def cool_down(self) -> None:
+        """Pause the application thread while rate limit is endangered.
+
+        Sleeps for the remaining time in the current minute before resetting.
         """
         logger.warning("Rate limit in danger of being exceeded")
         sleep_time = 60 - (time.time() - self.minute)
@@ -31,13 +40,15 @@ class RateLimit:
     def is_rate_limit_exceeded(
         self, input_tokens: int, max_tokens: int
     ) -> bool:
-        """
-        Check if the rate limit has been exceeded.
+        """Check if the rate limit has been exceeded.
 
         Args:
             input_tokens (int): The number of tokens used in the API call.
             max_tokens (int): The maximum number of tokens allowed for the API
                 call.
+
+        Returns:
+            bool: True if rate limit would be exceeded, False otherwise.
         """
         if self._new_minute():
             self.reset_rate_limit_dict()
@@ -45,38 +56,27 @@ class RateLimit:
         return self.tokens_used + input_tokens + max_tokens > self.rate_limit
 
     def read_rate_limit_dict(self) -> None:
-        """
-        Read the rate limit dictionary from the rate limit manager.
-        """
+        """Read the rate limit dictionary from the rate limit manager."""
         self.rate_limit_dict: dict = self._rate_handler.read(self.name)
 
     def reset_rate_limit_dict(self) -> None:
-        """
-        Reset the rate limit information and update the dictionary.
-        """
-
+        """Reset the rate limit information and update the dictionary."""
         self._reset_minute()
         self._reset_tokens_used()
         self.update_rate_limit_dict()
 
     def update_rate_limit_dict(self) -> None:
-        """
-        Write the rate limit dictionary to the rate limit manager.
-        """
+        """Write the rate limit dictionary to the rate limit manager."""
         self._rate_handler.write(self.name, self.rate_limit_dict)
 
     def update_tokens_used(self, tokens: int) -> None:
-        """
-        Update the number of tokens used in the rate limit dictionary.
-        """
+        """Update the number of tokens used in the rate limit dictionary."""
         self.read_rate_limit_dict()
         self.rate_limit_dict["tokens_used"] += tokens
         self.update_rate_limit_dict()
 
     def _new_minute(self) -> bool:
-        """
-        Check if 60 seconds have passed since the rate limit dictionary was
-        last updated.
+        """Check if 60 seconds have passed since last update.
 
         Returns:
             bool: True if it's a new minute, False otherwise.

@@ -1,4 +1,12 @@
 def markdown_to_dict(markdown_str: str) -> dict:
+    """Convert markdown text to nested dictionary structure.
+
+    Args:
+        markdown_str: Markdown formatted string to parse.
+
+    Returns:
+        Nested dictionary representing the markdown structure.
+    """
     result_dict: dict = {}
     stack: list[dict] = [result_dict]
     current_key: str | None = None

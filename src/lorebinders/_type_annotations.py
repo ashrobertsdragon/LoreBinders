@@ -8,7 +8,7 @@ from openai.types.chat import (
     ChatCompletion,
     ChatCompletionAssistantMessageParam,
     ChatCompletionSystemMessageParam,
-    ChatCompletionUserMessageParam
+    ChatCompletionUserMessageParam,
 )
 from openai.types.chat.completion_create_params import ResponseFormat
 from reportlab.platypus import Flowable
@@ -18,14 +18,14 @@ if TYPE_CHECKING:
         AIProviderManager,
         EmailManager,
         ErrorManager,
-        RateLimitManager
+        RateLimitManager,
     )
     from lorebinders._types import FinishReason, InstructionType, T
     from lorebinders.ai.ai_interface import AIInterface
     from lorebinders.ai.exceptions import (
         KeyNotFoundError,
         MaxRetryError,
-        NoMessageError
+        NoMessageError,
     )
     from lorebinders.book import Book, Chapter
     from lorebinders.book_dict import BookDict

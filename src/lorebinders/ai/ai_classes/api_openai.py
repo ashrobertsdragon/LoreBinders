@@ -26,13 +26,13 @@ from lorebinders.json_tools import merge_json, repair_json_str
 
 
 class OpenaiAPI(AIManager):
-    """
-    Child class of AIManager that implements the OpenAI API.
-    """
+    """Child class of AIManager that implements the OpenAI API."""
 
     def __init__(self, email_handler: EmailManager) -> None:
-        """
-        Initialize the OpenAI client and unresolvable errors.
+        """Initialize the OpenAI client and unresolvable errors.
+
+        Args:
+            email_handler: Email manager for error notifications.
         """
         self.unresolvable_errors = self._set_unresolvable_errors()
         self.error_handler = APIErrorHandler(
@@ -44,7 +44,11 @@ class OpenaiAPI(AIManager):
         self.tokenizer = tiktoken.get_encoding("cl100k_base")
 
     def _initialize_client(self) -> None:
-        """Create the OpenAI API client with the API key"""
+        """Create the OpenAI API client with the API key.
+
+        Raises:
+            KeyNotFoundError: If OPENAI_API_KEY environment variable not set.
+        """
         try:
             if api_key := config("OPENAI_API_KEY"):
                 self.client = OpenAI(api_key=api_key)
@@ -56,7 +60,11 @@ class OpenaiAPI(AIManager):
             self._error_handle(e)
 
     def _set_unresolvable_errors(self) -> tuple:
-        """Set the unresolvable errors for OpenAI's API"""
+        """Set the unresolvable errors for OpenAI's API.
+
+        Returns:
+            Tuple of unresolvable error types.
+        """
         return (
             KeyNotFoundError,
             openai.BadRequestError,
@@ -72,25 +80,15 @@ class OpenaiAPI(AIManager):
         prompt: str,
         assistant_message: str | None = None,
     ) -> tuple[list, int]:
-        """
-        Creates a payload for making API calls to the AI engine.
+        """Create a payload for making API calls to the AI engine.
 
         Args:
-            role_script (str): The role script text for the AI model.
-            prompt (str): The prompt text for the AI model.
-            assistant_message (Optional[str], optional): The assistant message
-                text. Defaults to None.
+            role_script: The role script text for the AI model.
+            prompt: The prompt text for the AI model.
+            assistant_message: Optional assistant message text.
 
         Returns:
-            Tuple[list, int]: A tuple containing a list of messages and the
-                number of input tokens.
-
-        Raises:
-            ValueError: If the role_script input is not a string.
-            ValueError: If the prompt input is not a string.
-
-        Note: Parameter dictionaries are typed to OpenAI's custom TypedDicts
-        to keep MyPy happy.
+            Tuple containing list of messages and input token count.
         """
         role_dict: ChatCompletionSystemMessageParam = {
             "role": "system",
@@ -105,9 +103,7 @@ class OpenaiAPI(AIManager):
         if assistant_message is not None:
             messages = self._add_assistant_message(messages, assistant_message)
 
-        combined_text = "".join([
-            cast(str, msg["content"]) for msg in messages
-        ])
+        combined_text = "".join([cast(str, msg["content"]) for msg in messages])
         input_tokens = self._count_tokens(combined_text)
         return messages, input_tokens
 
@@ -116,9 +112,14 @@ class OpenaiAPI(AIManager):
         messages: list,
         assistant_message: str,
     ) -> list:
-        """
-        Append the assistant message and continuation prompt to the message
-        list.
+        """Append assistant message and continuation prompt to message list.
+
+        Args:
+            messages: List of message dictionaries.
+            assistant_message: Assistant message to append.
+
+        Returns:
+            Updated list of messages.
         """
         added_prompt = (
             "Please continue from the exact point you left off without "
@@ -137,8 +138,13 @@ class OpenaiAPI(AIManager):
         return messages
 
     def _count_tokens(self, text: str) -> int:
-        """
-        Counts tokens using the tokenizer for the AI model.
+        """Count tokens using the tokenizer for the AI model.
+
+        Args:
+            text: Text to count tokens for.
+
+        Returns:
+            Number of tokens in the text.
         """
         return len(self.tokenizer.encode(text))
 
@@ -149,20 +155,16 @@ class OpenaiAPI(AIManager):
         retry_count: int = 0,
         assistant_message: str | None = None,
     ) -> str:
-        """
-        Process the response received from the OpenAI API.
+        """Make an API call to the OpenAI API.
 
         Args:
-            response (ChatCompletion): The response object received from the
-                OpenAI API.
+            api_payload: Dictionary containing API parameters.
+            json_response: Whether to expect JSON response format.
+            retry_count: Current retry attempt count.
+            assistant_message: Optional previous assistant message.
 
         Returns:
-            Tuple[str, int, FinishReason]: A tuple containing the content of
-                the response, the number of completion tokens used, and the
-                reason for the completion of the response.
-
-        Raises:
-            NoMessageError: If no message content is found in the response.
+            The API response text.
         """
         prompt = api_payload["prompt"]
         role_script = api_payload["role_script"]
@@ -199,7 +201,19 @@ class OpenaiAPI(AIManager):
         retry_count: int,
         assistant_message: str | None = None,
     ) -> str:
-        """Performs the actual OpenAI API call."""
+        """Perform the actual OpenAI API call.
+
+        Args:
+            api_payload: Dictionary containing API parameters.
+            messages: List of message dictionaries.
+            input_tokens: Number of input tokens.
+            json_response: Whether to expect JSON response format.
+            retry_count: Current retry attempt count.
+            assistant_message: Optional previous assistant message.
+
+        Returns:
+            The processed API response.
+        """
         self._enforce_rate_limit(input_tokens, int(api_payload["max_tokens"]))
         model = api_payload["api_model"]
         max_tokens = int(api_payload["max_tokens"])
@@ -228,20 +242,16 @@ class OpenaiAPI(AIManager):
     def preprocess_response(
         self, response: ChatCompletion
     ) -> tuple[str, int, FinishReason]:
-        """
-        Process the response received from the OpenAI API.
+        """Process the response received from the OpenAI API.
 
         Args:
-            response (ChatCompletion): The response object received from the
-                OpenAI API.
+            response: The response object received from the OpenAI API.
 
         Returns:
-            Tuple[str, int, FinishReason]: A tuple containing the content of
-                the response, the number of completion tokens used, and the
-                reason for the completion of the response.
+            Tuple of (content, completion_tokens, finish_reason).
 
         Raises:
-            NoMessageError: If no message content is found in the response.
+            NoMessageError: If no message content found in response.
         """
         if (
             response.choices
@@ -267,46 +277,17 @@ class OpenaiAPI(AIManager):
         json_response: bool,
         assistant_message: str | None = None,
     ) -> str:
-        """
-        Post-processes the response received from the OpenAI API.
+        """Post-process the response received from the OpenAI API.
 
         Args:
-            content (str): The content of the response.
-            completion_tokens (int): The number of completion tokens used in
-                the response.
-            finish_reason (FinishReason): The reason for the completion of the
-                response.
-            assistant_message (str): The assistant message used in the API
-            call.
-            api_payload (dict): The payload used in the API call.
-            retry_count (int): The number of retries made for the API call.
-            json_response (bool): Flag indicating whether the response is in
-                JSON format.
+            content_tuple: Tuple of content, tokens, and finish reason.
+            api_payload: Dictionary containing API parameters.
+            retry_count: Current retry attempt count.
+            json_response: Whether response is in JSON format.
+            assistant_message: Optional previous assistant message.
 
         Returns:
-            str: The processed response.
-
-        Raises:
-            NoMessageError: If no message content is found in the response.
-
-        Notes:
-            If an assistant message is provided, the response is combined with
-                the assistant message.
-            If the response is in JSON format, the response is merged with the
-                assistant message using the 'merge' method of the 'repair'
-                object.
-            If the response cannot be merged with the assistant message, the
-                response is repaired using the 'repair' method of the 'repair'
-                object.
-            If no assistant message is provided, the response is returned as
-                is.
-            If the finish reason is 'FinishReason.LENGTH', a warning is logged
-                and the response is modified to fit within the maximum token
-                limit.
-            If the response is in JSON format, the assistant message is
-                extracted from the response.
-            The maximum token limit is set to 500.
-            The API call is made again with the modified payload.
+            The final processed response string.
         """
         content, completion_tokens, finish_reason = content_tuple
 
@@ -333,8 +314,15 @@ class OpenaiAPI(AIManager):
     def _combine_answer(
         self, assistant_message: str, content: str, json_response: bool
     ) -> str:
-        """
-        Combine assistant message and new content based on response format.
+        """Combine assistant message and new content based on format.
+
+        Args:
+            assistant_message: Previous assistant message.
+            content: New content to combine.
+            json_response: Whether response is in JSON format.
+
+        Returns:
+            Combined response string.
         """
         if json_response:
             new_part = content[1:]
@@ -350,11 +338,22 @@ class OpenaiAPI(AIManager):
         json_response: bool,
         completion_tokens: int,
     ) -> str:
-        """Handle cases where the response exceeds the maximum token limit."""
-        MAX_TOKENS = 500
+        """Handle cases where response exceeds maximum token limit.
+
+        Args:
+            answer: Current response answer.
+            api_payload: Dictionary containing API parameters.
+            retry_count: Current retry attempt count.
+            json_response: Whether response is in JSON format.
+            completion_tokens: Number of completion tokens used.
+
+        Returns:
+            Complete response after handling length limit.
+        """
+        max_tokens = 500
         logger.warning(
             f"Max tokens exceeded.\n"
-            f"Used {completion_tokens} of {api_payload.get("max_tokens")}"
+            f"Used {completion_tokens} of {api_payload.get('max_tokens')}"
         )
 
         if json_response:
@@ -365,7 +364,7 @@ class OpenaiAPI(AIManager):
         else:
             assistant_message = answer
 
-        api_payload = self.modify_payload(api_payload, max_tokens=MAX_TOKENS)
+        api_payload = self.modify_payload(api_payload, max_tokens=max_tokens)
         return self.call_api(
             api_payload=api_payload,
             json_response=json_response,

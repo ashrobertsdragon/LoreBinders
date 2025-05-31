@@ -16,6 +16,8 @@ if TYPE_CHECKING:
 
 
 class Payload(BaseModel):
+    """Pydantic model for API payload validation."""
+
     api_model: str
     role_script: str
     prompt: str
@@ -24,11 +26,16 @@ class Payload(BaseModel):
 
 
 class AIManager(ABC):
+    """Abstract base class for AI API management."""
+
     @abstractmethod
     def __init__(self, email_handler: EmailManager) -> None:
-        """
-        This method is not intended to be called with super().__init__() but
-        instead is provided as a reference for the child class to implement.
+        """Initialize AI manager with email handler.
+
+        This method provides a reference for child class implementation.
+
+        Args:
+            email_handler: Manager for sending error notifications.
         """
         self.unresolvable_errors = self._set_unresolvable_errors()
         self.error_handler = APIErrorHandler(
@@ -39,18 +46,33 @@ class AIManager(ABC):
 
     @abstractmethod
     def _set_unresolvable_errors(self) -> tuple:
-        """
-        Set a tuple of errors that are unrecoverable in the API.
+        """Set a tuple of errors that are unrecoverable in the API.
+
         This method must be implemented in the child class for specific API.
+
+        Returns:
+            Tuple of unresolvable error types.
+
+        Raises:
+            NotImplementedError: Must be implemented in child class.
         """
         raise NotImplementedError("Must be implemented in child class")
 
     @abstractmethod
     def _count_tokens(self, text: str) -> int:
-        """
-        Counts tokens using the tokenizer for the AI model.
+        """Count tokens using the tokenizer for the AI model.
+
         This method must be implemented in the child class for specific API
         implementations.
+
+        Args:
+            text: Text to count tokens for.
+
+        Returns:
+            Number of tokens in the text.
+
+        Raises:
+            NotImplementedError: Must be implemented in child class.
         """
         raise NotImplementedError("Must be implemented in child class")
 
@@ -61,10 +83,21 @@ class AIManager(ABC):
         prompt: str,
         assistant_message: str | None = None,
     ) -> tuple[list, int]:
-        """
-        Creates the message payload for the API call.
+        """Create the message payload for the API call.
+
         This method must be implemented in the child class for specific API
         implementations.
+
+        Args:
+            role_script: System instruction for the AI.
+            prompt: User prompt for the AI.
+            assistant_message: Optional previous assistant message.
+
+        Returns:
+            Tuple of (messages list, input token count).
+
+        Raises:
+            NotImplementedError: Must be implemented in child class.
         """
         raise NotImplementedError("Must be implemented in child class")
 
@@ -76,10 +109,22 @@ class AIManager(ABC):
         retry_count: int = 0,
         assistant_message: str | None = None,
     ) -> str:
-        """
-        Makes API calls to the AI engine.
+        """Make API calls to the AI engine.
+
         This method must be implemented in the child class for specific API
         implementations.
+
+        Args:
+            api_payload: Dictionary containing API parameters.
+            json_response: Whether to expect JSON response format.
+            retry_count: Current retry attempt count.
+            assistant_message: Optional previous assistant message.
+
+        Returns:
+            The API response text.
+
+        Raises:
+            NotImplementedError: Must be implemented in child class.
         """
         raise NotImplementedError("Must be implemented in child class")
 
@@ -87,10 +132,19 @@ class AIManager(ABC):
     def preprocess_response(
         self, response: ChatCompletion
     ) -> tuple[str, int, FinishReason]:
-        """
-        Create a tuple from the response from the API call.
+        """Create a tuple from the response from the API call.
+
         This method must be implemented in the child class for specific API
         implementations.
+
+        Args:
+            response: The raw response from API.
+
+        Returns:
+            Tuple of (content, completion_tokens, finish_reason).
+
+        Raises:
+            NotImplementedError: Must be implemented in child class.
         """
         raise NotImplementedError("Must be implemented in child class")
 
@@ -103,10 +157,23 @@ class AIManager(ABC):
         json_response: bool,
         assistant_message: str | None = None,
     ) -> str:
-        """
-        Processes the response from the API call.
+        """Process the response from the API call.
+
         This method must be implemented in the child class for specific API
         implementations.
+
+        Args:
+            content_tuple: Tuple of content, tokens, and finish reason.
+            api_payload: Dictionary containing API parameters.
+            retry_count: Current retry attempt count.
+            json_response: Whether response is in JSON format.
+            assistant_message: Optional previous assistant message.
+
+        Returns:
+            The final processed response string.
+
+        Raises:
+            NotImplementedError: Must be implemented in child class.
         """
         raise NotImplementedError("Must be implemented in child class")
 
@@ -117,22 +184,20 @@ class AIManager(ABC):
         temperature: float,
         max_tokens: int,
     ) -> dict:
-        """
-        Creates a payload dictionary for making API calls to the AI engine.
+        """Create a payload dictionary for making API calls to AI engine.
 
         Args:
-            prompt (str): The prompt text for the AI model.
-            role_script (str): The role script text for the AI model.
-            temperature (float): The temperature value for the AI model.
-            max_tokens (int): The maximum number of tokens for the AI model.
+            prompt: The prompt text for the AI model.
+            role_script: The role script text for the AI model.
+            temperature: The temperature value for the AI model.
+            max_tokens: The maximum number of tokens for the AI model.
 
         Returns:
-            dict: The payload dictionary containing the following keys:
-                    model_name (str): The name of the model.
-                    role_script (str): The role script text.
-                    prompt (str): The prompt text.
-                    temperature (float): The temperature value.
-                    max_tokens (int): The maximum number of tokens.
+            The payload dictionary containing model parameters.
+
+        Raises:
+            AttributeError: If AI model not set.
+            ValidationError: If payload validation fails.
         """
         if not self.api_model:
             raise AttributeError("AI model not set. Call set_model() first.")
@@ -150,28 +215,24 @@ class AIManager(ABC):
             raise
 
     def modify_payload(self, api_payload: dict, **kwargs) -> dict:
-        """
-        Modifies the given api_payload dictionary with the provided key-value
-            pairs in kwargs.
+        """Modify the given api_payload dictionary with provided kwargs.
 
         Args:
-            api_payload (dict): The original api_payload dictionary.
-            **kwargs: The key-value pairs to update the api_payload dictionary.
+            api_payload: The original api_payload dictionary.
+            **kwargs: The key-value pairs to update the dictionary.
 
         Returns:
-            dict: The modified api_payload dictionary.
+            The modified api_payload dictionary.
         """
         api_payload |= kwargs
         return api_payload
 
     def set_model(self, model: Model, rate_handler: RateLimitManager) -> None:
-        """
-        Sets the specific AI model to be used in the API and initializes the
-        rate limiter for the model.
+        """Set the specific AI model to be used and initialize rate limiter.
 
         Args:
-            model (Model): The model object to use for the AI engine.
-            rate_handler (RateLimitManager): The rate limit manager to use.
+            model: The model object to use for the AI engine.
+            rate_handler: The rate limit manager to use.
         """
         self.model = model
 
@@ -181,42 +242,39 @@ class AIManager(ABC):
         )
 
     def _enforce_rate_limit(self, input_tokens: int, max_tokens: int) -> None:
-        """
-        Handles rate limiting for API calls to the AI engine.
+        """Handle rate limiting for API calls to the AI engine.
 
-        This method uses the RateLimit class to self-police the API rate limit
-        by executing a cool down period when approaching the rate limit.
+        Uses the RateLimit class to self-police the API rate limit by
+        executing a cool down period when approaching the rate limit.
 
         Args:
-            input_tokens (int): The number of tokens used in the API call.
-            max_tokens (int): The maximum number of tokens allowed for the API
-                call.
+            input_tokens: The number of tokens used in the API call.
+            max_tokens: The maximum number of tokens allowed for the call.
         """
         if self.rate_limiter.is_rate_limit_exceeded(input_tokens, max_tokens):
             self.rate_limiter.cool_down()
 
     def _error_handle(self, e: Exception, retry_count: int = 0) -> int:
-        """
-        Calls the 'handle_error' method of the error handler class which
-        determines if the exception is recoverable or not. If it is, an
-        updated retry count is returned. If not, the error is logged, and the
-        application exits.
+        """Call the error handler to determine if exception is recoverable.
+
+        Determines if the exception is recoverable or not. If it is, an
+        updated retry count is returned. If not, the error is logged and
+        the application exits.
 
         Args:
-            e: an Exception body
-            retry_count: the number of attempts so far
+            e: Exception to handle.
+            retry_count: The number of attempts so far.
 
         Returns:
-            retry_count: the number of attempts so far
+            The updated retry count.
         """
         return self.error_handler.handle_error(e, retry_count)
 
     def _update_rate_limit_dict(self, tokens: int) -> None:
-        """
-        Updates the rate limit data by adding the number of tokens used.
+        """Update the rate limit data by adding the number of tokens used.
 
         Args:
-            tokens (int): The number of tokens used in the API call.
+            tokens: The number of tokens used in the API call.
         """
         self.rate_limiter.rate_limit_dict["tokens_used"] += tokens
         self.rate_limiter.update_rate_limit_dict()

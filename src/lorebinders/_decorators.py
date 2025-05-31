@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable
+from typing import Any
 
 from loguru import logger
 
@@ -7,10 +8,15 @@ from lorebinders.ai.exceptions import DatabaseOperationError
 
 
 def required_string(
-    func: Callable,
-):
-    """
-    Ensures that the result is a non-empty string.
+    func: Callable[..., str],
+) -> Callable[..., str]:
+    """Ensures that the result is a non-empty string.
+
+    Args:
+        func: Function to wrap that should return a string.
+
+    Returns:
+        Wrapped function that ensures non-empty string result.
     """
 
     @wraps(func)
@@ -26,9 +32,18 @@ def required_string(
     return wrapper
 
 
-def log_db_error(func):
+def log_db_error(func: Callable[..., Any]) -> Callable[..., Any]:
+    """Logs database errors and re-raises them.
+
+    Args:
+        func: Function to wrap for error logging.
+
+    Returns:
+        Wrapped function with database error logging.
+    """
+
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args, **kwargs) -> Any:
         try:
             return func(*args, **kwargs)
         except DatabaseOperationError as e:

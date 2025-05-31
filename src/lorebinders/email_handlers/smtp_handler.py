@@ -19,7 +19,10 @@ if TYPE_CHECKING:
 
 
 class SMTPHandler(EmailManager):
+    """SMTP email handler for sending emails with attachments."""
+
     def __init__(self) -> None:
+        """Initialize SMTP handler with configuration settings."""
         self.password: str = config("MAIL_PASSWORD")
         self.admin_email: str = config("MAIL_USERNAME")
         self.server: str = config("MAIL_SERVER")
@@ -27,11 +30,13 @@ class SMTPHandler(EmailManager):
         self._email_server: smtplib.SMTP_SSL | None = None
 
     def _create_server(self) -> smtplib.SMTP_SSL:
-        """
-        Create the server object for the email.
+        """Create the server object for the email.
 
         Returns:
-            smtplib.SMTP_SSL: The server object for the email.
+            The server object for the email.
+
+        Raises:
+            BadEmailError: If authentication fails.
         """
         s = smtplib.SMTP_SSL(host=self.server, port=self.port)
         try:
@@ -44,37 +49,35 @@ class SMTPHandler(EmailManager):
 
     @property
     def email_server(self) -> smtplib.SMTP_SSL:
+        """Get or create email server connection.
+
+        Returns:
+            The SMTP server connection.
+        """
         if not self._email_server:
             self._email_server = self._create_server()
         return self._email_server
 
     def _get_email_body(self, body: str = "email_content.html") -> str:
-        """
-        Reads the contents of an html file and returns it as the email
-        body text.
+        """Read the contents of an HTML file and return it as email body.
 
         Args:
-            body (str, optional): The name of the html file to read. Defaults
-                to 'email_content.html'.
+            body: The name of the HTML file to read.
 
         Returns:
-            str: The contents of the html file.
+            The contents of the HTML file.
         """
         html_path = pathlib.Path("lorebinders", "email_handlers", body)
         return html_path.read_text()
 
     def _get_attachment(self, attachment: tuple[str, str, str]) -> Path:
-        """
-        Unpack the tuple 'attachment' to retrieve the Path object for the path
-        to the Binder to email.
+        """Unpack attachment tuple to retrieve the PDF file path.
 
         Args:
-            attachment (tuple): The tuple containing the arguments to be
-                unpacked.
+            attachment: Tuple containing (folder_name, book_name, binder).
 
         Returns:
-            Path: The path to a PDF file using the variables from the
-                unpacked tuple.
+            Path to the PDF file.
         """
         folder_name, book_name, binder = attachment
         return pathlib.Path(folder_name, f"{book_name}-{binder}.pdf")
@@ -85,6 +88,13 @@ class SMTPHandler(EmailManager):
         attachment: tuple[str, str, str] | None = None,
         error_msg: str | None = None,
     ) -> None:
+        """Send email to user with optional attachment or error message.
+
+        Args:
+            user_email: Recipient's email address.
+            attachment: Optional tuple of (folder, book_name, binder).
+            error_msg: Optional error message to include.
+        """
         if message := self._build_email(user_email, attachment, error_msg):
             self.email_server.send_message(message)
 
@@ -94,22 +104,23 @@ class SMTPHandler(EmailManager):
         attachment: tuple[str, str, str] | None = None,
         error_msg: str | None = None,
     ) -> MIMEMultipart | None:
-        """
-        Send user the pdf of their story bible.
+        """Build email message with content and optional attachment.
 
         Args:
-            user_email (str): The email of the user to send the pdf to.
-            attachment (tuple, optional): The tuple containing the path
-                components to be unpacked. Defaults to None.
-            error_msg (str, optional): The error message to send to the
-                administrator. Defaults to None.
+            user_email: The recipient's email address.
+            attachment: Optional tuple containing path components.
+            error_msg: Optional error message for administrator.
+
+        Returns:
+            Built email message or None if failed.
+
+        Raises:
+            BadEmailError: If both error_msg and attachment provided.
         """
         email_body: str = error_msg or self._get_email_body()
 
         subject: str = (
-            "A critical error occurred"
-            if error_msg
-            else "Your Binder is ready"
+            "A critical error occurred" if error_msg else "Your Binder is ready"
         )
         try:
             if error_msg and attachment:
@@ -128,14 +139,16 @@ class SMTPHandler(EmailManager):
             return None
 
     def _create_attachment(self, file_path: Path) -> MIMEBase:
-        """
-        Create the MIMEBase object for the attachment.
+        """Create the MIMEBase object for the attachment.
 
         Args:
-            file_path (Path): The path to the attachment.
+            file_path: The path to the attachment.
 
         Returns:
-            MIMEBase: The MIMEBase object for the attachment.
+            The MIMEBase object for the attachment.
+
+        Raises:
+            BadEmailError: If attachment file not found.
         """
         try:
             with file_path.open("rb") as attachment_file:
@@ -151,20 +164,21 @@ class SMTPHandler(EmailManager):
 
     def _create_email_object(
         self,
-        user_email,
-        subject,
-        email_body,
+        user_email: str,
+        subject: str,
+        email_body: str,
         file_path: Path | None = None,
-    ):
-        """
-        Create the MIMEBase object for the email and send it.
+    ) -> MIMEMultipart:
+        """Create the MIMEMultipart object for the email.
 
         Args:
-            user_email (str): The email of the user to send the email to.
-            subject (str): The subject of the email.
-            email_body (str): The body of the email.
-            file_path (Path, optional): The path to the attachment. Defaults
-                to None.
+            user_email: The recipient's email address.
+            subject: The subject of the email.
+            email_body: The body of the email.
+            file_path: Optional path to the attachment.
+
+        Returns:
+            The constructed email message.
         """
         msg = MIMEMultipart()
         msg["To"] = user_email
@@ -177,10 +191,9 @@ class SMTPHandler(EmailManager):
         return msg
 
     def error_email(self, error_msg: str) -> None:
-        """
-        Send the administrator an error message.
+        """Send the administrator an error message.
 
         Args:
-            error_msg (str) The error message to send to the administrator.
+            error_msg: The error message to send to the administrator.
         """
         self.send_mail(self.admin_email, error_msg=error_msg)

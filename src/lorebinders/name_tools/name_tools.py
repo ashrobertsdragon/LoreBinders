@@ -13,8 +13,7 @@ from lorebinders.role_script import RoleScript
 def get_instruction_text(
     file_name: str, *, instruction_type: InstructionType | None = None
 ) -> str:
-    """
-    Get the instruction text from the file.
+    """Get the instruction text from the file.
 
     Args:
         file_name (str): The filename of the instruction text.
@@ -23,7 +22,6 @@ def get_instruction_text(
     Returns:
         str: The instruction text read from the file.
     """
-
     prompt_type = instruction_type.value if instruction_type else ""
     file_path = Path("instructions", prompt_type or "", file_name)
     return file_handling.read_text_file(file_path)
@@ -36,8 +34,7 @@ def get_ai_response(
     temperature: float,
     json_mode: bool,
 ) -> str:
-    """
-    Create the payload to send to the AI and send it.
+    """Create the payload to send to the AI and send it.
 
     Args:
         ai (AIInterface): The AI interface to use.

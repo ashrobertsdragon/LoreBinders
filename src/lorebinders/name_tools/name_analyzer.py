@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import cache
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -19,9 +19,7 @@ BASE_CATEGORIES: list[str] = ["Characters", "Settings"]
 
 @dataclass(slots=True, frozen=True)
 class Instructions:
-    """
-    The instruction strings for the role scripts.
-    """
+    """The instruction strings for the role scripts."""
 
     base: str
     characters: str
@@ -30,9 +28,7 @@ class Instructions:
 
 @dataclass(slots=True, frozen=True)
 class RoleScriptHelper:
-    """
-    The additional information needed to build the role scripts.
-    """
+    """The additional information needed to build the role scripts."""
 
     instruction_type: InstructionType
     absolute_max_tokens: int
@@ -40,10 +36,9 @@ class RoleScriptHelper:
     added_character_traits: list[str] | None
 
 
-@lru_cache(maxsize=None)
+@cache
 def get_tokens_per(instruction_type: InstructionType) -> dict[str, int]:
-    """
-    Gets the tokens per for the analysis.
+    """Gets the tokens per for the analysis.
 
     Args:
         instruction_type (str): The format the AI is told to respond in.
@@ -68,8 +63,7 @@ def generate_json_schema(
     added_traits: list[str] | None,
     default_traits: dict[str, list[str]],
 ) -> str:
-    """
-    Generates the JSON schema for the analysis.
+    """Generates the JSON schema for the analysis.
 
     Args:
         category (str): The category to generate the schema for.
@@ -78,7 +72,6 @@ def generate_json_schema(
     Returns:
         str: The schema for the analysis.
     """
-
     traits: list[str] = default_traits.get(category, []) + (added_traits or [])
     schema_stub: dict[str, str] | str = (
         {trait: "Description" for trait in traits} if traits else "Description"
@@ -91,8 +84,7 @@ def generate_markdown_schema(
     added_traits: list[str] | None,
     default_traits: dict[str, list[str]],
 ) -> str:
-    """
-    Generates the Markdown schema for the analysis.
+    """Generates the Markdown schema for the analysis.
 
     Args:
         category (str): The category to generate the schema for.
@@ -114,8 +106,7 @@ def generate_schema(
     added_traits: list[str] | None,
     instruction_type: InstructionType,
 ) -> str:
-    """
-    Generates the schema for the analysis.
+    """Generates the schema for the analysis.
 
     Args:
         category (str): The category to generate the schema for.
@@ -124,6 +115,9 @@ def generate_schema(
 
     Returns:
         str: The schema for the analysis.
+
+    Raises:
+        ValueError: If the instruction type is not handled.
     """
     default_traits: dict[str, list[str]] = {
         "Characters": [
@@ -151,8 +145,7 @@ def generate_schema(
 
 
 def initialize_instructions(instruction_type: InstructionType) -> Instructions:
-    """
-    Initializes the instructions dataclass for the analysis.
+    """Initializes the instructions dataclass for the analysis.
 
     Args:
         instruction_type (str): The format to tell the AI to respond in.
@@ -180,8 +173,7 @@ def initialize_role_script_helper(
     instructions: Instructions,
     added_character_traits: list[str] | None = None,
 ) -> RoleScriptHelper:
-    """
-    Creates a dataclass of information needed to build the RoleScript objects.
+    """Creates a dataclass of information needed to build RoleScript objects.
 
     Args:
         instruction_type (str): The format the AI is told to respond in.
@@ -202,8 +194,7 @@ def initialize_helpers(
     absolute_max_tokens: int,
     added_character_traits: list[str] | None = None,
 ) -> RoleScriptHelper:
-    """
-    Initializes the helpers for the analysis.
+    """Initializes the helpers for the analysis.
 
     Args:
         instruction_type (str): The format to tell the AI to respond in.
@@ -226,8 +217,7 @@ def create_instructions(
     categories: list[str],
     instructions: Instructions,
 ) -> str:
-    """
-    Creates the instructions for the analysis.
+    """Creates the instructions for the analysis.
 
     Args:
         categories (list[str]): The categories to include in the analysis.
@@ -263,8 +253,7 @@ def create_role_script(
     helper: RoleScriptHelper,
     instruction_type: InstructionType,
 ) -> RoleScript:
-    """
-    Creates the role script for the AI.
+    """Creates the role script for the AI.
 
     Args:
         categories (list[str]): The categories to include in the analysis.
@@ -277,9 +266,7 @@ def create_role_script(
     Returns:
         RoleScript: The role script for the AI.
     """
-    instruction_text: str = create_instructions(
-        categories, helper.instructions
-    )
+    instruction_text: str = create_instructions(categories, helper.instructions)
     schema_text: str = "".join(
         generate_schema(
             category, helper.added_character_traits, instruction_type
@@ -295,8 +282,7 @@ def calculate_category_tokens(
     category: str,
     max_tokens: int,
 ) -> int:
-    """
-    Calculates the number of tokens for a category.
+    """Calculates the number of tokens for a category.
 
     Args:
         names (list[str]): The names to include in the batch.
@@ -316,8 +302,7 @@ def calculate_category_tokens(
 def should_create_new_role_script(
     current_tokens: int, category_tokens: int, max_tokens: int
 ) -> bool:
-    """
-    Checks if a new role script should be created.
+    """Checks if a new role script should be created.
 
     Args:
         current_tokens (int): The number of tokens in the current role script.
@@ -337,8 +322,7 @@ def append_role_script(
     helper: RoleScriptHelper,
     instruction_type: InstructionType,
 ) -> list[RoleScript]:
-    """
-    Appends a new role script to the list of role scripts.
+    """Appends a new role script to the list of role scripts.
 
     Args:
         role_scripts (list[RoleScript]): The list of role scripts.
@@ -368,8 +352,7 @@ def build_role_scripts(
     helper: RoleScriptHelper,
     instruction_type: InstructionType,
 ) -> list[RoleScript]:
-    """
-    Builds the role scripts for the AI.
+    """Builds the role scripts for the AI.
 
     Args:
         chapter_data (dict[str, list[str]]): The data of the chapter.
@@ -381,7 +364,6 @@ def build_role_scripts(
     Returns:
         list[RoleScript]: The role scripts for the AI.
     """
-
     if not chapter_data:
         return []
 
@@ -428,8 +410,7 @@ def build_role_scripts(
 
 
 def combine_responses(responses: list[str], json_mode: bool) -> str:
-    """
-    Combines the responses from the AI into a single string.
+    """Combines the responses from the AI into a single string.
 
     Args:
         responses (list[str]): The responses from the AI.
@@ -446,9 +427,9 @@ def combine_responses(responses: list[str], json_mode: bool) -> str:
 
 
 def parse_response(response: str, json_mode: bool) -> dict:
-    """
-    Parses the response from the AI model based on the instruction type to
-    form a dictionary.
+    """Parses the response from the AI model to form a dictionary.
+
+    Based on the instruction type, converts the response to a dictionary.
 
     Args:
         response (str): The response from the AI model.
@@ -474,8 +455,7 @@ def analyze_names(
     role_scripts: list[RoleScript],
     chapter: Chapter,
 ) -> dict:
-    """
-    Analyzes the names in the chapter and returns the analysis.
+    """Analyzes the names in the chapter and returns the analysis.
 
     Args:
         ai (AIInterface): The AIInterface object.
@@ -487,7 +467,6 @@ def analyze_names(
     Returns:
         dict: The analysis of the names.
     """
-
     json_mode = instruction_type == InstructionType.JSON
     responses: list[str] = [
         name_tools.get_ai_response(
