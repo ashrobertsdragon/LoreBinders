@@ -771,6 +771,15 @@ wheels = [
 ]
 
 [[package]]
+name = "json-repair"
+version = "0.46.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/79/5a/5c14f14735438eb27fd4eb9bb4eb273c996c0d1d959182382cbc618f99dd/json_repair-0.46.0.tar.gz", hash = "sha256:abc751162baf8e384685558acba978478e833c1207be31468d9babfaf8029ab6", size = 33321, upload-time = "2025-05-22T06:22:07.305Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/33/ea/8ca71883f10acf4449720b86dd85cea51d7a71bec2558d5275ae0dcc66e4/json_repair-0.46.0-py3-none-any.whl", hash = "sha256:54d6a9889fba0846b80befb2b1aca619103ad3ed74612fb3fedd965a4a3b1653", size = 22255, upload-time = "2025-05-22T06:22:06.206Z" },
+]
+
+[[package]]
 name = "loguru"
 version = "0.7.3"
 source = { registry = "https://pypi.org/simple" }
@@ -789,6 +798,7 @@ version = "0.3.0"
 source = { virtual = "." }
 dependencies = [
     { name = "ebook2text" },
+    { name = "json-repair" },
     { name = "loguru" },
     { name = "pydantic" },
     { name = "python-decouple" },
@@ -813,6 +823,7 @@ supabase = [
 [package.dev-dependencies]
 dev = [
     { name = "pre-commit" },
+    { name = "pypdf" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-xdist" },
@@ -822,6 +833,7 @@ lint = [
     { name = "ruff" },
 ]
 testing = [
+    { name = "pypdf" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-xdist" },
@@ -832,6 +844,7 @@ requires-dist = [
     { name = "anthropic", marker = "extra == 'anthropic'", specifier = ">=0.52.1" },
     { name = "ebook2text", specifier = ">=2.1.2" },
     { name = "google-genai", marker = "extra == 'gemini'", specifier = ">=1.16.1" },
+    { name = "json-repair", specifier = ">=0.46.0" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "openai", marker = "extra == 'openai'", specifier = ">=1.82.0" },
     { name = "pydantic", specifier = ">=2.11.5" },
@@ -840,11 +853,12 @@ requires-dist = [
     { name = "supasaas", marker = "extra == 'supabase'", git = "https://github.com/ashrobertsdragon/SupaSaaS.git" },
     { name = "tiktoken", marker = "extra == 'openai'", specifier = ">=0.9.0" },
 ]
-provides-extras = ["openai", "supabase", "anthropic", "gemini"]
+provides-extras = ["anthropic", "openai", "supabase", "gemini"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "pre-commit", specifier = ">=4.2.0" },
+    { name = "pypdf", specifier = ">=5.5.0" },
     { name = "pytest", specifier = ">=8.3.3" },
     { name = "pytest-cov", specifier = ">=5.0.0" },
     { name = "pytest-xdist", specifier = ">=3.6.1" },
@@ -854,6 +868,7 @@ lint = [
     { name = "ruff", specifier = ">=0.11.11" },
 ]
 testing = [
+    { name = "pypdf", specifier = ">=5.5.0" },
     { name = "pytest", specifier = ">=8.3.3" },
     { name = "pytest-cov", specifier = ">=5.0.0" },
     { name = "pytest-xdist", specifier = ">=3.6.1" },
@@ -1449,6 +1464,18 @@ wheels = [
 ]
 
 [[package]]
+name = "pypdf"
+version = "5.5.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e0/c8/543f8ae1cd9e182e9f979d9ab1df18e3445350471abadbdabc0166ae5741/pypdf-5.5.0.tar.gz", hash = "sha256:8ce6a18389f7394fd09a1d4b7a34b097b11c19088a23cfd09e5008f85893e254", size = 5021690, upload-time = "2025-05-11T14:00:42.043Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a1/4e/931b90b51e3ebc69699be926b3d5bfdabae2d9c84337fd0c9fb98adbf70c/pypdf-5.5.0-py3-none-any.whl", hash = "sha256:2f61f2d32dde00471cd70b8977f98960c64e84dd5ba0d070e953fcb4da0b2a73", size = 303371, upload-time = "2025-05-11T14:00:40.064Z" },
+]
+
+[[package]]
 name = "pytest"
 version = "8.3.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1820,8 +1847,8 @@ wheels = [
 
 [[package]]
 name = "supasaas"
-version = "0.5.0"
-source = { git = "https://github.com/ashrobertsdragon/SupaSaaS.git#5dd90fc42690b4e05d90d015e4a2ed36ec02e7f1" }
+version = "0.6.1"
+source = { git = "https://github.com/ashrobertsdragon/SupaSaaS.git#fcc9837046840f44c2d0b608f9bca9e53cf115f5" }
 dependencies = [
     { name = "python-decouple" },
     { name = "supabase" },
