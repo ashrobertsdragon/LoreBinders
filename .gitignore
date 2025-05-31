@@ -45,3 +45,5 @@ htmlcov/
 .upm/
 .git/
 .qodo/
+.codex/
+.claude/
