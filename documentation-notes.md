@@ -1,0 +1,18 @@
+# Documentation Notes
+
+## DeduplicateKeys
+
+### deduplicate method
+
+- If nested_dict is not a dictionary, add key-value pair to new dictionary
+- Use combinations to get a generator iterable of two-key combinations of the middle dictionary keys
+- Check if any individual key has been checked already
+- Check if two keys are similar with boolean method
+- Use prioritize_keys to provide sorted order to keys (plural, singular usually)
+- Use merge_values to combine values of keys
+add key that values merged from to duplicate_keys set to be skipped in future iterations
+- create new inner dictionary with keys that are not in duplicate_keys set
+add key-inner dictionary value to new dictionary
+
+### `_is_similar_key`
+when value1 is a list and value2 is a dictionary, use `ChainMap` to merge the dictionary in value2 with any dictionaries in the list of value1, otherwise, just add the item to the new list. when done, check if the keys of the value2 dictionary are in the list, and if no, you can go in the list
