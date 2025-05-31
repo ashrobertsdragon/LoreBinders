@@ -9,17 +9,30 @@
           "api_strs": [
             {
               "id": 1,
-              "name": "gpt_35",
-              "api_str": "gpt-3.5-turbo",
-              "context_window": 16385,
-              "rate_limit": 60000
+              "name": "gpt_41",
+              "api_str": "gpt_41",
+              "context_window": 1047576,
+              "rate_limit": 450000,
+              "max_output_tokens": 32768,
+              "generation": 41
             },
             {
               "id": 2,
-              "name": "gpt_4",
-              "api_str": "gpt-4o",
-              "context_window": 128000,
-              "rate_limit": 30000
+              "name": "gpt_41_mini",
+              "api_str": "gpt-4.1-mini-2025-04-14",
+              "context_window": 1047576,
+              "rate_limit": 2000000,
+              "max_output_tokens": 32768,
+              "generation": 41
+            },
+            {
+              "id": 3,
+              "name": "gpt_41_nano",
+              "api_str": "gpt-4.1-nano-2025-04-14",
+              "context_window": 1047576,
+              "rate_limit": 2000000,
+              "max_output_tokens": 32768,
+              "generation": 41
             }
           ]
         }
@@ -34,31 +47,30 @@
           "api_strs": [
             {
               "id": 1,
-              "name": "haiku_3",
-              "api_str": "claude-3-haiku-20240307",
+              "name": "haiku",
+              "api_str": "claude-3-5-haiku-20241022",
               "context_window": 200000,
-              "rate_limit": 50000
+              "rate_limit": 50000,
+              "max_output_tokens": 8192,
+              "generation": 35
             },
             {
               "id": 2,
-              "name": "sonnet_3",
-              "api_str": "claude-3-sonnet-20240229",
+              "name": "sonnet",
+              "api_str": "claude-sonnet-4-20250514",
               "context_window": 200000,
-              "rate_limit": 40000
+              "rate_limit": 40000,
+              "max_output_tokens": 64000,
+              "generation": 40
             },
             {
               "id": 3,
-              "name": "opus_3",
-              "api_str": "claude-3-opus-20240229",
+              "name": "opus",
+              "api_str": "claude-opus-4-20250514",
               "context_window": 200000,
-              "rate_limit": 20000
-            },
-            {
-              "id": 4,
-              "name": "sonnet_35",
-              "api_str": "claude-3-5-sonnet-20240620",
-              "context_window": 200000,
-              "rate_limit": 40000
+              "rate_limit": 20000,
+              "max_output_tokens": 32000,
+              "generation": 40
             }
           ]
         }
@@ -73,110 +85,30 @@
           "api_strs": [
             {
               "id": 1,
-              "name": "gemini_1",
-              "api_str": "api_strs/gemini-1.0-pro",
-              "context_window": 1000000,
-              "rate_limit": 120000
+              "name": "flash_2",
+              "api_str": "gemini-2.0-flash",
+              "context_window": 1048576,
+              "rate_limit": 4000000,
+              "max_output_tokens": 8192,
+              "generation": 20
             },
             {
               "id": 2,
-              "name": "gemini_flash_15",
-              "api_str": "api_strs/gemini-1.5-flash",
-              "context_window": 1000000,
-              "rate_limit": 2000000
+              "name": "flash_25",
+              "api_str": "gemini-2.5-flash-preview-05-20",
+              "context_window": 1048576,
+              "rate_limit": 1000000,
+              "max_output_tokens": 65536,
+              "generation": 25
             },
             {
               "id": 3,
-              "name": "gemini_pro_15",
-              "api_str": "api_strs/gemini-1.5-pro",
-              "context_window": 1000000,
-              "rate_limit": 2000000
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "OpenRouter",
-      "api_str_families": [
-        {
-          "family": "GPT",
-          "tokenizer": "tiktoken",
-          "api_strs": [
-            {
-              "id": 1,
-              "name": "gpt_35",
-              "api_str": "gpt-3.5-turbo",
-              "context_window": 16385,
-              "rate_limit": 60000
-            },
-            {
-              "id": 2,
-              "name": "gpt_4",
-              "api_str": "gpt-4o",
-              "context_window": 128000,
-              "rate_limit": 30000
-            }
-          ]
-        },
-        {
-          "family": "Gemini",
-          "tokenizer": "gemini",
-          "api_strs": [
-            {
-              "id": 1,
-              "name": "gemini_1",
-              "api_str": "api_strs/gemini-1.0-pro",
-              "context_window": 1000000,
-              "rate_limit": 120000
-            },
-            {
-              "id": 2,
-              "name": "gemini_flash_15",
-              "api_str": "api_strs/gemini-1.5-flash",
-              "context_window": 1000000,
-              "rate_limit": 2000000
-            },
-            {
-              "id": 3,
-              "name": "gemini_pro_15",
-              "api_str": "api_strs/gemini-1.5-pro",
-              "context_window": 1000000,
-              "rate_limit": 2000000
-            }
-          ]
-        },
-        {
-          "family": "Claude",
-          "tokenizer": "claude",
-          "api_strs": [
-            {
-              "id": 1,
-              "name": "haiku_3",
-              "api_str": "claude-3-haiku-20240307",
+              "name": "flash_25_pro",
+              "api_str": "gemini-2.5-pro-preview-05-06",
               "context_window": 200000,
-              "rate_limit": 50000
-            },
-            {
-              "id": 2,
-              "name": "sonnet_3",
-              "api_str": "claude-3-sonnet-20240229",
-              "context_window": 200000,
-              "rate_limit": 40000
-            },
-            {
-              "id": 3,
-              "name": "opus_3",
-              "api_str": "claude-3-opus-20240229",
-              "context_window": 200000,
-              "rate_limit": 20000
-            },
-            {
-              "id": 4,
-              "name": "sonnet_35",
-              "api_str": "claude-3-5-sonnet-20240620",
-              "context_window": 200000,
-              "rate_limit": 40000
+              "rate_limit": 200000,
+              "max_output_tokens": 65536,
+              "generation": 25
             }
           ]
         }
