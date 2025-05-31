@@ -7,27 +7,26 @@ from pydantic import ValidationError
 
 from lorebinders.ai.ai_factory import AIManager, Payload
 
-
-class TestManager(AIManager):
-    def __init__(self, email_handler) -> None:
-        self.unresolvable_errors = self._set_unresolvable_errors()
-        self.error_handler = Mock()
-        self.api_model: str | None = None
-    def _set_unresolvable_errors(self) -> tuple:
-        return ("a", "b")
-    def _count_tokens(self, text) -> int:
-        return 1
-    def create_message_payload(self, role_script, prompt, assistant_message = None) -> tuple[list, int]:
-        return[role_script, prompt, assistant_message], 0
-    def call_api(self, api_payload, json_response = False, retry_count = 0, assistant_message = None) -> str:
-        return ""
-    def preprocess_response(self, response):
-        return response
-    def process_response(self,content_tuple, api_payload, retry_count, json_response,assistant_message = None) -> str:
-        return ""
-
 @pytest.fixture
 def mock_ai_manager():
+    class TestManager(AIManager):
+        def __init__(self, email_handler) -> None:
+            self.unresolvable_errors = self._set_unresolvable_errors()
+            self.error_handler = Mock()
+            self.api_model: str | None = None
+        def _set_unresolvable_errors(self) -> tuple:
+            return ("a", "b")
+        def _count_tokens(self, text) -> int:
+            return 1
+        def create_message_payload(self, role_script, prompt, assistant_message = None) -> tuple[list, int]:
+            return[role_script, prompt, assistant_message], 0
+        def call_api(self, api_payload, json_response = False, retry_count = 0, assistant_message = None) -> str:
+            return ""
+        def preprocess_response(self, response):
+            return response
+        def process_response(self,content_tuple, api_payload, retry_count, json_response,assistant_message = None) -> str:
+            return ""
+
     return TestManager("email_handler")
 
 @patch("lorebinders.ai.ai_factory.Payload")

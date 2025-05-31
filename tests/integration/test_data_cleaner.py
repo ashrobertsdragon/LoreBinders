@@ -295,7 +295,7 @@ def test_deduplicate_keys_is_title(case, expected, deduplicator):
 
 
 @pytest.mark.parametrize(
-    "summaries, expected_result, mock_return_value, mock_call_count",
+    "summaries, expected_result",
     [
         (
             {
@@ -433,7 +433,7 @@ def test_replace_narrator_clean_list(replace_narrator):
     assert replace_narrator._clean_list(value) == expected
 
 @pytest.mark.parametrize(
-    ("value", "expected", "valid"),
+    ("value", "expected"),
     [
         ({"key1": "John", "key2": "value2", "protagonist": "value3", "key4": "value"}, {"key1": "John", "key2": "value2", "John": "value3", "key4": "value"}),
         (["narrator", "item2", "protagonist", "item4"], ["John", "item2", "John", "item4"]),
@@ -454,7 +454,7 @@ def test_replace_narrator_handle_value(value, expected, replace_narrator):
     assert type(value) == type(expected)
 
 @pytest.mark.parametrize(
-    ("value", "expected", "valid"),
+    ("value", "expected"),
     [
         (42, 42),
         (3.14, 3.14),

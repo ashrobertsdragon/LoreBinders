@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from lorebinders.email_handlers import SMTPHandler
+from lorebinders.email_handlers.smtp_handler import SMTPHandler
 
 @pytest.fixture
 def smtp_handler():
