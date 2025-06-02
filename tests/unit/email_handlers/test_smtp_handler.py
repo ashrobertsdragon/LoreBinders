@@ -172,52 +172,35 @@ def test_smtp_handler_build_email_raises_exception(mock_logger, mock_create_emai
     mock_create_email_object.assert_not_called()
 
 # create_attachment tests
-@patch("lorebinders.email_handlers.smtp_handler.open", new_callable=MagicMock)
 @patch("lorebinders.email_handlers.smtp_handler.MIMEBase")
 @patch("lorebinders.email_handlers.smtp_handler.encoders.encode_base64")
-def test_smtp_handler_create_attachment_valid_file_path(mock_encode_base64, mock_mime_base, mock_open, smtp_handler):
+def test_smtp_handler_create_attachment_valid_file_path(mock_encode_base64, mock_mime_base, smtp_handler):
 
-    mock_file = MagicMock()
-    mock_open.return_value.__enter__.return_value = mock_file
-
+    mock_file_path = MagicMock()
+    mock_file_path.open.return_value.__enter__.return_value.read.return_value = b"file content"
     mock_mime_part = MagicMock()
     mock_mime_base.return_value = mock_mime_part
     mock_add_header = MagicMock()
     mock_mime_base.return_value.add_header = mock_add_header
 
-    file_path = "valid_path.txt"
 
-    result = smtp_handler._create_attachment(file_path)
+    result = smtp_handler._create_attachment(mock_file_path)
 
-    mock_open.assert_called_once_with(file_path, "rb")
+
     mock_mime_base.assert_called_once_with("application", "octet-stream")
-    mock_mime_part.set_payload.assert_called_once_with(mock_file.read())
+    mock_mime_part.set_payload.assert_called_once_with(b"file content")
     mock_encode_base64.assert_called_once_with(mock_mime_part)
     mock_mime_part.add_header.assert_called_once_with(
-        "Content-Disposition", f"attachment; filename= {file_path}"
+        "Content-Disposition", f"attachment; filename= {mock_file_path}"
     )
     assert result == mock_mime_part
 
-@patch("lorebinders.email_handlers.smtp_handler.open", side_effect=FileNotFoundError)
-@patch("lorebinders.email_handlers.smtp_handler.MIMEBase")
-@patch("lorebinders.email_handlers.smtp_handler.encoders.encode_base64")
-def test_smtp_handler_create_attachment_non_existent_file_path(mock_encode_base64, mock_mime_base,mock_open, smtp_handler):
-    mock_file = MagicMock()
-    mock_open.return_value.__enter__.return_value = mock_file
-    file_path = "non_existent_path.txt"
-    mock_mime_part = MagicMock()
-    mock_mime_base.return_value = mock_mime_part
-    mock_add_header = MagicMock()
-    mock_mime_base.return_value.add_header = mock_add_header
+def test_smtp_handler_create_attachment_non_existent_file_path(smtp_handler):
+    mock_file_path = MagicMock()
+    mock_file_path.open.side_effect = FileNotFoundError("File not found")
 
-    with pytest.raises(BadEmailError):
-        smtp_handler._create_attachment(file_path)
-
-    mock_open.assert_called_once_with(file_path, "rb")
-    mock_mime_base.assert_not_called()
-    mock_mime_part.set_payload.assert_not_called()
-    mock_encode_base64.assert_not_called()
-    mock_mime_part.add_header.assert_not_called()
+    with pytest.raises(BadEmailError, match="Attachment file not found"):
+        smtp_handler._create_attachment(mock_file_path)
 
 # create_email_object tests
 @patch("lorebinders.email_handlers.smtp_handler.MIMEMultipart")

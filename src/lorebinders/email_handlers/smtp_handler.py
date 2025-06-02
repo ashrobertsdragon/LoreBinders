@@ -23,9 +23,9 @@ class SMTPHandler(EmailManager):
 
     def __init__(self) -> None:
         """Initialize SMTP handler with configuration settings."""
-        self.password: str = config("MAIL_PASSWORD")
-        self.admin_email: str = config("MAIL_USERNAME")
-        self.server: str = config("MAIL_SERVER")
+        self.password: str = config("MAIL_PASSWORD")  # type: ignore
+        self.admin_email: str = config("MAIL_USERNAME")  # type: ignore
+        self.server: str = config("MAIL_SERVER")  # type: ignore
         self.port: int = config("MAIL_PORT", cast=int)
         self._email_server: smtplib.SMTP_SSL | None = None
 
@@ -120,7 +120,9 @@ class SMTPHandler(EmailManager):
         email_body: str = error_msg or self._get_email_body()
 
         subject: str = (
-            "A critical error occurred" if error_msg else "Your Binder is ready"
+            "A critical error occurred"
+            if error_msg
+            else "Your Binder is ready"
         )
         try:
             if error_msg and attachment:

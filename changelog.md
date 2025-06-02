@@ -17,3 +17,8 @@
 
 - Fixed file handling tests by patching pathlib instead of builtin open.
 - Fixed mocks for make_pdf unit tests.
+
+## 06-02-2025
+
+- Ignore type for config lookups that decouple annotates as `bool | Any` in smtp_handler.SMTPHandler.
+- Fixed failing tests for SMTPHandler by replacing mocks for pathlib.
