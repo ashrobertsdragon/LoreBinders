@@ -5,7 +5,7 @@ import pytest
 from lorebinders.json_tools import is_valid_json_file, json_str_to_dict, repair_json_str, log_merge_warning, build_repair_stub, find_last_full_object, merge_json
 
 @patch("lorebinders.json_tools.file_handling.read_json_file")
-@patch("lorebinders.json_tools.os.path.exists", return_value=True)
+@patch("pathlib.Path.exists", return_value=True)
 def test_is_valid_json_file(mock_exists, mock_read_json_file):
     mock_read_json_file.return_value = {"key": "value"}
     assert is_valid_json_file("test.json")

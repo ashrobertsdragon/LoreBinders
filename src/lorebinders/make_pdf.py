@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -8,6 +9,7 @@ from typing import TYPE_CHECKING, cast
 from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.styles import (
     ParagraphStyle,
+    PropertySet,
     StyleSheet1,
     getSampleStyleSheet,
 )
@@ -35,7 +37,7 @@ STYLE_HEADING1 = "Heading1"
 STYLE_HEADING2 = "Heading2"
 STYLE_HEADING3 = "Heading3"
 
-NamesDict = dict[str, dict[str, list[str] | str] | list[str] | str]
+NamesDict = Mapping[str, Mapping[str, list[str] | str] | list[str] | str]
 
 
 class AfterSection(Enum):
@@ -56,21 +58,30 @@ def create_detail_list(
 
     Returns:
         list[ListItem]: A list of ListItems representing the chapter summaries.
+
+    Raises:
+        ValueError: If the chapter is not a digit.
     """
-    return [
-        ListItem(
-            Paragraph(
+    result = []
+    for chapter, details in chapters.items():
+        if chapter not in ["summary", "image"]:
+            paragraph = Paragraph(
                 "\n".join(details)
                 if isinstance(details, list)
                 else details.replace(", ", "\n"),
                 style[STYLE_NORMAL],
-            ),
-            bulletType="1",
-            value=int(chapter),
-        )
-        for chapter, details in chapters.items()
-        if chapter not in ["summary", "image"]
-    ]
+            )
+            if not chapter.isdigit():
+                msg = f"Chapter key '{chapter}' must be a digit string"
+                raise ValueError(msg)
+            result.append(
+                ListItem(
+                    paragraph,
+                    bulletType="1",
+                    value=int(chapter),
+                )
+            )
+    return result
 
 
 def setup_toc(style: StyleSheet1) -> TableOfContents:
@@ -98,7 +109,7 @@ def setup_toc(style: StyleSheet1) -> TableOfContents:
     return toc
 
 
-def create_paragraph(text: str, style: StyleSheet1) -> Paragraph:
+def create_paragraph(text: str, style: PropertySet) -> Paragraph:
     """Creates a paragraph with the given text and style.
 
     Args:
@@ -125,7 +136,7 @@ def add_item_to_story(
         list[Flowable]: The updated story.
     """
     story.extend(iter(flowables))
-    story.append(after_section)
+    story.append(after_section.value)
     return story
 
 
@@ -169,10 +180,13 @@ def add_content(
             continue
         if is_traits:
             trait = Paragraph(key, style[STYLE_HEADING3])
-        detail_list = create_detail_list(
-            cast(dict, value) if is_traits else content, style
-        )
-        details = ListFlowable(detail_list)
+            chapters = cast(dict[str, list[str] | str], value)
+        else:
+            chapters = cast(dict[str, list[str] | str], content)
+            trait = None
+        detail_list = create_detail_list(chapters, style)
+        details = ListFlowable(detail_list)  # type: ignore
+
         story = add_item_to_story(
             story,
             AfterSection.PAGE_BREAK,
@@ -196,29 +210,34 @@ def initialize_pdf(metadata: BookDict) -> tuple[SimpleDocTemplate, str]:
     title = metadata.title
     author = metadata.author
     folder_name = cast(str, metadata.user_folder)
-    output_path = Path(folder_name, f"{title}-lorebinder.pdf")
+    output_path = str(Path(folder_name, f"{title}-lorebinder.pdf"))
     doc = SimpleDocTemplate(
         output_path, pagesize=PAGE_SIZE, author=author, title=title
     )
     return doc, title
 
 
-def create_pdf(book: Book) -> None:
+def create_pdf(
+    book: Book, styles: StyleSheet1 = getSampleStyleSheet()
+) -> None:
     """Create a PDF file from the chapter summaries.
 
     Args:
         book (Book): The book object.
     """
     binder: dict[str, dict[str, NamesDict]] = book.binder
+    author: str = book.metadata.author
 
     story: list[Flowable] = []
-    styles: StyleSheet1 = getSampleStyleSheet()
     doc, title = initialize_pdf(book.metadata)
 
     title_page = create_paragraph(
-        f"LoreBinder\nfor\n{title}", styles[STYLE_TITLE]
+        f"LoreBinder\nfor\n{title}\n{author}", styles[STYLE_TITLE]
     )
     story = add_item_to_story(story, AfterSection.PAGE_BREAK, title_page)
+
+    toc_heading = create_paragraph("Table of Contents", styles[STYLE_HEADING1])
+    story = add_item_to_story(story, AfterSection.PAGE_BREAK, toc_heading)
 
     toc = setup_toc(styles)
     story = add_item_to_story(story, AfterSection.PAGE_BREAK, toc)
@@ -238,7 +257,9 @@ def create_pdf(book: Book) -> None:
 
     for category, names in binder.items():
         category_page = create_paragraph(category, styles[STYLE_HEADING1])
-        story = add_item_to_story(story, AfterSection.PAGE_BREAK, category_page)
+        story = add_item_to_story(
+            story, AfterSection.PAGE_BREAK, category_page
+        )
 
         for name, content in names.items():
             name_header = create_paragraph(name, styles[STYLE_HEADING2])

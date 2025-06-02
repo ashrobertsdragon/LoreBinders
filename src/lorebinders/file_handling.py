@@ -28,7 +28,7 @@ def read_json_file(file_path: Path) -> T:  # type: ignore
     Returns:
         Parsed JSON content.
     """
-    with file_path.open("r") as f:
+    with file_path.open() as f:
         read_file = json.load(f)
     return read_file
 

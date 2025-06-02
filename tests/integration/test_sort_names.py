@@ -26,6 +26,13 @@ def sort_names():
     narrator = "Kalia"
     return SortNames(name_list, narrator)
 
+@pytest.fixture
+def mock_compare_names(monkeypatch):
+    def identity(values):
+        return values
+    monkeypatch.setattr(SortNames, "_compare_names", identity)
+    return identity
+
 
 def test_sort_names_missing_newline_patterns_missing_newline_before(sort_names):
     before_line = "testString:"
@@ -110,24 +117,15 @@ def test_sort_names_remove_parantheticals(sort_names):
 
 def test_add_missing_newline_missing_newline_before(sort_names):
     result = sort_names._add_missing_newline("testString:")
-    assert result == ("""
-test
-String:""", 1
-    )
+    assert result == ("test\nString:", 1)
 
 def test_add_missing_newline_missing_newline_after(sort_names):
     result = sort_names._add_missing_newline("Test:string")
-    assert result == ("""
-Test:
-string""", 1
-    )
+    assert result == ("Test:\nstring", 1)
 
 def test_add_missing_newline_missing_newline_between(sort_names):
     result = sort_names._add_missing_newline("a (test) String")
-    assert result == ("""
-a (test)
-String""", 1
-    )
+    assert result == ("a (test)\nString", 1)
 
 def test_sort_names_split_at_commas(sort_names):
     line = "test, test, test"
@@ -380,7 +378,7 @@ def test_sort_names_sort_shorter_longer_correct_first_plural(sort_names):
 def test_sort_names_split_and_update_lines_call_add_missing_newline_before(sort_names):
     sort_names._lines = ["lineALine:"]
     result = sort_names._split_and_update_lines(0, sort_names._add_missing_newline)
-    assert sort_names._lines == ["lineA", "Lineb"]
+    assert sort_names._lines == ["lineA", "Line:"]
     assert result == 1
 
 def test_sort_names_split_and_update_lines_call_add_missing_newline_between(sort_names):
@@ -397,27 +395,27 @@ def test_sort_names_split_and_update_lines_call_add_missing_newline_after(sort_n
 
 def test_sort_names_split_and_update_lines_call_split_at_commas(sort_names):
     sort_names._lines = ["line 1, line2"]
-    result = sort_names._split_and_update_lines(0, sort_names._add_missing_newline)
-    assert sort_names._lines == ["line1", "line2"]
+    result = sort_names._split_and_update_lines(0, sort_names._split_at_commas)
+    assert sort_names._lines == ["line 1", "line2"]
     assert result == 1
 
 def test_sort_names_split_and_update_lines_call_split_at_commas_multiple(sort_names):
     sort_names._lines = ["line 1, line2, line3"]
-    result = sort_names._split_and_update_lines(0, sort_names._add_missing_newline)
-    assert sort_names._lines == ["line1", "line2", "line3"]
+    result = sort_names._split_and_update_lines(0, sort_names._split_at_commas)
+    assert sort_names._lines == ["line 1", "line2", "line3"]
     assert result == 2
 
 def test_sort_names_split_and_update_lines_call_split_settings_line(sort_names):
     sort_names._lines = ["Interior: line 1, line2"]
-    result = sort_names._split_and_update_lines(0, sort_names._add_missing_newline)
-    assert sort_names._lines == ["line1 (interior)", "line2 (interior)"]
+    result = sort_names._split_and_update_lines(0, sort_names._split_settings_line)
+    assert sort_names._lines == ["line 1 (interior)", "line2 (interior)"]
     assert result == 1
 
 def test_sort_names_split_and_update_lines_call_split_settings_line_multiple(sort_names):
     sort_names._lines = ["Interior: line 1, line2, line3"]
-    result = sort_names._split_and_update_lines(0, sort_names._add_missing_newline)
-    assert sort_names._lines == ["line1 (interior)", "line2 (interior)", "line3 (interior)"]
-    assert result == 1
+    result = sort_names._split_and_update_lines(0, sort_names._split_settings_line)
+    assert sort_names._lines == ["line 1 (interior)", "line2 (interior)", "line3 (interior)"]
+    assert result == 2
 
 def test_sort_names_finalize_dict_with_category_name(sort_names):
     sort_names._category_name = "test_category"

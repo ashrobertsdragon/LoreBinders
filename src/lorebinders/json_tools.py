@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import cast
 
 from json_repair import repair_json
@@ -19,7 +20,7 @@ def is_valid_json_file(file_path: str) -> bool:
     """
     return (
         bool(file_handling.read_json_file(file_path))
-        if file_path.exists()
+        if Path(file_path).exists()
         else False
     )
 

@@ -59,7 +59,7 @@ def test_append_json_file_type_mismatch_error(temp_file):
 
 def test_append_json_file_io_error(temp_file):
     content = [1, 2, 3]
-    with patch("builtins.open", side_effect=OSError):
+    with patch("pathlib.Path.open", side_effect=OSError):
         with pytest.raises(OSError):
             append_json_file(content, temp_file)
 
@@ -146,20 +146,19 @@ def test_read_text_file_io_error(temp_file):
 
 
 def test_read_json_file_io_error(temp_file):
-    with patch("builtins.open", side_effect=OSError):
+    with patch("pathlib.Path.open", side_effect=OSError):
         with pytest.raises(OSError):
             read_json_file(temp_file)
 
 
-@patch("builtins.open", side_effect=OSError)
 def test_write_to_file_io_error(temp_file):
-    with patch("builtins.open", side_effect=OSError):
+    with patch("pathlib.Path.open", side_effect=OSError):
         with pytest.raises(OSError):
             write_to_file("test", temp_file)
 
 
 @pytest.mark.parametrize("error", [OSError])
-@patch("builtins.open", side_effect=OSError)
+@patch("pathlib.Path.open", side_effect=OSError)
 def test_write_json_file_io_error(mock_open, temp_file, error):
     with pytest.raises(error):
         write_json_file([1, 2, 3], temp_file)

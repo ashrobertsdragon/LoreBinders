@@ -230,6 +230,8 @@ class SQLProviderHandler(AIProviderManager):
             api_model,
             context_window,
             rate_limit,
+            max_output_tokens,
+            generation,
             updated_id,
         ) = self.get_model_attr(model)
         self._query_db(

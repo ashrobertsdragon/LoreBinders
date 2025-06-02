@@ -9,8 +9,8 @@ class Model(BaseModel):
     api_model: str
     context_window: int
     rate_limit: int
-    max_output_tokens: int
-    generation: str
+    max_output_tokens: int = 0
+    generation: str = ""
 
     _id_counter: int = 0
 

@@ -101,8 +101,8 @@ class AnthropicAPI(AIManager):
                 {"role": "assistant", "content": assistant_message},
                 {
                     "role": "user",
-                    "content": "Please continue from the exact point you left"
-                    + " off without any commentary",
+                    "content": "Please continue from the exact point you"
+                    + " left off without any commentary",
                 },
             ])
 

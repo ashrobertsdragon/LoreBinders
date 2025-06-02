@@ -30,6 +30,34 @@ def temp_output_path():
     with tempfile.TemporaryDirectory() as temp_dirname:
         yield temp_dirname
 
+@pytest.fixture
+def binder():
+    return {
+        "Characters": {
+            "Character1": {
+                "image": "path/to/image1.jpg",
+                "summary": "Summary for Character1",
+                "Trait1": {
+                    "chapter1": ["detail1", "detail2"],
+                    "chapter2": ["detail3"]
+                }
+            }
+        },
+        "Settings": {
+            "Setting1": {
+                "image": "path/to/image2.jpg",
+                "summary": "Summary for Setting1",
+                "Trait2": {
+                    "chapter3": "detail4"
+                }
+            }
+        },
+        "Other category": {
+            "Item1": {},
+            "Item2": {}
+        }
+    }
+
 
 def get_pdf_text(file_path):
     reader = PdfReader(file_path)
@@ -261,7 +289,7 @@ def test_initialize_pdf_with_metadata():
 def test_create_pdf(temp_output_path, binder):
     title = "Test Title"
     author = "Test Author"
-    user_folder = "user_folder"
+    user_folder = temp_output_path
     book = Mock()
     book.metadata = Mock()
     book.metadata.title = title
@@ -284,10 +312,10 @@ def test_create_pdf(temp_output_path, binder):
     assert "Item1" in pdf_text
     assert "Item2" in pdf_text
 
-def test_create_pdf_adds_title_page_and_toc(binder):
+def test_create_pdf_adds_title_page_and_toc(temp_output_path, binder):
     title = "Test Title"
     author = "Test Author"
-    user_folder = "user_folder"
+    user_folder = temp_output_path
     book = Mock()
     book.metadata = Mock()
     book.metadata.title = title
@@ -302,7 +330,7 @@ def test_create_pdf_adds_title_page_and_toc(binder):
     assert os.path.exists(expected_file_path)
     assert "Table of Contents" in pdf_text
     assert "Test Title" in pdf_text
-    assert "Lorebinder" in pdf_text
+    assert "LoreBinder" in pdf_text
 
 def test_create_pdf_handles_empty_binder():
     binder = {}
@@ -483,10 +511,10 @@ def test_create_pdf_handles_non_standard_categories():
     assert "details2" in pdf_text
     assert "details3" in pdf_text
 
-def test_verify_table_of_contents_entries_added(binder):
+def test_verify_table_of_contents_entries_added(temp_output_path, binder):
     title = "Test Title"
     author = "Test Author"
-    user_folder = "user_folder"
+    user_folder = temp_output_path
     book = Mock()
     book.metadata = Mock()
     book.metadata.title = title
@@ -510,10 +538,10 @@ def test_verify_table_of_contents_entries_added(binder):
     assert "Item2" in toc_page_text
     assert all(str(i) in toc_page_text for i in range(3,9))
 
-def test_create_pdf_document_saved_to_correct_output_path(binder):
+def test_create_pdf_document_saved_to_correct_output_path(temp_output_path, binder):
     title = "Test Title"
     author = "Test Author"
-    user_folder = "user_folder"
+    user_folder = temp_output_path
     book = Mock()
     book.metadata = Mock()
     book.metadata.title = title
@@ -529,7 +557,7 @@ def test_create_pdf_document_saved_to_correct_output_path(binder):
 def test_validate_order_of_elements_in_pdf_document(temp_output_path,binder):
     title = "Test Title"
     author = "Test Author"
-    user_folder = "user_folder"
+    user_folder = temp_output_path
     book = Mock()
     book.metadata = Mock()
     book.metadata.title = title

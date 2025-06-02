@@ -133,7 +133,7 @@ def test_remove_titles_does_not_remove_non_matching_names(mock_TITLES):
 def test_remove_titles_raises_typeerror(mock_TITLES):
     mock_TITLES = {"colonel", "mother", "doctor", "king"}
     with pytest.raises(TypeError, match="name must be a string"):
-        remove_titles(1)
+        remove_titles(1)  # type: ignore
 
 # test to_singular
 def test_to_singular_returns_singular():
@@ -154,7 +154,7 @@ def test_to_singular_returns_singular():
 
 def test_to_singular_raises_typeerror():
     with pytest.raises(TypeError, match="plural must be a string"):
-        to_singular(1)
+        to_singular(1)  # type: ignore
 
 def test_to_singular_raises_valueerror():
     with pytest.raises(ValueError, match="plural must not be empty"):
@@ -836,7 +836,6 @@ def test_deduplicate_keys_merge_values_merge_dict_with_string_key(mock_chainmap,
     original_dict = {"key1": "value1"}
     result = deduplicator._merge_values(original_dict, "key1")
     assert result == original_dict
-    {"key1": "value1"}
     mock_chainmap.assert_not_called()
 
 @patch("lorebinders.data_cleaner.ChainMap")

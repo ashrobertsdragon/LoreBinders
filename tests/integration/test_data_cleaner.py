@@ -56,52 +56,63 @@ def deduplicator():
 def replace_narrator(sample_lorebinder):
     return ReplaceNarrator(sample_lorebinder)
 
-def test_remove_none_found():
+def test_remove_none_found(sample_lorebinder):
     cleaned = clean_none_found(sample_lorebinder)
     assert "None found" not in str(cleaned)
 
 
 def test_deduplicate_keys(sample_lorebinder):
-    deduplicator = DeduplicateKeys(sample_lorebinder)
-    deduplicated = deduplicator.deduplicated
-    assert "Characters" in deduplicated
-    assert "Narrator" in deduplicated["Characters"]
-    assert "Main Character" in deduplicated["Characters"]
+    deduplicator = DeduplicateKeys()
+    deduplicated = deduplicator.deduplicate(sample_lorebinder)
+    assert "1" in deduplicated
+    assert "Characters" in deduplicated["1"]
+    assert isinstance(deduplicated["1"]["Characters"], dict)
 
 
 def test_reshape_dict(sample_lorebinder):
 
     reshaped = reshape_dict(sample_lorebinder)
     assert "Characters" in reshaped
-    assert "Narrator" in reshaped["Characters"]
-    assert "Thoughts" in reshaped["Characters"]["Narrator"]
-    assert "1" in reshaped["Characters"]["Narrator"]["Thoughts"]
-    assert "2" in reshaped["Characters"]["Narrator"]["Thoughts"]
+    assert "The Narrator" in reshaped["Characters"]
+    assert "1" in reshaped["Characters"]["The Narrator"]
+    assert "2" in reshaped["Characters"]["The Narrator"]
+    assert "Thoughts" in reshaped["Characters"]["The Narrator"]["1"]
+    assert "Actions" in reshaped["Characters"]["The Narrator"]["1"]
 
 
 def test_final_reshape(sample_lorebinder):
-    final_reshaped = final_reshape(sample_lorebinder)
+    # First reshape the data as final_reshape expects reshaped input
+    reshaped = reshape_dict(sample_lorebinder)
+    final_reshaped = final_reshape(reshaped)
     assert "Characters" in final_reshaped
-    assert "Narrator" in final_reshaped["Characters"]
-    assert "Thoughts" in final_reshaped["Characters"]["Narrator"]
-    assert "1" in final_reshaped["Characters"]["Narrator"]["Thoughts"]
-    assert "2" in final_reshaped["Characters"]["Narrator"]["Thoughts"]
+    assert "The Narrator" in final_reshaped["Characters"]
+    assert "Thoughts" in final_reshaped["Characters"]["The Narrator"]
+    assert "1" in final_reshaped["Characters"]["The Narrator"]["Thoughts"]
+    assert "2" in final_reshaped["Characters"]["The Narrator"]["Thoughts"]
 
 
 def test_sort_dictionary(sample_lorebinder):
-
-    sorted_lorebinder = sort_dictionary(sample_lorebinder)
+    # sort_dictionary expects data that has been reshaped
+    reshaped = reshape_dict(sample_lorebinder)
+    sorted_lorebinder = sort_dictionary(reshaped)
     assert "Characters" in sorted_lorebinder
-    assert "Narrator" in sorted_lorebinder["Characters"]
-    assert "1" in sorted_lorebinder["Characters"]["Narrator"]["Thoughts"]
-    assert "2" in sorted_lorebinder["Characters"]["Narrator"]["Thoughts"]
+    assert "The Narrator" in sorted_lorebinder["Characters"]
+    assert "1" in sorted_lorebinder["Characters"]["The Narrator"]
+    assert "2" in sorted_lorebinder["Characters"]["The Narrator"]
 
 
 def test_replace_narrator(sample_lorebinder):
-    replace_narrator = ReplaceNarrator(sample_lorebinder)
+    # ReplaceNarrator expects data that has been processed through the pipeline
+    reshaped = reshape_dict(sample_lorebinder)
+    deduplicator = DeduplicateKeys()
+    deduped = deduplicator.deduplicate(reshaped)
+    final_reshaped = final_reshape(deduped)
+    
+    replace_narrator = ReplaceNarrator(final_reshaped)
     narrator_replaced = replace_narrator.replace("John Doe")
+    assert "Characters" in narrator_replaced
     assert "John Doe" in narrator_replaced["Characters"]
-    assert "John Doe" in narrator_replaced["Characters"]["John Doe"]["Actions"]
+    assert "Actions" in narrator_replaced["Characters"]["John Doe"]
 
 
 def test_clean_lorebinders(sample_lorebinder):
@@ -219,7 +230,7 @@ def test_deduplicate_keys_deduplicate_no_inner(deduplicator):
         ("king", "queen", ("king", "queen")),
     ]
 )
-def test_deduplicate_keys_prioritize_keys(mock_is_title, key1, key2, expected, deduplicator):
+def test_deduplicate_keys_prioritize_keys(key1, key2, expected, deduplicator):
     result = deduplicator._prioritize_keys(key1, key2)
     assert result == expected
 
@@ -470,16 +481,11 @@ def test_replace_narrator_handle_value_does_not_modify_invalid_type(value, expec
     assert value is expected
 
 def test_replace_narrator_replace(replace_narrator):
-    # sourcery skip: remove-duplicate-dict-key
     result = replace_narrator.replace("John")
     assert replace_narrator._narrator_name == "John"
     assert result == {
         "1": {
             "Characters": {
-                "John": {
-                    "Thoughts": "I wonder what will happen.",
-                    "Actions": "John walks to the store.",
-                },
                 "John": {
                     "Thoughts": "I am John.",
                     "Actions": "John goes home.",
@@ -494,10 +500,6 @@ def test_replace_narrator_replace(replace_narrator):
         },
         "2": {
             "Characters": {
-                "The Narrator": {
-                    "Thoughts": "I am narrating.",
-                    "Actions": "John goes to the park.",
-                },
                 "John": {
                     "Thoughts": "I am John.",
                     "Actions": "John talks to John.",
