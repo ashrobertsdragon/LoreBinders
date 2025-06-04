@@ -22,3 +22,7 @@
 
 - Ignore type for config lookups that decouple annotates as `bool | Any` in smtp_handler.SMTPHandler.
 - Fixed failing tests for SMTPHandler by replacing mocks for pathlib.
+
+## 06-04-2025
+
+- Fixed failing tests for `name_tools` module by replacing mocks for pathlib.

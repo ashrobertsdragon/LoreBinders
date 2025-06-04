@@ -1,36 +1,36 @@
 import pytest
-import os
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 from lorebinders._types import InstructionType
 from lorebinders.name_tools.name_tools import get_instruction_text, get_ai_response
 
 
-@patch("lorebinders.name_tools.name_tools.file_handling.read_text_file")
-def test_get_instruction_text_no_type(mock_file_handling):
-
-    mock_file_handling.return_value = "test"
+@patch("lorebinders.name_tools.name_tools.Path")
+def test_get_instruction_text_no_type(mock_path):
+    mock_path_instance = mock_path.return_value
+    mock_path_instance.read_text.return_value = "test"  
     file_name = "test_file.txt"
-    expected_path = os.path.normpath("instructions/test_file.txt")
-
+    
     result = get_instruction_text(file_name)
-
+    
     assert result == "test"
-    mock_file_handling.assert_called_once_with(expected_path)
+    mock_path.assert_called_once_with("instructions", "", file_name)
+    mock_path_instance.read_text.assert_called_once()
 
 
-@patch("lorebinders.name_tools.name_tools.file_handling.read_text_file")
-def test_get_instruction_text_with_type(mock_file_handling):
-
+@patch("lorebinders.name_tools.name_tools.Path")
+def test_get_instruction_text_with_type(mock_path):
     instruction_type = InstructionType.JSON
-    mock_file_handling.return_value = "test"
+    mock_path_instance = mock_path.return_value
+    mock_path_instance.read_text.return_value = "test"  
     file_name = "test_file.txt"
-    expected_path = os.path.normpath("instructions/json/test_file.txt")
 
     result = get_instruction_text(file_name, instruction_type=instruction_type)
-
+    
     assert result == "test"
-    mock_file_handling.assert_called_once_with(expected_path)
+    mock_path.assert_called_once_with("instructions", "json", file_name)
+    mock_path_instance.read_text.assert_called_once()
 
 def test_get_ai_response():
 
